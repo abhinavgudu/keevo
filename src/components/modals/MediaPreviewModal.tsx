@@ -12,6 +12,39 @@ interface MediaPreviewModalProps {
   onUpdateNotes: (id: string, notes: string) => void;
 }
 
+function getEmbedUrl(url: string): string | null {
+  if (!url) return null;
+  try {
+    const urlObj = new URL(url);
+    // YouTube
+    if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
+      let videoId = '';
+      if (urlObj.hostname.includes('youtu.be')) {
+        videoId = urlObj.pathname.slice(1);
+      } else if (urlObj.pathname.includes('/shorts/')) {
+        videoId = urlObj.pathname.split('/shorts/')[1];
+      } else {
+        videoId = urlObj.searchParams.get('v') || '';
+      }
+      if (videoId) {
+        videoId = videoId.split('?')[0].split('/')[0];
+        return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0`;
+      }
+    }
+    // Instagram Reels
+    if (urlObj.hostname.includes('instagram.com') && (urlObj.pathname.includes('/reel/') || urlObj.pathname.includes('/p/'))) {
+      const parts = urlObj.pathname.split('/').filter(Boolean);
+      const idIndex = parts.findIndex(p => p === 'reel' || p === 'p') + 1;
+      if (idIndex > 0 && parts[idIndex]) {
+        return `https://www.instagram.com/p/${parts[idIndex]}/embed/`;
+      }
+    }
+  } catch (e) {
+    return null;
+  }
+  return null;
+}
+
 export function MediaPreviewModal({
   item,
   isOpen,
@@ -25,6 +58,7 @@ export function MediaPreviewModal({
   if (!isOpen || !item) return null;
 
   const isPortrait = item.aspect_ratio === 'PORTRAIT_9_16' || item.media_type === 'REEL';
+  const embedUrl = getEmbedUrl(item.source_url);
 
   const handleSaveNotes = () => {
     onUpdateNotes(item.id, notesText);
@@ -44,7 +78,14 @@ export function MediaPreviewModal({
           {isPortrait ? (
             /* 9:16 Mobile Phone Mockup */
             <div className="relative w-full max-w-[280px] aspect-[9/16] rounded-3xl overflow-hidden border-4 border-slate-800 shadow-2xl bg-black flex flex-col justify-between">
-              {item.thumbnail_url ? (
+              {embedUrl ? (
+                <iframe
+                  src={embedUrl}
+                  className="absolute inset-0 w-full h-full border-0"
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : item.thumbnail_url ? (
                 <img
                   src={item.thumbnail_url}
                   alt={item.title}
@@ -83,14 +124,21 @@ export function MediaPreviewModal({
             /* 16:9 Wide Preview */
             <div className="w-full space-y-4">
               <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden border border-slate-800 bg-black">
-                {item.thumbnail_url ? (
+                {embedUrl ? (
+                  <iframe
+                    src={embedUrl}
+                    className="w-full h-full border-0 absolute inset-0"
+                    allow="autoplay; encrypted-media; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : item.thumbnail_url ? (
                   <img
                     src={item.thumbnail_url}
                     alt={item.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover absolute inset-0"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-600">
+                  <div className="w-full h-full flex items-center justify-center text-slate-600 absolute inset-0">
                     <Play className="w-12 h-12" />
                   </div>
                 )}
