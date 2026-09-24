@@ -251,7 +251,7 @@ export async function POST(req: NextRequest) {
       const meta: SmartIngestionResult = {
         title: cleanDocTitle,
         description: `PDF Document automatically indexed from ${parsedUrl.hostname}`,
-        thumbnail_url: 'https://images.unsplash.com/photo-1618042164219-62c820f10723?q=80&w=1200&auto=format&fit=crop',
+        thumbnail_url: null,  // no fake wallpaper — real OG image will be fetched or left empty
         platform: 'PDF',
         media_type: 'DOCUMENT',
         aspect_ratio: 'STANDARD_DOCUMENT',
@@ -325,7 +325,7 @@ export async function POST(req: NextRequest) {
       const metadata: SmartIngestionResult = {
         title: igTitle,
         description: `Instagram Reel (9:16 Portrait Video)`,
-        thumbnail_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1080&auto=format&fit=crop',
+        thumbnail_url: null,  // Instagram blocks server-side fetching; thumbnail shown as platform icon
         platform: 'Instagram',
         media_type: 'REEL',
         aspect_ratio: 'PORTRAIT_9_16',

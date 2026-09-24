@@ -115,11 +115,7 @@ export function AddItemModal({ isOpen, onClose, categories, onSave }: AddItemMod
       setAspectRatio(data.aspectRatio || 'STANDARD_DOCUMENT');
       setDescription(`Uploaded Document (${(file.size / (1024 * 1024)).toFixed(2)} MB)`);
       setPriority('MUST_LEARN');
-      setThumbnailUrl(
-        data.mediaType === 'DOCUMENT'
-          ? 'https://images.unsplash.com/photo-1618042164219-62c820f10723?q=80&w=1200&auto=format&fit=crop'
-          : ''
-      );
+      setThumbnailUrl('');  // no fake wallpaper
     } catch (err: any) {
       setErrorMsg(err.message || 'File upload failed');
     } finally {
@@ -267,6 +263,44 @@ export function AddItemModal({ isOpen, onClose, categories, onSave }: AddItemMod
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {/* Category Picker — always visible once content is detected */}
+        {title && !isScraping && (
+          <div className="mb-4">
+            <label className="block text-xs font-semibold text-slate-300 mb-2">
+              📁 Choose Category
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setCategoryId(categoryId === c.id ? '' : c.id)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                    categoryId === c.id
+                      ? 'border-cyan-500 bg-cyan-500/15 text-cyan-300'
+                      : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                  }`}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color_hex }} />
+                  <span className="truncate">{c.name}</span>
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setCategoryId('')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                  !categoryId
+                    ? 'border-indigo-500 bg-indigo-500/15 text-indigo-300'
+                    : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-slate-600" />
+                <span>Auto Assign</span>
+              </button>
+            </div>
           </div>
         )}
 
