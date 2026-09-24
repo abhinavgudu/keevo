@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Search, Plus, Settings2, FolderPlus, Database, Film, Command, LogOut, User as UserIcon, ChevronDown } from 'lucide-react';
+import Link from 'next/link';
+import { Search, Plus, Settings2, FolderPlus, Film, Command, LogOut, ShieldAlert, ChevronDown, Database } from 'lucide-react';
 import { VaultStats } from '@/types/vault';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -189,7 +190,18 @@ export function Header({
                         </div>
                       </div>
                     </div>
-                    <div className="p-1.5">
+                    <div className="p-1.5 space-y-0.5">
+                      {/* Admin Panel — only for admin */}
+                      {user?.email === 'miabhisu@gmail.com' && (
+                        <Link
+                          href="/admin"
+                          onClick={() => setShowUserMenu(false)}
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-fuchsia-300 hover:text-fuchsia-200 hover:bg-fuchsia-500/10 transition-all text-sm cursor-pointer group"
+                        >
+                          <ShieldAlert className="w-4 h-4" />
+                          <span className="font-medium">Admin Panel</span>
+                        </Link>
+                      )}
                       <button
                         onClick={() => { setShowUserMenu(false); signOut(); }}
                         className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-300 hover:text-red-300 hover:bg-red-500/10 transition-all text-sm cursor-pointer group"
