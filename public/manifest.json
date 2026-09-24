@@ -1,0 +1,27 @@
+{
+  "name": "Keevo — Media Intelligence Vault",
+  "short_name": "Keevo",
+  "description": "Your personal media intelligence vault — save, organize, and auto-prioritize Instagram Reels, YouTube Videos, LinkedIn Posts, Articles, and PDF Documents.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#06070B",
+  "theme_color": "#06070B",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/keevo-logo.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "share_target": {
+    "action": "/share-target",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}

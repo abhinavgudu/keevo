@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="kg1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E5FF"/>
+      <stop offset="50%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#D946EF"/>
+    </linearGradient>
+    <linearGradient id="kg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#6366F1" stop-opacity="0.1"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Background rounded square -->
+  <rect width="100" height="100" rx="22" fill="#06070B"/>
+  <rect width="100" height="100" rx="22" fill="url(#kg2)"/>
+  <!-- Subtle border -->
+  <rect x="0.5" y="0.5" width="99" height="99" rx="21.5" stroke="url(#kg1)" stroke-opacity="0.4" stroke-width="1"/>
+  
+  <!-- K letterform - geometric, futuristic -->
+  <g filter="url(#glow)">
+    <!-- Vertical bar of K -->
+    <rect x="26" y="22" width="11" height="56" rx="3" fill="url(#kg1)"/>
+    <!-- Top diagonal arm of K -->
+    <path d="M37 50 L68 22 L78 22 L47 50Z" fill="url(#kg1)" opacity="0.95"/>
+    <!-- Bottom diagonal arm of K -->
+    <path d="M37 50 L68 78 L78 78 L47 50Z" fill="url(#kg1)" opacity="0.95"/>
+    <!-- Small accent dot/node at center junction -->
+    <circle cx="44" cy="50" r="4" fill="#00E5FF" opacity="0.9"/>
+  </g>
+</svg>
