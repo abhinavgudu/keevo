@@ -26,18 +26,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setVaultUserId(session?.user?.id ?? null);
+    supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
+      setSession(data.session);
+      setUser(data.session?.user ?? null);
+      setVaultUserId(data.session?.user?.id ?? null);
       setIsLoading(false);
     });
 
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setVaultUserId(session?.user?.id ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, sess: Session | null) => {
+      setSession(sess);
+      setUser(sess?.user ?? null);
+      setVaultUserId(sess?.user?.id ?? null);
       setIsLoading(false);
     });
 
