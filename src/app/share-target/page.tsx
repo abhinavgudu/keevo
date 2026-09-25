@@ -79,7 +79,7 @@ function ShareTargetContent() {
 
         setSavedTitle(savedItem.title);
         setStatus('success');
-        setStatusText('Saved to VaultX successfully!');
+        setStatusText('Saved to Kyx successfully!');
 
         // Redirect after 1.8 seconds
         setTimeout(() => {

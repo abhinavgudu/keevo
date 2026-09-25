@@ -18,21 +18,23 @@ interface HeaderProps {
   isSupabaseActive: boolean;
 }
 
-/** Keevo inline logo mark */
-function KeevoMark({ size = 20 }: { size?: number }) {
+/** Kyx inline logo mark */
+function KyxMark({ size = 20 }: { size?: number }) {
   return (
     <svg viewBox="0 0 100 100" width={size} height={size} fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="hkg1" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id="kyx1" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#00E5FF" />
           <stop offset="50%" stopColor="#6366F1" />
           <stop offset="100%" stopColor="#D946EF" />
         </linearGradient>
       </defs>
-      <rect x="26" y="22" width="11" height="56" rx="3" fill="url(#hkg1)" />
-      <path d="M37 50 L68 22 L78 22 L47 50Z" fill="url(#hkg1)" opacity="0.95" />
-      <path d="M37 50 L68 78 L78 78 L47 50Z" fill="url(#hkg1)" opacity="0.95" />
-      <circle cx="44" cy="50" r="4" fill="#00E5FF" opacity="0.9" />
+      {/* K */}
+      <path d="M25 25 L25 75 M25 50 L45 25 M25 50 L45 75" stroke="url(#kyx1)" strokeWidth="12" strokeLinecap="round" />
+      {/* Y */}
+      <path d="M55 25 L65 50 M75 25 L65 50 M65 50 L65 75" stroke="url(#kyx1)" strokeWidth="12" strokeLinecap="round" />
+      {/* X */}
+      <path d="M80 25 L95 75 M95 25 L80 75" stroke="url(#kyx1)" strokeWidth="12" strokeLinecap="round" />
     </svg>
   );
 }
@@ -62,13 +64,13 @@ export function Header({
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1.5px] shadow-lg shadow-cyan-500/25">
             <div className="w-full h-full bg-[#06070B] rounded-[14px] flex items-center justify-center">
-              <KeevoMark size={20} />
+              <KyxMark size={20} />
             </div>
           </div>
           <div>
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="text-lg sm:text-xl font-black tracking-tight text-white">
-                Kee<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">vo</span>
+                Kyx
               </span>
               <span className="text-[9px] sm:text-[10px] uppercase font-mono px-1.5 sm:px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 font-bold">
                 2.0
@@ -155,7 +157,7 @@ export function Header({
           <button
             onClick={onOpenSettingsModal}
             className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-all cursor-pointer"
-            title="Keevo Settings"
+            title="Kyx Settings"
           >
             <Settings2 className="w-4 h-4" />
           </button>

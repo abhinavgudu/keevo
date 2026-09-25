@@ -349,7 +349,7 @@ export function CommandPalette({
             <span>↵ to select</span>
           </div>
           <span className="flex items-center gap-1 text-cyan-400 font-semibold">
-            <Command className="w-3 h-3" /> VaultX OS
+            <Command className="w-3 h-3" /> Kyx OS
           </span>
         </div>
       </div>

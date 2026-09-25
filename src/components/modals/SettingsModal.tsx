@@ -108,7 +108,7 @@ export function SettingsModal({ isOpen, onClose, onDataChanged }: SettingsModalP
       } else {
         
         
-        setStatusMsg('Operating on VaultX Local Storage Engine.');
+        setStatusMsg('Operating on Kyx Local Storage Engine.');
       }
       setTimeout(() => {
         onDataChanged();

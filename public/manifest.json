@@ -1,6 +1,6 @@
 {
-  "name": "Keevo — Media Intelligence Vault",
-  "short_name": "Keevo",
+  "name": "Kyx — Media Intelligence Vault",
+  "short_name": "Kyx",
   "description": "Your personal media intelligence vault — save, organize, and auto-prioritize Instagram Reels, YouTube Videos, LinkedIn Posts, Articles, and PDF Documents.",
   "start_url": "/",
   "display": "standalone",
@@ -9,7 +9,7 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/keevo-logo.svg",
+      "src": "/kyx-logo.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"

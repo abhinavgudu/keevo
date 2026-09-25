@@ -50,7 +50,7 @@ export default function CommunityPage() {
       <div className="max-w-7xl mx-auto">
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <Globe className="w-8 h-8 text-cyan-500" /> Keevo Community
+            <Globe className="w-8 h-8 text-cyan-500" /> Kyx Community
           </h1>
           <p className="text-slate-400 mt-2">Discover content shared by the community.</p>
         </header>

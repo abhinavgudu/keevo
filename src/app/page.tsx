@@ -24,7 +24,7 @@ import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { Footer } from '@/components/Footer';
 import { Plus, Loader2, BookmarkCheck, Compass } from 'lucide-react';
 
-export default function VaultXDashboard() {
+export default function KyxDashboard() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [items, setItems] = useState<ContentItem[]>([]);
@@ -91,7 +91,7 @@ export default function VaultXDashboard() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('saved') === 'true') {
-        showToast('Content captured & saved into Keevo!');
+        showToast('Content captured & saved into Kyx!');
         window.history.replaceState({}, '', '/');
       }
     }
@@ -299,7 +299,7 @@ export default function VaultXDashboard() {
               </svg>
             </div>
           </div>
-          <p className="text-xs text-slate-500 font-mono">Loading Keevo...</p>
+          <p className="text-xs text-slate-500 font-mono">Loading Kyx...</p>
         </div>
       </div>
     );
@@ -363,7 +363,7 @@ export default function VaultXDashboard() {
         {isLoading ? (
           <div className="w-full py-32 flex flex-col items-center justify-center">
             <Loader2 className="w-10 h-10 text-cyan-400 animate-spin mb-4" />
-            <p className="text-xs text-slate-400 font-mono">Loading VaultX OS...</p>
+            <p className="text-xs text-slate-400 font-mono">Loading Kyx OS...</p>
           </div>
         ) : items.length === 0 ? (
           /* Clean Empty State */

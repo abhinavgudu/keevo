@@ -1,0 +1,15 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="kyx1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#00E5FF"/>
+      <stop offset="50%" stopColor="#6366F1"/>
+      <stop offset="100%" stopColor="#D946EF"/>
+    </linearGradient>
+  </defs>
+  <!-- K -->
+  <path d="M25 25 L25 75 M25 50 L45 25 M25 50 L45 75" stroke="url(#kyx1)" strokeWidth="12" strokeLinecap="round"/>
+  <!-- Y -->
+  <path d="M55 25 L65 50 M75 25 L65 50 M65 50 L65 75" stroke="url(#kyx1)" strokeWidth="12" strokeLinecap="round"/>
+  <!-- X -->
+  <path d="M80 25 L95 75 M95 25 L80 75" stroke="url(#kyx1)" strokeWidth="12" strokeLinecap="round"/>
+</svg>

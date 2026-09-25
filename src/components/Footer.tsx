@@ -31,7 +31,7 @@ export function Footer() {
               </div>
             </div>
             <span className="text-slate-300 text-sm font-bold tracking-tight">
-              Kee<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">vo</span>
+              Kyx
             </span>
             <span className="text-slate-600 text-xs hidden sm:inline">•</span>
             <span className="text-slate-500 text-xs hidden sm:inline font-mono">Media Intelligence OS</span>
@@ -49,7 +49,7 @@ export function Footer() {
 
           {/* Right: Links */}
           <div className="flex items-center gap-3 text-xs text-slate-500">
-            <span className="hidden sm:inline">© {new Date().getFullYear()} Keevo</span>
+            <span className="hidden sm:inline">© {new Date().getFullYear()} Kyx</span>
             <a
               href="https://github.com"
               target="_blank"

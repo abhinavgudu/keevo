@@ -234,7 +234,7 @@ export default function AdminDashboard() {
                 <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#04050A]" />
               </div>
               <div>
-                <h1 className="text-sm font-bold text-white leading-none">Keevo Admin</h1>
+                <h1 className="text-sm font-bold text-white leading-none">Kyx Admin</h1>
                 <p className="text-[10px] text-fuchsia-400 font-mono leading-none mt-0.5">Command Center v2.0</p>
               </div>
             </div>
@@ -338,7 +338,7 @@ export default function AdminDashboard() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-bold text-white mb-1">System Overview</h2>
-                <p className="text-slate-400 text-sm">Real-time Keevo platform intelligence dashboard.</p>
+                <p className="text-slate-400 text-sm">Real-time Kyx platform intelligence dashboard.</p>
               </div>
 
               {/* Primary KPI Grid */}
@@ -817,7 +817,7 @@ export default function AdminDashboard() {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
-                    { label: 'App Name', value: 'Keevo' },
+                    { label: 'App Name', value: 'Kyx' },
                     { label: 'Version', value: 'v2.0.0' },
                     { label: 'Environment', value: 'Production' },
                     { label: 'Database', value: 'Supabase PostgreSQL 17' },

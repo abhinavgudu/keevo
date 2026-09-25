@@ -73,7 +73,7 @@ export function GlobalDropzone({ onSaveItem, showToast }: GlobalDropzoneProps) {
                 description: data.metadata.description,
               });
               confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
-              showToast('Dropped link saved into VaultX!');
+              showToast('Dropped link saved into Kyx!');
             }
           } catch (err) {
             console.error('Drop link error:', err);
