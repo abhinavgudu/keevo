@@ -319,18 +319,45 @@ export async function POST(req: NextRequest) {
       if (parsedUrl.pathname.includes('/reel/')) {
         igTitle = `Instagram Reel Video`;
       }
+      
+      const pathParts = parsedUrl.pathname.split('/').filter(Boolean);
+      const videoId = pathParts[pathParts.length - 1] || 'ig';
 
       const { categoryName, tags, priority } = autoClassifyContent(igTitle, 'Instagram Reel video', 'Instagram');
 
       const metadata: SmartIngestionResult = {
         title: igTitle,
         description: `Instagram Reel (9:16 Portrait Video)`,
-        thumbnail_url: null,  // Instagram blocks server-side fetching; thumbnail shown as platform icon
+        thumbnail_url: `https://picsum.photos/seed/${videoId}/600/1000?grayscale&blur=2`,  // Beautiful abstract placeholder
         platform: 'Instagram',
         media_type: 'REEL',
         aspect_ratio: 'PORTRAIT_9_16',
         source_url: parsedUrl.href,
         site_name: 'Instagram',
+        autoCategoryName: categoryName,
+        autoTags: tags,
+        autoPriority: priority,
+      };
+      return NextResponse.json({ success: true, metadata });
+    }
+
+    // 3.5 TikTok Fast Metadata
+    if (platform === 'TikTok') {
+      let tkTitle = generateFallbackTitle(parsedUrl.href, 'TikTok');
+      const pathParts = parsedUrl.pathname.split('/').filter(Boolean);
+      const videoId = pathParts[pathParts.length - 1] || 'tk';
+
+      const { categoryName, tags, priority } = autoClassifyContent(tkTitle, 'TikTok video', 'TikTok');
+
+      const metadata: SmartIngestionResult = {
+        title: tkTitle,
+        description: `TikTok Video (9:16 Portrait)`,
+        thumbnail_url: `https://picsum.photos/seed/${videoId}/600/1000?blur=1`,
+        platform: 'TikTok',
+        media_type: 'REEL',
+        aspect_ratio: 'PORTRAIT_9_16',
+        source_url: parsedUrl.href,
+        site_name: 'TikTok',
         autoCategoryName: categoryName,
         autoTags: tags,
         autoPriority: priority,

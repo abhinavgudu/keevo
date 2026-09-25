@@ -53,23 +53,25 @@ export function PortraitReelCard({
           onClick={() => onOpenPreview(item)}
           className="relative w-full aspect-[9/16] overflow-hidden cursor-pointer bg-slate-900 group/media select-none"
         >
-          {item.thumbnail_url ? (
-            <img
-              src={item.thumbnail_url}
-              alt={item.title}
-              className="w-full h-full object-cover object-center transition-transform duration-500 ease-out group-hover/media:scale-105"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-b from-slate-900 via-slate-950 to-indigo-950/50 flex flex-col items-center justify-center p-6 text-center">
-              <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-3">
-                {getPlatformIcon(item.platform)}
-              </div>
-              <p className="text-xs text-slate-400 font-medium">{item.platform} Reel</p>
+          
+          {/* Always render fallback underneath */}
+          <div className="absolute inset-0 w-full h-full bg-gradient-to-b from-slate-900 via-slate-950 to-indigo-950/50 flex flex-col items-center justify-center p-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-3">
+              {getPlatformIcon(item.platform)}
             </div>
-          )}
+            <p className="text-xs text-slate-400 font-medium">{item.platform} Reel</p>
+          </div>
 
-          {/* Gradient Overlay for Text Readability */}
+          {/* Render image on top, use aesthetic fallback if null, hide if errors */}
+          <img
+            src={item.thumbnail_url || `https://picsum.photos/seed/${item.id}/600/1000?grayscale&blur=2`}
+            alt={item.title}
+            className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-500 ease-out group-hover/media:scale-105 z-10"
+            loading="lazy"
+            onError={(e) => { (e.currentTarget as any).style.display = 'none'; }}
+          />
+
+{/* Gradient Overlay for Text Readability */}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-black/30 pointer-events-none" />
 
           {/* Top Floating Badges */}
