@@ -4,6 +4,7 @@ import React from 'react';
 import { Home, Film, Plus, Folder, Globe } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useCommunityUnread } from '@/hooks/useCommunityUnread';
 
 interface MobileBottomNavProps {
   onOpenAddModal: () => void;
@@ -20,6 +21,7 @@ export function MobileBottomNav({
   onScrollToTop,
 }: MobileBottomNavProps) {
   const pathname = usePathname();
+  const { unreadCount, markAsRead } = useCommunityUnread();
 
   // Show bottom nav on vault and community pages
   if (pathname !== '/' && pathname !== '/community') return null;
@@ -59,8 +61,15 @@ export function MobileBottomNav({
       </button>
 
       {/* 4. Community */}
-      <Link href="/community" className={navItemCls(isCommunity)}>
-        <Globe className="w-[18px] h-[18px] text-emerald-400" />
+      <Link href="/community" onClick={markAsRead} className={navItemCls(isCommunity)}>
+        <div className="relative">
+          <Globe className="w-[18px] h-[18px] text-emerald-400" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-2.5 flex items-center justify-center min-w-[15px] h-[15px] px-1 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white text-[8px] font-black shadow-md border border-[#06070B] animate-pulse">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </div>
         <span>Community</span>
       </Link>
 

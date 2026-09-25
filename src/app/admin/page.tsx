@@ -73,7 +73,7 @@ export default function AdminDashboard() {
 
   // Restore UI flags from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('keevo_admin_ui_flags');
+    const saved = localStorage.getItem('keeva_admin_ui_flags') || localStorage.getItem('keevo_admin_ui_flags');
     if (saved) {
       try { setUiFlags(JSON.parse(saved)); } catch {}
     }

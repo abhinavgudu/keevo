@@ -40,28 +40,15 @@ export default function SignInPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo & Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1.5px] shadow-2xl shadow-cyan-500/30 mb-4">
-            <div className="w-full h-full bg-[#06070B] rounded-[14px] flex items-center justify-center">
-              {/* Inline K logo SVG */}
-              <svg viewBox="0 0 100 100" className="w-9 h-9" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <linearGradient id="signin-kg1" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#00E5FF"/>
-                    <stop offset="50%" stopColor="#6366F1"/>
-                    <stop offset="100%" stopColor="#D946EF"/>
-                  </linearGradient>
-                </defs>
-                <rect x="26" y="22" width="11" height="56" rx="3" fill="url(#signin-kg1)"/>
-                <path d="M37 50 L68 22 L78 22 L47 50Z" fill="url(#signin-kg1)" opacity="0.95"/>
-                <path d="M37 50 L68 78 L78 78 L47 50Z" fill="url(#signin-kg1)" opacity="0.95"/>
-                <circle cx="44" cy="50" r="4" fill="#00E5FF" opacity="0.9"/>
-              </svg>
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[2px] shadow-2xl shadow-cyan-500/40 mb-4 group hover:scale-105 transition-transform duration-300">
+            <div className="w-full h-full bg-[#06070B] rounded-[22px] flex items-center justify-center overflow-hidden p-2">
+              <img src="/keeva-logo.svg" alt="Keeva Logo" className="w-full h-full object-contain filter drop-shadow-[0_0_12px_rgba(0,240,255,0.6)]" />
             </div>
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight">
-            Sign In to Kee<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">vo</span>
+            Sign In to Kee<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">va</span>
           </h1>
-          <p className="text-slate-400 text-sm mt-1">Welcome back to your vault</p>
+          <p className="text-slate-400 text-sm mt-1">Welcome back to your personal vault</p>
         </div>
 
         {/* Card */}

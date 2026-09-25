@@ -42,6 +42,11 @@ export default function CommunityPage() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   useEffect(() => {
+    // Mark community posts as seen
+    try {
+      localStorage.setItem('keeva_community_last_seen_time', Date.now().toString());
+    } catch {}
+
     async function fetchCommunityItems() {
       try {
         const res = await fetch('/api/community/items');

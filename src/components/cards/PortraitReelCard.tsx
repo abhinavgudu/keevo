@@ -74,9 +74,13 @@ export function PortraitReelCard({
             <p className="text-xs text-slate-400 font-medium">{item.platform} Reel</p>
           </div>
 
-          {/* Render image on top, use aesthetic fallback if null, hide if errors */}
+          {/* Render image on top, use aesthetic fallback if null, strip legacy grayscale */}
           <img
-            src={item.thumbnail_url || `https://picsum.photos/seed/${item.id}/600/1000?grayscale&blur=2`}
+            src={
+              item.thumbnail_url?.includes('grayscale')
+                ? `https://picsum.photos/seed/${item.id}/600/1000`
+                : (item.thumbnail_url || `https://picsum.photos/seed/${item.id}/600/1000`)
+            }
             alt={item.title}
             className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-500 ease-out group-hover/media:scale-105 z-10"
             loading="lazy"

@@ -313,22 +313,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, metadata });
     }
 
-    // 3. Instagram Fast Metadata
+    // 3. Instagram Fast & Vibrant Metadata Extraction
     if (platform === 'Instagram') {
-      let igTitle = generateFallbackTitle(parsedUrl.href, 'Instagram');
-      if (parsedUrl.pathname.includes('/reel/')) {
-        igTitle = `Instagram Reel Video`;
-      }
+      const igMatch = parsedUrl.href.match(/\/(reel|reels|p)\/([A-Za-z0-9_-]+)/i);
+      const shortcode = igMatch ? igMatch[2] : (parsedUrl.pathname.split('/').filter(Boolean).pop() || 'ig');
       
-      const pathParts = parsedUrl.pathname.split('/').filter(Boolean);
-      const videoId = pathParts[pathParts.length - 1] || 'ig';
+      let igTitle = generateFallbackTitle(parsedUrl.href, 'Instagram');
+      if (igTitle === 'Instagram Saved Content' || igTitle === 'Instagram Saved Resource' || igTitle === 'Instagram Reel Video') {
+        igTitle = `Instagram Reel #${shortcode}`;
+      }
 
       const { categoryName, tags, priority } = autoClassifyContent(igTitle, 'Instagram Reel video', 'Instagram');
 
+      // Unique full-color high-res photography thumbnail per shortcode seed (no grayscale/blur)
+      const thumbnailUrl = `https://picsum.photos/seed/ig_${shortcode}/600/1000`;
+
       const metadata: SmartIngestionResult = {
         title: igTitle,
-        description: `Instagram Reel (9:16 Portrait Video)`,
-        thumbnail_url: `https://picsum.photos/seed/${videoId}/600/1000?grayscale&blur=2`,  // Beautiful abstract placeholder
+        description: `Instagram Reel (9:16 Portrait Video) • Code: ${shortcode}`,
+        thumbnail_url: thumbnailUrl,
         platform: 'Instagram',
         media_type: 'REEL',
         aspect_ratio: 'PORTRAIT_9_16',
@@ -343,16 +346,23 @@ export async function POST(req: NextRequest) {
 
     // 3.5 TikTok Fast Metadata
     if (platform === 'TikTok') {
+      const tkMatch = parsedUrl.href.match(/\/video\/([0-9]+)/i) || parsedUrl.href.match(/\/v\/([0-9]+)/i);
+      const videoId = tkMatch ? tkMatch[1] : (parsedUrl.pathname.split('/').filter(Boolean).pop() || 'tk');
+      
       let tkTitle = generateFallbackTitle(parsedUrl.href, 'TikTok');
-      const pathParts = parsedUrl.pathname.split('/').filter(Boolean);
-      const videoId = pathParts[pathParts.length - 1] || 'tk';
+      if (tkTitle === 'TikTok Saved Content' || tkTitle === 'TikTok Saved Resource') {
+        tkTitle = `TikTok Video #${videoId.slice(-6)}`;
+      }
 
       const { categoryName, tags, priority } = autoClassifyContent(tkTitle, 'TikTok video', 'TikTok');
+
+      // Unique full-color high-res thumbnail per TikTok video ID
+      const thumbnailUrl = `https://picsum.photos/seed/tk_${videoId}/600/1000`;
 
       const metadata: SmartIngestionResult = {
         title: tkTitle,
         description: `TikTok Video (9:16 Portrait)`,
-        thumbnail_url: `https://picsum.photos/seed/${videoId}/600/1000?blur=1`,
+        thumbnail_url: thumbnailUrl,
         platform: 'TikTok',
         media_type: 'REEL',
         aspect_ratio: 'PORTRAIT_9_16',

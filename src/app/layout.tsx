@@ -15,6 +15,26 @@ export const metadata: Metadata = {
     icon: '/keeva-logo.svg',
     apple: '/keeva-logo.svg',
   },
+  openGraph: {
+    title: 'Keeva — Personal Media Intelligence Vault',
+    description: 'Your ultra-smart personal content vault — save, organize, and auto-prioritize Instagram Reels, YouTube Videos, LinkedIn Posts, Articles, and PDF Documents.',
+    siteName: 'Keeva',
+    type: 'website',
+    images: [
+      {
+        url: '/og-image.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Keeva — Personal Media Intelligence Vault',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Keeva — Personal Media Intelligence Vault',
+    description: 'Your ultra-smart personal content vault — save, organize, and auto-prioritize Instagram Reels, YouTube Videos, LinkedIn Posts, Articles, and PDF Documents.',
+    images: ['/og-image.jpg'],
+  },
 };
 
 export const viewport: Viewport = {

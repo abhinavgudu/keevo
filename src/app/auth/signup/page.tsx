@@ -73,37 +73,9 @@ export default function SignUpPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo & Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1.5px] shadow-2xl shadow-cyan-500/30 mb-4">
-            <div className="w-full h-full bg-[#06070B] rounded-[14px] flex items-center justify-center">
-              {/* Stylish KEEVA logo */}
-              <svg viewBox="0 0 120 120" className="w-9 h-9" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <linearGradient id="signup-kg1" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#00E5FF"/>
-                    <stop offset="30%" stopColor="#06B6D4"/>
-                    <stop offset="60%" stopColor="#6366F1"/>
-                    <stop offset="100%" stopColor="#A855F7"/>
-                  </linearGradient>
-                </defs>
-                {/* KEEVA lettermark - modern geometric */}
-                <g transform="translate(60, 60)">
-                  {/* K */}
-                  <path d="M-32 -22 L-32 22 M-32 0 L-18 -22 M-32 0 L-18 22" 
-                        stroke="url(#signup-kg1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                  {/* E */}
-                  <path d="M-8 -22 L4 -22 M-8 0 L0 0 M-8 22 L4 22 M-8 -22 L-8 22" 
-                        stroke="url(#signup-kg1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                  {/* E */}
-                  <path d="M12 -22 L24 -22 M12 0 L18 0 M12 22 L24 22 M12 -22 L12 22" 
-                        stroke="url(#signup-kg1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                  {/* V */}
-                  <path d="M30 -22 L36 22 L42 -22" 
-                        stroke="url(#signup-kg1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                  {/* A */}
-                  <path d="M48 22 L54 -22 L60 22 M51 0 L57 0" 
-                        stroke="url(#signup-kg1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                </g>
-              </svg>
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[2px] shadow-2xl shadow-cyan-500/40 mb-4 group hover:scale-105 transition-transform duration-300">
+            <div className="w-full h-full bg-[#06070B] rounded-[22px] flex items-center justify-center overflow-hidden p-2">
+              <img src="/keeva-logo.svg" alt="Keeva Logo" className="w-full h-full object-contain filter drop-shadow-[0_0_12px_rgba(0,240,255,0.6)]" />
             </div>
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight">

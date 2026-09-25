@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Search, Plus, Settings2, FolderPlus, Film, Command, LogOut, ShieldAlert, ChevronDown, Database, Globe } from 'lucide-react';
 import { VaultStats } from '@/types/vault';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCommunityUnread } from '@/hooks/useCommunityUnread';
 
 interface HeaderProps {
   searchQuery: string;
@@ -19,36 +20,15 @@ interface HeaderProps {
 }
 
 /** Keeva inline logo mark */
-function KeevaMark({ size = 20 }: { size?: number }) {
+function KeevaMark({ size = 24 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 120 120" width={size} height={size} fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="keeva1" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#00E5FF"/>
-          <stop offset="30%" stopColor="#06B6D4"/>
-          <stop offset="60%" stopColor="#6366F1"/>
-          <stop offset="100%" stopColor="#A855F7"/>
-        </linearGradient>
-      </defs>
-      {/* KEEVA lettermark - modern geometric */}
-      <g transform="translate(60, 60)">
-        {/* K */}
-        <path d="M-32 -22 L-32 22 M-32 0 L-18 -22 M-32 0 L-18 22" 
-              stroke="url(#keeva1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-        {/* E */}
-        <path d="M-8 -22 L4 -22 M-8 0 L0 0 M-8 22 L4 22 M-8 -22 L-8 22" 
-              stroke="url(#keeva1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-        {/* E */}
-        <path d="M12 -22 L24 -22 M12 0 L18 0 M12 22 L24 22 M12 -22 L12 22" 
-              stroke="url(#keeva1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-        {/* V */}
-        <path d="M30 -22 L36 22 L42 -22" 
-              stroke="url(#keeva1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-        {/* A */}
-        <path d="M48 22 L54 -22 L60 22 M51 0 L57 0" 
-              stroke="url(#keeva1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-      </g>
-    </svg>
+    <img
+      src="/keeva-logo.svg"
+      alt="Keeva Logo"
+      width={size}
+      height={size}
+      className="w-full h-full object-contain filter drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]"
+    />
   );
 }
 
@@ -64,6 +44,7 @@ export function Header({
   isSupabaseActive,
 }: HeaderProps) {
   const { user, signOut } = useAuth();
+  const { unreadCount, markAsRead } = useCommunityUnread();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const avatarLetter = user?.email?.[0]?.toUpperCase() ?? 'K';
@@ -150,11 +131,17 @@ export function Header({
           {/* Community Link - Desktop only */}
           <Link
             href="/community"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold transition-all cursor-pointer shadow-md hover:scale-105 active:scale-95"
+            onClick={markAsRead}
+            className="relative hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold transition-all cursor-pointer shadow-md hover:scale-105 active:scale-95"
             title="Community Feed"
           >
             <Globe className="w-4 h-4 text-emerald-400" />
             <span>Community</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white text-[10px] font-black shadow-lg shadow-rose-500/40 border-2 border-[#06070B] animate-bounce">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </Link>
 
           {/* Category Manager */}
