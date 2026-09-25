@@ -1,20 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize a Supabase client with the SERVICE ROLE key to bypass RLS
-// DO NOT expose this key to the client side.
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
+  auth: { autoRefreshToken: false, persistSession: false },
 });
 
 export async function GET(request: Request) {
-  // 1. Authenticate the caller (must be logged in)
   const authHeader = request.headers.get('Authorization');
   if (!authHeader) {
     return NextResponse.json({ error: 'Missing auth header' }, { status: 401 });
@@ -27,22 +21,25 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  // 2. Removed strict admin check for now
+  // Only the admin email can access this endpoint
+  if (user.email !== 'miabhisu@gmail.com') {
+    return NextResponse.json({ error: 'Unauthorized: Admins only' }, { status: 403 });
+  }
 
   try {
-    // Fetch all users from Supabase Auth
+    // Fetch all auth users
     const { data: authUsers, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
-    
     if (usersError) throw usersError;
 
-    // Fetch all items to get counts per user
+    // Fetch ALL content items across all users with full details
     const { data: allItems, error: itemsError } = await supabaseAdmin
       .from('content_items')
-      .select('user_id');
+      .select('id, user_id, title, platform, media_type, aspect_ratio, thumbnail_url, is_favorite, access_count, is_public, created_at')
+      .order('created_at', { ascending: false });
 
     if (itemsError) throw itemsError;
 
-    // Aggregate item counts by user_id
+    // Aggregate item counts per user
     const itemCounts: Record<string, number> = {};
     allItems?.forEach((item) => {
       if (item.user_id) {
@@ -50,7 +47,6 @@ export async function GET(request: Request) {
       }
     });
 
-    // Format the response
     const formattedUsers = authUsers.users.map((u) => ({
       id: u.id,
       email: u.email,
@@ -65,6 +61,7 @@ export async function GET(request: Request) {
       success: true,
       users: formattedUsers,
       totalItems: allItems?.length || 0,
+      itemDetails: allItems || [],
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
