@@ -12,6 +12,14 @@ export interface Category {
   created_at: string;
 }
 
+export interface TranscriptSegment {
+  text: string;
+  start: number;
+  end: number;
+  speaker?: string;
+  confidence?: number;
+}
+
 export interface ContentItem {
   id: string;
   category_id: string | null;
@@ -27,11 +35,15 @@ export interface ContentItem {
   priority_score: number;
   access_count: number;
   is_favorite: boolean;
+  is_public?: boolean;
   created_at: string;
   description?: string;
   tags?: string[];
   notes?: string;
-  is_public?: boolean;
+  transcript_json?: TranscriptSegment[];
+  transcript_text?: string;
+  transcript_language?: string;
+  transcript_duration?: number;
 }
 
 export interface ScrapedMetadata {

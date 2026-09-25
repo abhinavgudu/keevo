@@ -21,6 +21,9 @@ export function MobileBottomNav({
 }: MobileBottomNavProps) {
   const pathname = usePathname();
 
+  // Hide bottom nav on non-vault pages (community, auth, admin, etc.)
+  if (pathname !== '/') return null;
+
   const navItemCls = (active?: boolean) =>
     `flex flex-col items-center justify-center gap-0.5 flex-1 py-1 text-[9px] font-semibold active:scale-95 transition-transform cursor-pointer ${
       active ? 'text-cyan-400' : 'text-slate-500 hover:text-slate-300'
@@ -29,7 +32,7 @@ export function MobileBottomNav({
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#06070B]/95 border-t border-slate-800/90 backdrop-blur-2xl flex items-center justify-around pb-[env(safe-area-inset-bottom)] shadow-2xl h-[56px]">
       {/* 1. Vault */}
-      <button type="button" onClick={onScrollToTop} className={navItemCls(pathname === '/')}>
+      <button type="button" onClick={onScrollToTop} className={navItemCls(true)}>
         <Home className="w-[18px] h-[18px]" />
         <span>Vault</span>
       </button>
@@ -53,7 +56,7 @@ export function MobileBottomNav({
       </button>
 
       {/* 4. Community */}
-      <Link href="/community" className={navItemCls(pathname === '/community')}>
+      <Link href="/community" className={navItemCls()}>
         <Globe className="w-[18px] h-[18px] text-emerald-400" />
         <span>Community</span>
       </Link>

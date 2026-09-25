@@ -14,6 +14,7 @@ import { MasonryGrid } from '@/components/MasonryGrid';
 import { AddItemModal } from '@/components/modals/AddItemModal';
 import { PdfViewerModal } from '@/components/modals/PdfViewerModal';
 import { MediaPreviewModal } from '@/components/modals/MediaPreviewModal';
+import { TranscriptViewerModal } from '@/components/modals/TranscriptViewerModal';
 import { CategoryManagerModal } from '@/components/modals/CategoryManagerModal';
 import { SettingsModal } from '@/components/modals/SettingsModal';
 import { ReelsDeckModal } from '@/components/modals/ReelsDeckModal';
@@ -46,6 +47,7 @@ export default function VaultXDashboard() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [activePdfItem, setActivePdfItem] = useState<ContentItem | null>(null);
   const [activeMediaItem, setActiveMediaItem] = useState<ContentItem | null>(null);
+  const [activeTranscriptItem, setActiveTranscriptItem] = useState<ContentItem | null>(null);
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -478,6 +480,12 @@ export default function VaultXDashboard() {
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         onDataChanged={loadVaultData}
+      />
+
+      <TranscriptViewerModal
+        item={activeTranscriptItem}
+        isOpen={!!activeTranscriptItem}
+        onClose={() => setActiveTranscriptItem(null)}
       />
     </div>
   );

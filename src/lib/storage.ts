@@ -122,7 +122,7 @@ export class VaultStorage {
 
     const priorityScore = calculatePriorityScore(priority, accessCount, isFavorite, createdAt);
 
-    const fullItem: ContentItem = {
+const fullItem: ContentItem = {
       id: item.id || `item-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       category_id: item.category_id || null,
       title: item.title,
@@ -136,6 +136,7 @@ export class VaultStorage {
       priority_score: priorityScore,
       access_count: accessCount,
       is_favorite: isFavorite,
+      is_public: item.is_public ?? false,
       created_at: createdAt,
       description: item.description || '',
       tags: item.tags || [],
