@@ -313,11 +313,10 @@ export function CommandPalette({
                   key={action.id}
                   onClick={action.perform}
                   onMouseEnter={() => setSelectedIndex(idx)}
-                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl cursor-pointer transition-all ${
-                    isSelected
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl cursor-pointer transition-all ${isSelected
                       ? 'bg-cyan-500/15 text-white border border-cyan-500/30 shadow-md'
                       : 'text-slate-300 hover:bg-slate-800/60 border border-transparent'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 shrink-0">
@@ -349,7 +348,7 @@ export function CommandPalette({
             <span>↵ to select</span>
           </div>
           <span className="flex items-center gap-1 text-cyan-400 font-semibold">
-            <Command className="w-3 h-3" /> Kyx OS
+            <Command className="w-3 h-3" /> Keeva OS
           </span>
         </div>
       </div>

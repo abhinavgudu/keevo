@@ -49,7 +49,7 @@ export default function SignUpPage() {
             <h2 className="text-2xl font-black text-white mb-2">Check Your Email</h2>
             <p className="text-slate-400 text-sm leading-relaxed mb-6">
               We&apos;ve sent a confirmation link to <span className="text-cyan-400 font-semibold">{email}</span>.<br />
-              Click the link to activate your Kyx account.
+              Click the link to activate your Keeva account.
             </p>
             <Link
               href="/auth/signin"
@@ -92,7 +92,7 @@ export default function SignUpPage() {
             </div>
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight">
-            Join Kyx
+            Join Keeva
           </h1>
           <p className="text-slate-400 text-sm mt-1">Create your personal media vault</p>
         </div>
@@ -197,7 +197,7 @@ export default function SignUpPage() {
         
         {/* Footer */}
         <p className="text-center text-slate-600 text-xs mt-6">
-          By signing up, you agree to Kyx&apos;s Terms of Service and Privacy Policy.
+          By signing up, you agree to Keeva&apos;s Terms of Service and Privacy Policy.
         </p>
       </div>
     </div>

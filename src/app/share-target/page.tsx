@@ -39,7 +39,7 @@ function ShareTargetContent() {
 
       try {
         setStatusText('Fetching OpenGraph metadata & computing aspect ratio...');
-        
+
         const scrapeRes = await fetch('/api/scrape', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -79,7 +79,7 @@ function ShareTargetContent() {
 
         setSavedTitle(savedItem.title);
         setStatus('success');
-        setStatusText('Saved to Kyx successfully!');
+        setStatusText('Saved to Keeva successfully!');
 
         // Redirect after 1.8 seconds
         setTimeout(() => {

@@ -23,15 +23,21 @@ export function Footer() {
                       <stop offset="100%" stopColor="#D946EF"/>
                     </linearGradient>
                   </defs>
-                  <rect x="26" y="22" width="11" height="56" rx="3" fill="url(#fkg1)"/>
-                  <path d="M37 50 L68 22 L78 22 L47 50Z" fill="url(#fkg1)" opacity="0.95"/>
-                  <path d="M37 50 L68 78 L78 78 L47 50Z" fill="url(#fkg1)" opacity="0.95"/>
-                  <circle cx="44" cy="50" r="4" fill="#00E5FF" opacity="0.9"/>
+                  {/* K */}
+                  <path d="M18 25 L18 75 M18 50 L35 25 M18 50 L35 75" stroke="url(#fkg1)" strokeWidth="11" strokeLinecap="round"/>
+                  {/* E */}
+                  <path d="M45 25 L60 25 M45 50 L58 50 M45 75 L60 75 M45 25 L45 75" stroke="url(#fkg1)" strokeWidth="11" strokeLinecap="round"/>
+                  {/* E */}
+                  <path d="M70 25 L85 25 M70 50 L83 50 M70 75 L85 75 M70 25 L70 75" stroke="url(#fkg1)" strokeWidth="11" strokeLinecap="round"/>
+                  {/* V */}
+                  <path d="M90 25 L96 75 L102 25" stroke="url(#fkg1)" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round"/>
+                  {/* A */}
+                  <path d="M108 75 L115 25 L122 75 M110 50 L120 50" stroke="url(#fkg1)" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
             </div>
             <span className="text-slate-300 text-sm font-bold tracking-tight">
-              Kyx
+              Keeva
             </span>
             <span className="text-slate-600 text-xs hidden sm:inline">•</span>
             <span className="text-slate-500 text-xs hidden sm:inline font-mono">Media Intelligence OS</span>
@@ -49,7 +55,7 @@ export function Footer() {
 
           {/* Right: Links */}
           <div className="flex items-center gap-3 text-xs text-slate-500">
-            <span className="hidden sm:inline">© {new Date().getFullYear()} Kyx</span>
+            <span className="hidden sm:inline">© {new Date().getFullYear()} Keeva</span>
             <a
               href="https://github.com"
               target="_blank"

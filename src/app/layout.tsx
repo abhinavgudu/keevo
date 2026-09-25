@@ -3,17 +3,17 @@ import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 
 export const metadata: Metadata = {
-  title: 'Kyx — Personal Media Intelligence Vault',
+  title: 'Keeva — Personal Media Intelligence Vault',
   description: 'Your ultra-smart personal content vault — save, organize, and auto-prioritize Instagram Reels, YouTube Videos, LinkedIn Posts, Articles, and PDF Documents.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Kyx',
+    title: 'Keeva',
   },
   icons: {
-    icon: '/kyx-logo.svg',
-    apple: '/kyx-logo.svg',
+    icon: '/keeva-logo.svg',
+    apple: '/keeva-logo.svg',
   },
 };
 

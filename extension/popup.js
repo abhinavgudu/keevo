@@ -1,4 +1,4 @@
-// Keevo Browser Extension - Popup Script
+// Keeva Browser Extension - Popup Script
 
 const API_BASE_KEY = 'apiBase';
 const AUTH_TOKEN_KEY = 'authToken';
@@ -244,7 +244,7 @@ async function saveCurrentPage(options = {}) {
 
     const saveData = await saveRes.json();
     if (saveData.success) {
-      showToast('Saved to Keevo Vault!', 'success');
+      showToast('Saved to Keeva Vault!', 'success');
       document.getElementById('customTitle').value = '';
     } else {
       showToast('Save failed: ' + (saveData.error || 'Unknown error'), 'error');
@@ -299,7 +299,7 @@ async function saveVideo() {
 
     const saveData = await saveRes.json();
     if (saveData.success) {
-      showToast('Video saved to Keevo!', 'success');
+      showToast('Video saved to Keeva!', 'success');
     } else {
       showToast('Save failed: ' + (saveData.error || 'Unknown error'), 'error');
     }
@@ -355,13 +355,13 @@ async function getTranscript() {
 }
 
 function showToast(message, type = 'info') {
-  const { showNotifs } = JSON.parse(localStorage.getItem('keevo_settings') || '{}');
+  const { showNotifs } = JSON.parse(localStorage.getItem('keeva_settings') || '{}');
   if (showNotifs === false) return;
 
   chrome.notifications.create({
     type: 'basic',
     iconUrl: 'icons/icon48.png',
-    title: 'Keevo Vault',
+    title: 'Keeva Vault',
     message,
     priority: type === 'error' ? 2 : 1
   });

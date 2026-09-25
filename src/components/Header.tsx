@@ -18,23 +18,27 @@ interface HeaderProps {
   isSupabaseActive: boolean;
 }
 
-/** Kyx inline logo mark */
-function KyxMark({ size = 20 }: { size?: number }) {
+/** Keeva inline logo mark */
+function KeevaMark({ size = 20 }: { size?: number }) {
   return (
     <svg viewBox="0 0 100 100" width={size} height={size} fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="kyx1" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id="keeva1" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#00E5FF" />
           <stop offset="50%" stopColor="#6366F1" />
           <stop offset="100%" stopColor="#D946EF" />
         </linearGradient>
       </defs>
       {/* K */}
-      <path d="M25 25 L25 75 M25 50 L45 25 M25 50 L45 75" stroke="url(#kyx1)" strokeWidth="12" strokeLinecap="round" />
-      {/* Y */}
-      <path d="M55 25 L65 50 M75 25 L65 50 M65 50 L65 75" stroke="url(#kyx1)" strokeWidth="12" strokeLinecap="round" />
-      {/* X */}
-      <path d="M80 25 L95 75 M95 25 L80 75" stroke="url(#kyx1)" strokeWidth="12" strokeLinecap="round" />
+      <path d="M18 25 L18 75 M18 50 L35 25 M18 50 L35 75" stroke="url(#keeva1)" strokeWidth="11" strokeLinecap="round" />
+      {/* E */}
+      <path d="M45 25 L60 25 M45 50 L58 50 M45 75 L60 75 M45 25 L45 75" stroke="url(#keeva1)" strokeWidth="11" strokeLinecap="round" />
+      {/* E */}
+      <path d="M70 25 L85 25 M70 50 L83 50 M70 75 L85 75 M70 25 L70 75" stroke="url(#keeva1)" strokeWidth="11" strokeLinecap="round" />
+      {/* V */}
+      <path d="M90 25 L96 75 L102 25" stroke="url(#keeva1)" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" />
+      {/* A */}
+      <path d="M108 75 L115 25 L122 75 M110 50 L120 50" stroke="url(#keeva1)" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -64,13 +68,13 @@ export function Header({
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1.5px] shadow-lg shadow-cyan-500/25">
             <div className="w-full h-full bg-[#06070B] rounded-[14px] flex items-center justify-center">
-              <KyxMark size={20} />
+              <KeevaMark size={20} />
             </div>
           </div>
           <div>
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="text-lg sm:text-xl font-black tracking-tight text-white">
-                Kyx
+                Keeva
               </span>
               <span className="text-[9px] sm:text-[10px] uppercase font-mono px-1.5 sm:px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 font-bold">
                 2.0
@@ -157,7 +161,7 @@ export function Header({
           <button
             onClick={onOpenSettingsModal}
             className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-all cursor-pointer"
-            title="Kyx Settings"
+            title="Keeva Settings"
           >
             <Settings2 className="w-4 h-4" />
           </button>

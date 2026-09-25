@@ -102,13 +102,13 @@ export function SettingsModal({ isOpen, onClose, onDataChanged }: SettingsModalP
   const handleSaveSupabase = () => {
     if (typeof window !== 'undefined') {
       if (supabaseUrl && supabaseKey) {
-        
-        
+
+
         setStatusMsg('Supabase credentials saved! Connecting to cloud database...');
       } else {
-        
-        
-        setStatusMsg('Operating on Kyx Local Storage Engine.');
+
+
+        setStatusMsg('Operating on Keeva Local Storage Engine.');
       }
       setTimeout(() => {
         onDataChanged();
@@ -129,7 +129,7 @@ export function SettingsModal({ isOpen, onClose, onDataChanged }: SettingsModalP
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `vaultx-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `keeva-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -185,25 +185,22 @@ export function SettingsModal({ isOpen, onClose, onDataChanged }: SettingsModalP
         <div className="flex items-center gap-2 p-1 bg-slate-950 border border-slate-800 rounded-xl mb-6">
           <button
             onClick={() => setActiveTab('STORAGE')}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'STORAGE' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
-            }`}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${activeTab === 'STORAGE' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+              }`}
           >
             Supabase Config
           </button>
           <button
             onClick={() => setActiveTab('SQL')}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'SQL' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
-            }`}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${activeTab === 'SQL' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+              }`}
           >
             SQL Schema & Triggers
           </button>
           <button
             onClick={() => setActiveTab('BACKUP')}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'BACKUP' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
-            }`}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${activeTab === 'BACKUP' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+              }`}
           >
             Data Backup & Clean
           </button>

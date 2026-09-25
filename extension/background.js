@@ -1,4 +1,4 @@
-// Keevo Browser Extension - Background Service Worker
+// Keeva Browser Extension - Background Service Worker
 // Handles context menus, API communication, and auth
 
 const KEEVO_API_BASE = (async () => {
@@ -19,22 +19,22 @@ async function getAuthToken() {
 // Create context menus on install
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
-    id: 'keevo-save-link',
-    title: 'Save to Keevo Vault',
+    id: 'keeva-save-link',
+    title: 'Save to Keeva Vault',
     contexts: ['link', 'page', 'selection', 'video', 'audio'],
     documentUrlPatterns: ['http://*/*', 'https://*/*']
   });
 
   chrome.contextMenus.create({
-    id: 'keevo-save-video',
-    title: 'Save Video/Reel to Keevo',
+    id: 'keeva-save-video',
+    title: 'Save Video/Reel to Keeva',
     contexts: ['video'],
     documentUrlPatterns: ['http://*/*', 'https://*/*']
   });
 
   chrome.contextMenus.create({
-    id: 'keevo-save-pdf',
-    title: 'Save PDF/Document to Keevo',
+    id: 'keeva-save-pdf',
+    title: 'Save PDF/Document to Keeva',
     contexts: ['link'],
     targetUrlPatterns: ['*.pdf', '*.doc', '*.docx', '*.ppt', '*.pptx'],
     documentUrlPatterns: ['http://*/*', 'https://*/*']
@@ -47,7 +47,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const token = await getAuthToken();
 
   if (!token) {
-    showNotification('Please login to Keevo first', 'error');
+    showNotification('Please login to Keeva first', 'error');
     chrome.action.openPopup();
     return;
   }
@@ -63,7 +63,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 
   try {
-    showNotification('Saving to Keevo...', 'info');
+    showNotification('Saving to Keeva...', 'info');
 
     const response = await fetch(`${apiBase}/api/scrape`, {
       method: 'POST',
@@ -109,7 +109,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       showNotification('Could not extract metadata', 'error');
     }
   } catch (err) {
-    console.error('Keevo save error:', err);
+    console.error('Keeva save error:', err);
     showNotification('Failed to save: ' + err.message, 'error');
   }
 });
@@ -201,7 +201,7 @@ function showNotification(message, type = 'info') {
   chrome.notifications.create({
     type: 'basic',
     iconUrl: 'icons/icon48.png',
-    title: 'Keevo Vault',
+    title: 'Keeva Vault',
     message,
     priority: type === 'error' ? 2 : 1
   });

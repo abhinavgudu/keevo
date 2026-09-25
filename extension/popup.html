@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Keevo Vault</title>
+  <title>Keeva Vault</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { box-sizing: border-box; }
@@ -28,19 +28,25 @@
     <div class="flex items-center gap-3 mb-4">
       <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1.5px]">
         <div class="w-full h-full bg-[#06070B] rounded-[14px] flex items-center justify-center">
-          <svg viewBox="0 0 100 100" width="22" height="22" fill="none">
+          <svg viewBox="0 0 120 100" width="22" height="22" fill="none">
             <defs><linearGradient id="pg1" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#00E5FF"/><stop offset="50%" stopColor="#6366F1"/><stop offset="100%" stopColor="#D946EF"/>
             </linearGradient></defs>
-            <rect x="26" y="22" width="11" height="56" rx="3" fill="url(#pg1)"/>
-            <path d="M37 50 L68 22 L78 22 L47 50Z" fill="url(#pg1)" opacity="0.95"/>
-            <path d="M37 50 L68 78 L78 78 L47 50Z" fill="url(#pg1)" opacity="0.95"/>
-            <circle cx="44" cy="50" r="4" fill="#00E5FF" opacity="0.9"/>
+            {/* K */}
+            <path d="M18 25 L18 75 M18 50 L35 25 M18 50 L35 75" stroke="url(#pg1)" strokeWidth="11" strokeLinecap="round"/>
+            {/* E */}
+            <path d="M45 25 L60 25 M45 50 L58 50 M45 75 L60 75 M45 25 L45 75" stroke="url(#pg1)" strokeWidth="11" strokeLinecap="round"/>
+            {/* E */}
+            <path d="M70 25 L85 25 M70 50 L83 50 M70 75 L85 75 M70 25 L70 75" stroke="url(#pg1)" strokeWidth="11" strokeLinecap="round"/>
+            {/* V */}
+            <path d="M90 25 L96 75 L102 25" stroke="url(#pg1)" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round"/>
+            {/* A */}
+            <path d="M108 75 L115 25 L122 75 M110 50 L120 50" stroke="url(#pg1)" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
       </div>
       <div>
-        <h1 class="text-lg font-black text-white">Keevo</h1>
+        <h1 class="text-lg font-black text-white">Keeva</h1>
         <p class="text-[10px] text-slate-400 font-mono">Save to Vault</p>
       </div>
     </div>
@@ -48,9 +54,9 @@
     <!-- Auth Status -->
     <div id="authSection" class="card mb-4">
       <div id="unauthenticated" class="hidden">
-        <p class="text-sm text-slate-400 mb-3">Connect your Keevo account to save content</p>
+        <p class="text-sm text-slate-400 mb-3">Connect your Keeva account to save content</p>
         <button id="loginBtn" class="btn btn-primary w-full">Login / Signup</button>
-        <p class="text-[11px] text-slate-500 mt-2 text-center">Opens Keevo in new tab</p>
+        <p class="text-[11px] text-slate-500 mt-2 text-center">Opens Keeva in new tab</p>
       </div>
       <div id="authenticated" class="hidden">
         <div class="flex items-center justify-between">

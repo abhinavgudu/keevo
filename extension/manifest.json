@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Keevo — Save to Vault",
+  "name": "Keeva — Save to Vault",
   "version": "1.0.0",
-  "description": "Right-click any link/video/PDF to instantly save to your Keevo intelligence vault with auto-categorization",
+  "description": "Right-click any link/video/PDF to instantly save to your Keeva intelligence vault with auto-categorization",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -11,7 +11,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Keevo Vault",
+    "default_title": "Keeva Vault",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",

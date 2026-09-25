@@ -1,0 +1,19 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="keeva1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#00E5FF"/>
+      <stop offset="50%" stopColor="#6366F1"/>
+      <stop offset="100%" stopColor="#D946EF"/>
+    </linearGradient>
+  </defs>
+  {/* K */}
+  <path d="M18 25 L18 75 M18 50 L35 25 M18 50 L35 75" stroke="url(#keeva1)" strokeWidth="11" strokeLinecap="round"/>
+  {/* E */}
+  <path d="M45 25 L60 25 M45 50 L58 50 M45 75 L60 75 M45 25 L45 75" stroke="url(#keeva1)" strokeWidth="11" strokeLinecap="round"/>
+  {/* E */}
+  <path d="M70 25 L85 25 M70 50 L83 50 M70 75 L85 75 M70 25 L70 75" stroke="url(#keeva1)" strokeWidth="11" strokeLinecap="round"/>
+  {/* V */}
+  <path d="M90 25 L96 75 L102 25" stroke="url(#keeva1)" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round"/>
+  {/* A */}
+  <path d="M108 75 L115 25 L122 75 M110 50 L120 50" stroke="url(#keeva1)" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round"/>
+</svg>

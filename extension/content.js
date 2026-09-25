@@ -1,4 +1,4 @@
-// Keevo Browser Extension - Content Script
+// Keeva Browser Extension - Content Script
 // Detects video elements, provides page metadata, handles transcript extraction
 
 (function () {
@@ -167,7 +167,7 @@
 
       // Add right-click hint
       video.style.cursor = 'pointer';
-      video.title = 'Right-click → Save to Keevo Vault';
+      video.title = 'Right-click → Save to Keeva Vault';
     });
   }
 
@@ -183,6 +183,6 @@
   observer.observe(document.body, { childList: true, subtree: true });
 
   // Expose metadata to popup
-  window.__KEEVO_METADATA__ = extractPageMetadata();
+  window.__KEEVA_METADATA__ = extractPageMetadata();
 
 })();

@@ -1,5 +1,5 @@
 -- ============================================================
--- KEEVO: Supabase Auth + RLS Setup
+-- KEEVA: Supabase Auth + RLS Setup
 -- Run this in your Supabase SQL Editor
 -- ============================================================
 
@@ -138,7 +138,7 @@ CREATE TRIGGER set_priority_score
 -- 4. Storage bucket for PDF uploads
 -- ============================================================
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('keevo-docs', 'keevo-docs', true)
+VALUES ('keeva-docs', 'keeva-docs', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage RLS policies
@@ -147,12 +147,12 @@ DROP POLICY IF EXISTS "Public read docs" ON storage.objects;
 
 CREATE POLICY "Auth users upload docs"
   ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'keevo-docs' AND auth.role() = 'authenticated');
+  WITH CHECK (bucket_id = 'keeva-docs' AND auth.role() = 'authenticated');
 
 CREATE POLICY "Public read docs"
   ON storage.objects FOR SELECT
-  USING (bucket_id = 'keevo-docs');
+  USING (bucket_id = 'keeva-docs');
 
 -- ============================================================
--- Done! Your Keevo database is ready.
+-- Done! Your Keeva database is ready.
 -- ============================================================

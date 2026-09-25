@@ -1,4 +1,4 @@
-# Keevo Browser Extension - Installation Guide
+# Keeva Browser Extension - Installation Guide
 
 ## Quick Install (Development Mode)
 
@@ -7,7 +7,7 @@
 2. Enable **Developer mode** (top right toggle)
 3. Click **Load unpacked**
 4. Select the `extension/` folder from this repo
-5. Pin the Keevo icon to your toolbar
+5. Pin the Keeva icon to your toolbar
 
 ### Firefox
 1. Open `about:debugging#/runtime/this-firefox`
@@ -17,20 +17,20 @@
 ## Configuration
 
 After installation, click the extension icon and:
-1. Enter your **Keevo API Base URL** (e.g., `http://localhost:3000` or your production URL)
-2. Click **Login / Signup** - opens Keevo in a new tab
-3. Sign in to your Keevo account
+1. Enter your **Keeva API Base URL** (e.g., `http://localhost:3000` or your production URL)
+2. Click **Login / Signup** - opens Keeva in a new tab
+3. Sign in to your Keeva account
 4. Return to extension - you'll see "Connected" status
 
 ## Usage
 
 ### Right-click Context Menu
-- **Right-click any link** → "Save to Keevo Vault"
-- **Right-click on a video** → "Save Video/Reel to Keevo"
-- **Right-click PDF links** → "Save PDF/Document to Keevo"
+- **Right-click any link** → "Save to Keeva Vault"
+- **Right-click on a video** → "Save Video/Reel to Keeva"
+- **Right-click PDF links** → "Save PDF/Document to Keeva"
 
 ### Extension Popup
-- Click the Keevo icon in toolbar
+- Click the Keeva icon in toolbar
 - See current page metadata
 - **Save Page** - saves current page as article
 - **Save Video** - saves detected video as Reel (9:16)
@@ -61,11 +61,11 @@ ASSEMBLYAI_API_KEY=your_assemblyai_key_here
 
 ## Permissions Explained
 
-- **contextMenus** - Right-click "Save to Keevo"
+- **contextMenus** - Right-click "Save to Keeva"
 - **activeTab** - Read current page URL/metadata
 - **storage** - Save auth token, settings locally
 - **scripting** - Inject content script for video detection
-- **tabs** - Open Keevo login page
+- **tabs** - Open Keeva login page
 - **host_permissions** - Access all sites for scraping
 
 ## Development
@@ -81,12 +81,12 @@ ASSEMBLYAI_API_KEY=your_assemblyai_key_here
 ```bash
 # Create zip for Chrome Web Store
 cd extension
-zip -r keevo-extension.zip . -x "*.md" "*.svg" "*.git*"
+zip -r keeva-extension.zip . -x "*.md" "*.svg" "*.git*"
 ```
 
 ## Troubleshooting
 
-**"Not authenticated"** - Click Login in popup, sign in to Keevo, return to popup
+**"Not authenticated"** - Click Login in popup, sign in to Keeva, return to popup
 
 **"Failed to save"** - Check API Base URL is correct and server is running
 

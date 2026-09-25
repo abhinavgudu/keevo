@@ -24,7 +24,7 @@ import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { Footer } from '@/components/Footer';
 import { Plus, Loader2, BookmarkCheck, Compass } from 'lucide-react';
 
-export default function KyxDashboard() {
+export default function KeevaDashboard() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [items, setItems] = useState<ContentItem[]>([]);
@@ -91,7 +91,7 @@ export default function KyxDashboard() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('saved') === 'true') {
-        showToast('Content captured & saved into Kyx!');
+        showToast('Content captured & saved into Keeva!');
         window.history.replaceState({}, '', '/');
       }
     }
@@ -287,19 +287,19 @@ export default function KyxDashboard() {
               <svg viewBox="0 0 100 100" className="w-7 h-7" fill="none">
                 <defs>
                   <linearGradient id="lkg1" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#00E5FF"/>
-                    <stop offset="50%" stopColor="#6366F1"/>
-                    <stop offset="100%" stopColor="#D946EF"/>
+                    <stop offset="0%" stopColor="#00E5FF" />
+                    <stop offset="50%" stopColor="#6366F1" />
+                    <stop offset="100%" stopColor="#D946EF" />
                   </linearGradient>
                 </defs>
-                <rect x="26" y="22" width="11" height="56" rx="3" fill="url(#lkg1)"/>
-                <path d="M37 50 L68 22 L78 22 L47 50Z" fill="url(#lkg1)" opacity="0.95"/>
-                <path d="M37 50 L68 78 L78 78 L47 50Z" fill="url(#lkg1)" opacity="0.95"/>
-                <circle cx="44" cy="50" r="4" fill="#00E5FF" opacity="0.9"/>
+                <rect x="26" y="22" width="11" height="56" rx="3" fill="url(#lkg1)" />
+                <path d="M37 50 L68 22 L78 22 L47 50Z" fill="url(#lkg1)" opacity="0.95" />
+                <path d="M37 50 L68 78 L78 78 L47 50Z" fill="url(#lkg1)" opacity="0.95" />
+                <circle cx="44" cy="50" r="4" fill="#00E5FF" opacity="0.9" />
               </svg>
             </div>
           </div>
-          <p className="text-xs text-slate-500 font-mono">Loading Kyx...</p>
+          <p className="text-xs text-slate-500 font-mono">Loading Keeva...</p>
         </div>
       </div>
     );
@@ -361,9 +361,9 @@ export default function KyxDashboard() {
 
         {/* Loading Spinner */}
         {isLoading ? (
-          <div className="w-full py-32 flex flex-col items-center justify-center">
+          <div className="w-full py-32 flex flex-col items-center jukeevacenter">
             <Loader2 className="w-10 h-10 text-cyan-400 animate-spin mb-4" />
-            <p className="text-xs text-slate-400 font-mono">Loading Kyx OS...</p>
+            <p className="text-xs text-slate-400 font-mono">Loading Keeva OS...</p>
           </div>
         ) : items.length === 0 ? (
           /* Clean Empty State */
