@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ContentItem } from '@/types/vault';
-import { X, ExternalLink, Heart, Eye, Sparkles, MessageSquare, Play, Flame, Check } from 'lucide-react';
+import { X, ExternalLink, Heart, Eye, Sparkles, MessageSquare, Play, Flame, Check, Globe } from 'lucide-react';
 
 interface MediaPreviewModalProps {
   item: ContentItem | null;
@@ -54,6 +54,8 @@ export function MediaPreviewModal({
 }: MediaPreviewModalProps) {
   const [notesText, setNotesText] = useState(item?.notes || '');
   const [isSavedNotes, setIsSavedNotes] = useState(false);
+  const [isPublic, setIsPublic] = useState(item?.is_public || false);
+  const [isUpdatingPublic, setIsUpdatingPublic] = useState(false);
 
   if (!isOpen || !item) return null;
 
@@ -64,6 +66,24 @@ export function MediaPreviewModal({
     onUpdateNotes(item.id, notesText);
     setIsSavedNotes(true);
     setTimeout(() => setIsSavedNotes(false), 2000);
+  };
+
+  const handleTogglePublic = async () => {
+    setIsUpdatingPublic(true);
+    try {
+      const res = await fetch(`/api/items/${item.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_public: !isPublic })
+      });
+      if (res.ok) {
+        setIsPublic(!isPublic);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsUpdatingPublic(false);
+    }
   };
 
   return (
@@ -85,16 +105,12 @@ export function MediaPreviewModal({
                   allow="autoplay; encrypted-media; picture-in-picture"
                   allowFullScreen
                 />
-              ) : item.thumbnail_url ? (
+              ) : (
                 <img
-                  src={item.thumbnail_url}
+                  src={item.thumbnail_url || `https://picsum.photos/seed/${item.id}/600/1000?grayscale&blur=2`}
                   alt={item.title}
                   className="absolute inset-0 w-full h-full object-cover"
                 />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-b from-indigo-950 via-slate-900 to-black flex items-center justify-center text-slate-500">
-                  <Play className="w-12 h-12 text-cyan-400 opacity-60" />
-                </div>
               )}
 
               {/* Top notch */}
@@ -131,16 +147,12 @@ export function MediaPreviewModal({
                     allow="autoplay; encrypted-media; picture-in-picture"
                     allowFullScreen
                   />
-                ) : item.thumbnail_url ? (
+                ) : (
                   <img
-                    src={item.thumbnail_url}
+                    src={item.thumbnail_url || `https://picsum.photos/seed/${item.id}/800/400?blur=1`}
                     alt={item.title}
                     className="w-full h-full object-cover absolute inset-0"
                   />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-600 absolute inset-0">
-                    <Play className="w-12 h-12" />
-                  </div>
                 )}
               </div>
               <a
@@ -237,17 +249,32 @@ export function MediaPreviewModal({
 
           {/* Bottom Controls */}
           <div className="pt-4 border-t border-slate-800 flex items-center justify-between mt-4">
-            <button
-              onClick={() => onToggleFavorite(item.id)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-colors"
-            >
-              <Heart
-                className={`w-4 h-4 ${
-                  item.is_favorite ? 'text-rose-500 fill-rose-500' : 'text-slate-400'
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => onToggleFavorite(item.id)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-colors"
+              >
+                <Heart
+                  className={`w-4 h-4 ${
+                    item.is_favorite ? 'text-rose-500 fill-rose-500' : 'text-slate-400'
+                  }`}
+                />
+                <span>{item.is_favorite ? 'Favorited' : 'Favorite (+30)'}</span>
+              </button>
+
+              <button
+                onClick={handleTogglePublic}
+                disabled={isUpdatingPublic}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                  isPublic 
+                    ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30' 
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                 }`}
-              />
-              <span>{item.is_favorite ? 'Favorited' : 'Favorite (+30)'}</span>
-            </button>
+              >
+                <Globe className={`w-4 h-4 ${isPublic ? 'text-emerald-400' : 'text-slate-400'}`} />
+                <span>{isPublic ? 'Public in Community' : 'Share to Community'}</span>
+              </button>
+            </div>
 
             <span className="text-xs text-slate-500 font-mono flex items-center gap-1">
               <Eye className="w-3.5 h-3.5" /> {item.access_count} views

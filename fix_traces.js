@@ -1,0 +1,10 @@
+﻿const fs = require('fs');
+let modal = fs.readFileSync('src/components/modals/SettingsModal.tsx', 'utf8');
+modal = modal.replace(/typeof window !== 'undefined' \? localStorage\.getItem\('vaultx_supabase_url'\) \|\| '' : ''/g, "''");
+modal = modal.replace(/typeof window !== 'undefined' \? localStorage\.getItem\('vaultx_supabase_key'\) \|\| '' : ''/g, "''");
+modal = modal.replace(/localStorage\.setItem\('vaultx_supabase_url', supabaseUrl\.trim\(\)\);/g, '');
+modal = modal.replace(/localStorage\.setItem\('vaultx_supabase_key', supabaseKey\.trim\(\)\);/g, '');
+modal = modal.replace(/localStorage\.removeItem\('vaultx_supabase_url'\);/g, '');
+modal = modal.replace(/localStorage\.removeItem\('vaultx_supabase_key'\);/g, '');
+fs.writeFileSync('src/components/modals/SettingsModal.tsx', modal);
+console.log('Removed all traces of localStorage');

@@ -31,6 +31,7 @@ export interface ContentItem {
   description?: string;
   tags?: string[];
   notes?: string;
+  is_public?: boolean;
 }
 
 export interface ScrapedMetadata {

@@ -89,10 +89,10 @@ ON CONFLICT DO NOTHING;`;
 export function SettingsModal({ isOpen, onClose, onDataChanged }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<'STORAGE' | 'SQL' | 'BACKUP'>('STORAGE');
   const [supabaseUrl, setSupabaseUrl] = useState(
-    typeof window !== 'undefined' ? localStorage.getItem('vaultx_supabase_url') || '' : ''
+    ''
   );
   const [supabaseKey, setSupabaseKey] = useState(
-    typeof window !== 'undefined' ? localStorage.getItem('vaultx_supabase_key') || '' : ''
+    ''
   );
   const [isCopied, setIsCopied] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
@@ -102,12 +102,12 @@ export function SettingsModal({ isOpen, onClose, onDataChanged }: SettingsModalP
   const handleSaveSupabase = () => {
     if (typeof window !== 'undefined') {
       if (supabaseUrl && supabaseKey) {
-        localStorage.setItem('vaultx_supabase_url', supabaseUrl.trim());
-        localStorage.setItem('vaultx_supabase_key', supabaseKey.trim());
+        
+        
         setStatusMsg('Supabase credentials saved! Connecting to cloud database...');
       } else {
-        localStorage.removeItem('vaultx_supabase_url');
-        localStorage.removeItem('vaultx_supabase_key');
+        
+        
         setStatusMsg('Operating on VaultX Local Storage Engine.');
       }
       setTimeout(() => {

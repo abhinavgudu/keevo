@@ -1,12 +1,5 @@
-import { Category, ContentItem, VaultStats, calculatePriorityScore } from '@/types/vault';
-import { INITIAL_CATEGORIES, INITIAL_ITEMS } from './seed-data';
+﻿import { Category, ContentItem, VaultStats, calculatePriorityScore } from '@/types/vault';
 import { getSupabaseClient } from './supabase';
-
-const STORAGE_KEYS = {
-  ITEMS: 'vaultx_content_items_v2',
-  CATEGORIES: 'vaultx_categories_v2',
-  SETTINGS: 'vaultx_settings',
-};
 
 // Auth user context — set from AuthContext on login
 let _currentUserId: string | null = null;
@@ -15,40 +8,33 @@ export function setVaultUserId(uid: string | null) {
   _currentUserId = uid;
 }
 
-
 export class VaultStorage {
   // --- CATEGORIES ---
   static async getCategories(): Promise<Category[]> {
     const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.from('categories').select('*').order('created_at', { ascending: true });
-        if (!error && data && data.length > 0) {
-          return data;
-        }
-      } catch (err) {
-        console.warn('Supabase categories fetch failed, falling back to local storage:', err);
-      }
+    if (!supabase) {
+      console.warn('Supabase client not initialized');
+      return [];
     }
 
-    if (typeof window === 'undefined') return INITIAL_CATEGORIES;
-
-    const localData = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
-    if (!localData) {
-      localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(INITIAL_CATEGORIES));
-      return INITIAL_CATEGORIES;
+    let query = supabase.from('categories').select('*').order('created_at', { ascending: true });
+    if (_currentUserId) { 
+      query = (query as any).eq('user_id', _currentUserId); 
     }
-
-    try {
-      const parsed = JSON.parse(localData);
-      return parsed.length > 0 ? parsed : INITIAL_CATEGORIES;
-    } catch {
-      return INITIAL_CATEGORIES;
+    
+    const { data, error } = await query;
+    if (error) {
+      console.error('Supabase categories fetch error:', error);
+      return [];
     }
+    
+    return data || [];
   }
 
   static async saveCategory(category: Omit<Category, 'id' | 'created_at'> & { id?: string }): Promise<Category> {
     const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase client not initialized');
+
     const newCat: Category = {
       id: category.id || `cat-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       name: category.name,
@@ -57,110 +43,78 @@ export class VaultStorage {
       created_at: new Date().toISOString(),
     };
 
-    if (supabase) {
-      try {
-        const payload = _currentUserId ? { ...newCat, user_id: _currentUserId } : newCat;
-        const { data, error } = await supabase.from('categories').upsert([payload]).select().single();
-        if (!error && data) return data;
-      } catch (err) {
-        console.warn('Supabase category upsert error:', err);
-      }
+    const payload = _currentUserId ? { ...newCat, user_id: _currentUserId } : newCat;
+    
+    const { data, error } = await supabase.from('categories').upsert([payload]).select().single();
+    if (error) {
+      console.error('Supabase category upsert error:', error);
+      throw error;
     }
-
-    const categories = await this.getCategories();
-    const existingIndex = categories.findIndex((c) => c.id === newCat.id);
-    let updated: Category[];
-    if (existingIndex >= 0) {
-      updated = [...categories];
-      updated[existingIndex] = { ...updated[existingIndex], ...newCat };
-    } else {
-      updated = [...categories, newCat];
-    }
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(updated));
-    }
-    return newCat;
+    
+    return data;
   }
 
   static async deleteCategory(id: string): Promise<boolean> {
     const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('categories').delete().eq('id', id);
-      } catch (err) {
-        console.warn('Supabase delete category error:', err);
-      }
-    }
+    if (!supabase) throw new Error('Supabase client not initialized');
 
-    const categories = await this.getCategories();
-    const filtered = categories.filter((c) => c.id !== id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(filtered));
+    const { error } = await supabase.from('categories').delete().eq('id', id);
+    if (error) {
+      console.error('Supabase delete category error:', error);
+      return false;
     }
+    
     return true;
   }
 
   // --- CONTENT ITEMS ---
   static async getItems(): Promise<ContentItem[]> {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      console.warn('Supabase client not initialized');
+      return [];
+    }
+
     const categories = await this.getCategories();
     const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('content_items')
-          .select('*')
-          .order('priority_score', { ascending: false });
-        if (!error && data) {
-          return data.map((item: any) => ({
-            ...item,
-            category: item.category_id ? categoryMap.get(item.category_id) : undefined,
-          }));
-        }
-      } catch (err) {
-        console.warn('Supabase items fetch failed, using local storage:', err);
-      }
+    let query = supabase
+      .from('content_items')
+      .select('*')
+      .order('priority_score', { ascending: false });
+      
+    if (_currentUserId) { 
+      query = (query as any).eq('user_id', _currentUserId); 
     }
-
-    if (typeof window === 'undefined') {
-      return INITIAL_ITEMS;
+    
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error('Supabase items fetch error:', error);
+      return [];
     }
+    
+    if (!data) return [];
 
-    const localData = localStorage.getItem(STORAGE_KEYS.ITEMS);
-    let items: ContentItem[] = [];
-
-    if (!localData) {
-      items = [];
-      localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify([]));
-    } else {
-      try {
-        items = JSON.parse(localData);
-      } catch {
-        items = [];
-      }
-    }
-
-    return items
-      .map((item) => {
-        const recalculatedScore = calculatePriorityScore(
-          item.priority,
-          item.access_count,
-          item.is_favorite,
-          item.created_at
-        );
-        return {
-          ...item,
-          priority_score: recalculatedScore,
-          category: item.category_id ? categoryMap.get(item.category_id) : undefined,
-        };
-      })
-      .sort((a, b) => b.priority_score - a.priority_score);
+    return data.map((item: any) => {
+      const recalculatedScore = calculatePriorityScore(
+        item.priority,
+        item.access_count,
+        item.is_favorite,
+        item.created_at
+      );
+      return {
+        ...item,
+        priority_score: recalculatedScore,
+        category: item.category_id ? categoryMap.get(item.category_id) : undefined,
+      };
+    }).sort((a, b) => b.priority_score - a.priority_score);
   }
 
   static async saveItem(item: Partial<ContentItem> & { title: string; source_url: string }): Promise<ContentItem> {
-    const isNew = !item.id;
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase client not initialized');
+
     const createdAt = item.created_at || new Date().toISOString();
     const accessCount = item.access_count ?? 0;
     const isFavorite = item.is_favorite ?? false;
@@ -188,44 +142,21 @@ export class VaultStorage {
       notes: item.notes || '',
     };
 
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const payload: Record<string, unknown> = { ...fullItem };
-        delete payload.category;
-        if (_currentUserId) payload.user_id = _currentUserId;
-        const { data, error } = await supabase.from('content_items').upsert([payload]).select().single();
-        if (!error && data) {
-          const categories = await this.getCategories();
-          return {
-            ...data,
-            category: data.category_id ? categories.find((c) => c.id === data.category_id) : undefined,
-          };
-        }
-      } catch (err) {
-        console.warn('Supabase item upsert error:', err);
-      }
+    const payload: Record<string, unknown> = { ...fullItem };
+    delete payload.category;
+    if (_currentUserId) payload.user_id = _currentUserId;
+    
+    const { data, error } = await supabase.from('content_items').upsert([payload]).select().single();
+    
+    if (error) {
+      console.error('Supabase item upsert error:', error);
+      throw error;
     }
-
-    const items = await this.getItems();
-    const existingIndex = items.findIndex((i) => i.id === fullItem.id);
-    let updated: ContentItem[];
-
-    if (existingIndex >= 0) {
-      updated = [...items];
-      updated[existingIndex] = { ...updated[existingIndex], ...fullItem };
-    } else {
-      updated = [fullItem, ...items];
-    }
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updated));
-    }
-
+    
     const categories = await this.getCategories();
     return {
-      ...fullItem,
-      category: fullItem.category_id ? categories.find((c) => c.id === fullItem.category_id) : undefined,
+      ...data,
+      category: data.category_id ? categories.find((c) => c.id === data.category_id) : undefined,
     };
   }
 
@@ -254,34 +185,26 @@ export class VaultStorage {
 
   static async deleteItem(id: string): Promise<boolean> {
     const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('content_items').delete().eq('id', id);
-      } catch (err) {
-        console.warn('Supabase delete item error:', err);
-      }
-    }
+    if (!supabase) throw new Error('Supabase client not initialized');
 
-    const items = await this.getItems();
-    const filtered = items.filter((i) => i.id !== id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(filtered));
+    const { error } = await supabase.from('content_items').delete().eq('id', id);
+    if (error) {
+      console.error('Supabase delete item error:', error);
+      return false;
     }
     return true;
   }
 
   static async clearAllItems(): Promise<void> {
     const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('content_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      } catch (err) {
-        console.warn('Supabase clear items error:', err);
-      }
-    }
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify([]));
-      localStorage.removeItem('vaultx_content_items'); // remove old key
+    if (!supabase) throw new Error('Supabase client not initialized');
+
+    if (!_currentUserId) throw new Error('Cannot clear all items without an authenticated user');
+    
+    try {
+      await supabase.from('content_items').delete().eq('user_id', _currentUserId);
+    } catch (err) {
+      console.warn('Supabase clear items error:', err);
     }
   }
 
@@ -314,13 +237,13 @@ export class VaultStorage {
       }
 
       if (parsed.categories && Array.isArray(parsed.categories)) {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(parsed.categories));
+        for (const cat of parsed.categories) {
+          await this.saveCategory(cat);
         }
       }
 
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(parsed.items));
+      for (const item of parsed.items) {
+        await this.saveItem(item);
       }
 
       return { success: true, count: parsed.items.length };

@@ -41,7 +41,7 @@ function getEmbedUrl(url: string, muted: boolean): string | null {
     if (u.hostname.includes('instagram.com')) {
       const parts = u.pathname.split('/').filter(Boolean);
       const idx = parts.findIndex(p => p === 'reel' || p === 'p') + 1;
-      if (idx > 0 && parts[idx]) return `https://www.instagram.com/p/${parts[idx]}/embed/`;
+      if (idx > 0 && parts[idx]) return `https://www.instagram.com/p/${parts[idx]}/embed/?hidecaption=true`;
     }
   } catch {}
   return null;
@@ -89,7 +89,15 @@ export function ReelsDeckModal({
       else if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    
+      <style>{`
+        .reel-slide-up { animation: slideUp 0.3s ease-out forwards; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .ig-wrapper { overflow: hidden; position: relative; width: 100%; height: 100%; }
+        .ig-wrapper iframe { position: absolute; top: -55px; bottom: -55px; height: calc(100% + 110px); width: 100%; pointer-events: auto; }
+      `}</style>
+
+  return () => window.removeEventListener('keydown', handler);
   }, [isOpen, handleNext, handlePrev, onClose]);
 
   // Touch swipe handlers
@@ -137,8 +145,24 @@ export function ReelsDeckModal({
     }
 
     // Platform embed (YouTube / Instagram)
-    if (embedUrl) {
-      return (
+    
+      if (embedUrl) {
+        if (embedUrl.includes('instagram.com')) {
+          return (
+            <div className="ig-wrapper">
+              <iframe
+                key={`${activeItem.id}-${isMuted}`}
+                src={embedUrl}
+                title={activeItem.title}
+                className="w-full h-full border-0 scale-[1.02]"
+                allowFullScreen
+                scrolling="no"
+              />
+            </div>
+          );
+        }
+        return (
+
         <iframe
           key={`${activeItem.id}-${isMuted}`}  // re-mount on mute toggle for YT
           src={embedUrl}
@@ -237,7 +261,7 @@ export function ReelsDeckModal({
           ref={containerRef}
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
-          className="relative h-full max-h-[82vh] aspect-[9/16] bg-black rounded-3xl border-2 border-slate-800/80 shadow-2xl shadow-black overflow-hidden shrink-0 select-none"
+          key={currentIndex} className="relative h-full max-h-[82vh] aspect-[9/16] bg-black rounded-3xl border-2 border-slate-800/80 shadow-2xl shadow-black overflow-hidden shrink-0 select-none reel-slide-up"
         >
           {renderMedia()}
 
@@ -254,14 +278,7 @@ export function ReelsDeckModal({
             </button>
           </div>
 
-          {/* Swipe indicator arrows — subtle, not clickable buttons */}
-          {currentIndex > 0 && (
-            <div onClick={handlePrev} className="absolute top-16 inset-x-0 flex justify-center z-20 cursor-pointer opacity-50 hover:opacity-100 transition-opacity">
-              <div className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white text-xs flex items-center gap-1">
-                ↑ Previous
-              </div>
-            </div>
-          )}
+          
           {currentIndex < displayItems.length - 1 && (
             <div onClick={handleNext} className="absolute bottom-16 inset-x-0 flex justify-center z-20 cursor-pointer opacity-50 hover:opacity-100 transition-opacity">
               <div className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white text-xs flex items-center gap-1">

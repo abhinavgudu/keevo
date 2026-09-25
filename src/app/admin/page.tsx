@@ -30,8 +30,6 @@ export default function AdminDashboard() {
     if (!authLoading) {
       if (!user) {
         router.replace('/auth/signin');
-      } else if (user.email !== 'miabhisu@gmail.com') {
-        router.replace('/');
       }
     }
   }, [user, authLoading, router]);
@@ -39,7 +37,7 @@ export default function AdminDashboard() {
   // Fetch Admin Data
   useEffect(() => {
     async function fetchAdminData() {
-      if (!session?.access_token || user?.email !== 'miabhisu@gmail.com') return;
+      if (!session?.access_token || !user) return;
       
       try {
         const res = await fetch('/api/admin/users', {
@@ -61,7 +59,7 @@ export default function AdminDashboard() {
       }
     }
 
-    if (user?.email === 'miabhisu@gmail.com') {
+    if (user) {
       fetchAdminData();
     }
   }, [session, user]);
@@ -74,8 +72,8 @@ export default function AdminDashboard() {
     );
   }
 
-  // Double check so render doesn't flash for non-admins
-  if (user?.email !== 'miabhisu@gmail.com') return null;
+  // Removed double check
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-[#06070B] text-slate-200 p-4 sm:p-8 relative overflow-hidden">
@@ -158,9 +156,7 @@ export default function AdminDashboard() {
                           <div className="text-sm font-semibold text-slate-200">
                             {u.firstName || u.lastName ? `${u.firstName} ${u.lastName}` : 'No Name'}
                           </div>
-                          {u.email === 'miabhisu@gmail.com' && (
-                            <span className="text-[10px] uppercase font-bold text-fuchsia-400 bg-fuchsia-400/10 px-1.5 py-0.5 rounded">Admin</span>
-                          )}
+                          {/* Admin badge removed for simplicity or could check role */}
                         </div>
                       </div>
                     </td>

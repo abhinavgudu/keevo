@@ -64,7 +64,7 @@ export function MasonryGrid({
           );
         }
 
-        if (item.aspect_ratio === 'PORTRAIT_9_16' || item.media_type === 'REEL') {
+        if (item.media_type === 'REEL') {
           return (
             <PortraitReelCard
               key={item.id}

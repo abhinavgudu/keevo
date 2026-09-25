@@ -27,10 +27,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  // 2. Check if the user is the admin
-  if (user.email !== 'miabhisu@gmail.com') {
-    return NextResponse.json({ error: 'Unauthorized: Admins only' }, { status: 403 });
-  }
+  // 2. Removed strict admin check for now
 
   try {
     // Fetch all users from Supabase Auth

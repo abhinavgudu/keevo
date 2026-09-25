@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Home, Film, Plus, Folder, Search } from 'lucide-react';
+import { Home, Film, Plus, Folder, Search, Globe } from 'lucide-react';
+import Link from 'next/link';
 
 interface MobileBottomNavProps {
   onOpenAddModal: () => void;
@@ -67,6 +68,17 @@ export function MobileBottomNav({
         </div>
         <span>Categories</span>
       </button>
+
+      {/* 5. Community */}
+      <Link
+        href="/community"
+        className="flex flex-col items-center justify-center gap-1 w-14 py-1 text-[10px] font-semibold text-slate-400 hover:text-white active:scale-95 transition-transform cursor-pointer"
+      >
+        <div className="p-1 rounded-lg hover:bg-slate-800">
+          <Globe className="w-4 h-4 text-emerald-400" />
+        </div>
+        <span>Community</span>
+      </Link>
 
       {/* 5. Search / Omnibar */}
       <button
