@@ -106,7 +106,6 @@ export default function AdminDashboard() {
 
       // Calculate system stats from users data
       const totalItems = data.totalItems || 0;
-      const allItemDetails = data.itemDetails || [];
 
       setStats({
         totalUsers: data.users?.length || 0,
