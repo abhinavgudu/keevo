@@ -44,6 +44,13 @@ export interface ContentItem {
   transcript_text?: string;
   transcript_language?: string;
   transcript_duration?: number;
+  user_id?: string;
+  shared_by?: {
+    id: string;
+    email: string;
+    first_name?: string;
+    last_name?: string;
+  };
 }
 
 export interface ScrapedMetadata {

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ContentItem } from '@/types/vault';
-import { X, ExternalLink, Heart, Eye, Sparkles, MessageSquare, Play, Flame, Check, Globe, FileText } from 'lucide-react';
+import { X, ExternalLink, Heart, Eye, Sparkles, MessageSquare, Play, Flame, Check, Globe, FileText, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { TranscriptViewerModal } from './TranscriptViewerModal';
 
@@ -274,10 +274,14 @@ return (
                     isPublic 
                       ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30' 
                       : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                  }`}
+                  } ${isUpdatingPublic ? 'opacity-70 cursor-wait' : ''}`}
                 >
-                  <Globe className={`w-4 h-4 ${isPublic ? 'text-emerald-400' : 'text-slate-400'}`} />
-                  <span>{isPublic ? 'Public in Community' : 'Share to Community'}</span>
+                  {isUpdatingPublic ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Globe className={`w-4 h-4 ${isPublic ? 'text-emerald-400' : 'text-slate-400'}`} />
+                  )}
+                  <span>{isUpdatingPublic ? 'Sharing...' : (isPublic ? 'Public in Community' : 'Share to Community')}</span>
                 </button>
 
                 {/* Transcript Button - only for video content */}
