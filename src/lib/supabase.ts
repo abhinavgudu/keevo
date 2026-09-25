@@ -1,18 +1,18 @@
-﻿import { createClient, SupabaseClient } from '@supabase/supabase-js';
+﻿import { createBrowserClient } from '@supabase/ssr';
 
-let supabaseInstance: SupabaseClient | null = null;
+let browserClient: ReturnType<typeof createBrowserClient> | null = null;
 
-export function getSupabaseClient(customUrl?: string, customKey?: string): SupabaseClient | null {
-  const url = customUrl || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = customKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+export function getSupabaseClient(): ReturnType<typeof createBrowserClient> | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   
   if (!url || !key) return null;
 
   try {
-    if (!supabaseInstance || customUrl || customKey) {
-      supabaseInstance = createClient(url, key);
+    if (!browserClient) {
+      browserClient = createBrowserClient(url, key);
     }
-    return supabaseInstance;
+    return browserClient;
   } catch (err) {
     console.error('Failed to init Supabase', err);
     return null;

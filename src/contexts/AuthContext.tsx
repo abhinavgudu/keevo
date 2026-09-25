@@ -1,14 +1,14 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { createAuthClient, User, Session } from '@/lib/supabase-auth';
+import { getSupabaseClient } from '@/lib/supabase';
+import { User, Session } from '@supabase/supabase-js';
 import { setVaultUserId } from '@/lib/storage';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface AuthContextValue {
   user: User | null;
   session: Session | null;
-  supabase: SupabaseClient;
+  supabase: ReturnType<typeof getSupabaseClient>;
   isLoading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
   signUpWithEmail: (email: string, password: string, firstName?: string, lastName?: string) => Promise<{ error: string | null; needsConfirm?: boolean }>;
@@ -19,12 +19,16 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [supabase] = useState(() => createAuthClient());
+  const [supabase] = useState(() => getSupabaseClient());
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
     // Initial session check
     supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
       setSession(data.session);
@@ -45,11 +49,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
+    if (!supabase) return { error: 'Supabase not configured' };
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error?.message ?? null };
   }, [supabase]);
 
   const signUpWithEmail = useCallback(async (email: string, password: string, firstName?: string, lastName?: string) => {
+    if (!supabase) return { error: 'Supabase not configured' };
     const { error, data } = await supabase.auth.signUp({
       email,
       password,
@@ -62,12 +68,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
     if (error) return { error: error.message };
-    // If user exists but is unconfirmed, identities array is empty
     const needsConfirm = !data.session && !!data.user;
     return { error: null, needsConfirm };
   }, [supabase]);
 
   const signInWithGoogle = useCallback(async () => {
+    if (!supabase) return { error: 'Supabase not configured' };
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -78,6 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   const signOut = useCallback(async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
   }, [supabase]);
 

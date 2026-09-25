@@ -108,7 +108,7 @@ export class VaultStorage {
         priority_score: recalculatedScore,
         category: item.category_id ? categoryMap.get(item.category_id) : undefined,
       };
-    }).sort((a, b) => b.priority_score - a.priority_score);
+    }).sort((a: ContentItem, b: ContentItem) => b.priority_score - a.priority_score);
   }
 
   static async saveItem(item: Partial<ContentItem> & { title: string; source_url: string }): Promise<ContentItem> {
