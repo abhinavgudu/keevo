@@ -2,7 +2,19 @@
 
 import React from 'react';
 import { ContentItem } from '@/types/vault';
-import { FileText, Download, ExternalLink, Heart, Eye, Trash2, Sparkles, BookOpen, Maximize2 } from 'lucide-react';
+import { FileText, Download, ExternalLink, Heart, Eye, Trash2, Sparkles, BookOpen, Maximize2, Clock } from 'lucide-react';
+
+function formatDate(dateString: string) {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
 
 interface DocumentPdfCardProps {
   item: ContentItem;
@@ -140,6 +152,10 @@ export function DocumentPdfCard({
               <span className="flex items-center gap-1 font-mono text-[11px]" title="Read count">
                 <Eye className="w-3.5 h-3.5 text-rose-400" />
                 {item.access_count}
+              </span>
+              <span className="flex items-center gap-1 font-mono text-[10px] text-slate-500" title="Saved on">
+                <Clock className="w-3 h-3" />
+                {formatDate(item.created_at)}
               </span>
               <button
                 type="button"
