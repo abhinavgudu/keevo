@@ -4,12 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { ContentItem } from '@/types/vault';
 import { MasonryGrid } from '@/components/MasonryGrid';
 import { MediaPreviewModal } from '@/components/modals/MediaPreviewModal';
-import { createClient } from '@supabase/supabase-js';
-import { Loader2, Globe, UserCircle, Clock } from 'lucide-react';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { Loader2, Globe } from 'lucide-react';
 
 function formatDate(dateString: string) {
   const date = new Date(dateString);
@@ -49,33 +44,11 @@ export default function CommunityPage() {
   useEffect(() => {
     async function fetchCommunityItems() {
       try {
-        const { data, error } = await supabase
-          .from('content_items')
-          .select(`
-            *,
-            category:categories(*),
-            shared_by:user_id (
-              id,
-              email,
-              raw_user_meta_data
-            )
-          `)
-          .eq('is_public', true)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        
-        const itemsWithSharer = (data as any[]).map(item => ({
-          ...item,
-          shared_by: item.shared_by ? {
-            id: item.shared_by.id,
-            email: item.shared_by.email,
-            first_name: item.shared_by.raw_user_meta_data?.first_name,
-            last_name: item.shared_by.raw_user_meta_data?.last_name,
-          } : undefined,
-        }));
-        
-        setItems(itemsWithSharer as ContentItem[]);
+        const res = await fetch('/api/community/items');
+        const data = await res.json();
+        if (data.items) {
+          setItems(data.items as ContentItem[]);
+        }
       } catch (err) {
         console.error('Error fetching community posts:', err);
       } finally {
