@@ -67,6 +67,9 @@ export default function AdminDashboard() {
   const [uiFlags, setUiFlags] = useState(DEFAULT_UI_FLAGS);
   const [refreshing, setRefreshing] = useState(false);
   const [communityItems, setCommunityItems] = useState<any[]>([]);
+  const [allItems, setAllItems] = useState<any[]>([]);
+  const [contentSearch, setContentSearch] = useState('');
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Restore UI flags from localStorage
   useEffect(() => {
@@ -98,6 +101,8 @@ export default function AdminDashboard() {
       if (!res.ok) throw new Error(data.error || 'Failed to fetch admin data');
 
       setUsers(data.users || []);
+      const allItemDetails = data.itemDetails || [];
+      setAllItems(allItemDetails);
 
       // Calculate system stats from users data
       const totalItems = data.totalItems || 0;
@@ -130,6 +135,34 @@ export default function AdminDashboard() {
     const updated = { ...uiFlags, [key]: !uiFlags[key] };
     setUiFlags(updated);
     localStorage.setItem('keevo_admin_ui_flags', JSON.stringify(updated));
+  };
+
+  // Admin can toggle ANY item's community status
+  const toggleCommunityByAdmin = async (itemId: string, currentPublic: boolean) => {
+    setTogglingId(itemId);
+    try {
+      const res = await fetch(`/api/admin/toggle-community`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ itemId, is_public: !currentPublic }),
+      });
+      if (res.ok) {
+        setAllItems(prev => prev.map(i => i.id === itemId ? { ...i, is_public: !currentPublic } : i));
+        setCommunityItems(prev =>
+          !currentPublic
+            ? [...prev, allItems.find(i => i.id === itemId)]
+            : prev.filter(i => i.id !== itemId)
+        );
+        setStats(prev => prev ? { ...prev, publicItems: prev.publicItems + (!currentPublic ? 1 : -1) } : prev);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   const handleRemoveFromCommunity = async (itemId: string) => {
@@ -642,50 +675,133 @@ export default function AdminDashboard() {
           {/* ─── CONTENT TAB ─── */}
           {activeTab === 'content' && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-white mb-1">All Content Items</h2>
-                <p className="text-slate-400 text-sm">Total: {stats?.totalItems ?? 0} items across all users.</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-1">All Content Items</h2>
+                  <p className="text-slate-400 text-sm">
+                    {allItems.length} items across all users. Admin can add/remove any post from Community.
+                  </p>
+                </div>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search posts..."
+                    value={contentSearch}
+                    onChange={e => setContentSearch(e.target.value)}
+                    className="bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 w-full sm:w-64"
+                  />
+                </div>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+
+              {/* Mini KPI row */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { label: 'Reels', value: stats?.totalReels ?? 0, icon: <Film className="w-5 h-5" />, color: 'fuchsia' },
-                  { label: 'Articles', value: stats?.totalArticles ?? 0, icon: <BookOpen className="w-5 h-5" />, color: 'cyan' },
-                  { label: 'Documents', value: stats?.totalDocs ?? 0, icon: <FileText className="w-5 h-5" />, color: 'indigo' },
-                  { label: 'Favorites', value: stats?.totalFavorites ?? 0, icon: <Heart className="w-5 h-5" />, color: 'rose' },
-                ].map((s) => (
-                  <div key={s.label} className={`bg-[#0A0C14] border border-${s.color}-500/15 rounded-2xl p-5`}>
-                    <div className={`p-2 rounded-xl bg-${s.color}-500/15 text-${s.color}-400 w-fit mb-4`}>{s.icon}</div>
-                    <p className="text-2xl font-black text-white">{s.value}</p>
-                    <p className="text-xs text-slate-500 mt-1">{s.label}</p>
+                  { label: 'Reels', value: stats?.totalReels ?? 0, color: 'text-fuchsia-400' },
+                  { label: 'Articles', value: stats?.totalArticles ?? 0, color: 'text-cyan-400' },
+                  { label: 'Documents', value: stats?.totalDocs ?? 0, color: 'text-indigo-400' },
+                  { label: 'In Community', value: stats?.publicItems ?? 0, color: 'text-emerald-400' },
+                ].map(s => (
+                  <div key={s.label} className="bg-[#0A0C14] border border-white/8 rounded-xl p-4 text-center">
+                    <p className={`text-xl font-black ${s.color}`}>{s.value}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{s.label}</p>
                   </div>
                 ))}
               </div>
-              <div className="bg-[#0A0C14] border border-white/8 rounded-2xl p-6">
-                <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-fuchsia-400" /> Content Distribution by User
-                </h3>
-                <div className="space-y-3">
-                  {users.map((u) => {
-                    const pct = stats?.totalItems ? Math.round((u.itemCount / stats.totalItems) * 100) : 0;
-                    return (
-                      <div key={u.id} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-300 truncate max-w-[200px]">{u.email}</span>
-                          <span className="font-mono text-slate-400 shrink-0">{u.itemCount} items ({pct}%)</span>
-                        </div>
-                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full transition-all duration-700"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+
+              {/* Full posts table */}
+              <div className="bg-[#0A0C14] border border-white/8 rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Database className="w-4 h-4 text-indigo-400" />
+                    <h3 className="text-sm font-bold text-white">All Posts</h3>
+                  </div>
+                  <span className="text-xs text-slate-500 font-mono">
+                    {allItems.filter(i => !contentSearch || i.title?.toLowerCase().includes(contentSearch.toLowerCase()) || i.platform?.toLowerCase().includes(contentSearch.toLowerCase())).length} results
+                  </span>
+                </div>
+                <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                  <table className="w-full text-left min-w-[700px]">
+                    <thead className="sticky top-0 bg-[#0A0C14]">
+                      <tr className="text-[10px] uppercase tracking-widest text-slate-600 font-bold border-b border-white/5">
+                        <th className="px-6 py-3">Post</th>
+                        <th className="px-6 py-3">Platform</th>
+                        <th className="px-6 py-3">Type</th>
+                        <th className="px-6 py-3 text-center">Accesses</th>
+                        <th className="px-6 py-3 text-center">Community</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/3">
+                      {allItems
+                        .filter(i => !contentSearch ||
+                          i.title?.toLowerCase().includes(contentSearch.toLowerCase()) ||
+                          i.platform?.toLowerCase().includes(contentSearch.toLowerCase())
+                        )
+                        .map(item => (
+                          <tr key={item.id} className="hover:bg-white/2 transition-colors group">
+                            <td className="px-6 py-3 max-w-[280px]">
+                              <div className="flex items-center gap-3">
+                                {item.thumbnail_url ? (
+                                  <img src={item.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0 border border-white/10" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+                                    <Globe className="w-4 h-4 text-slate-600" />
+                                  </div>
+                                )}
+                                <p className="text-xs font-medium text-slate-300 truncate">{item.title || 'Untitled'}</p>
+                              </div>
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap">
+                              <span className="text-xs text-slate-400">{item.platform}</span>
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                item.media_type === 'REEL' ? 'bg-fuchsia-500/15 text-fuchsia-400' :
+                                item.media_type === 'DOCUMENT' ? 'bg-indigo-500/15 text-indigo-400' :
+                                'bg-cyan-500/15 text-cyan-400'
+                              }`}>
+                                {item.media_type}
+                              </span>
+                            </td>
+                            <td className="px-6 py-3 text-center">
+                              <span className="text-xs font-mono text-slate-400">{item.access_count ?? 0}</span>
+                            </td>
+                            <td className="px-6 py-3 text-center">
+                              <button
+                                onClick={() => toggleCommunityByAdmin(item.id, item.is_public)}
+                                disabled={togglingId === item.id}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold border transition-all ${
+                                  item.is_public
+                                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20 hover:bg-red-500/15 hover:text-red-400 hover:border-red-500/20'
+                                    : 'bg-white/5 text-slate-500 border-white/10 hover:bg-emerald-500/15 hover:text-emerald-400 hover:border-emerald-500/20'
+                                }`}
+                                title={item.is_public ? 'Remove from Community' : 'Add to Community'}
+                              >
+                                {togglingId === item.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : item.is_public ? (
+                                  <><Globe className="w-3 h-3" /> Public</>
+                                ) : (
+                                  <><Globe className="w-3 h-3" /> Add</>
+                                )}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      {allItems.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-12 text-center text-slate-600 text-sm">
+                            No items found. Refresh data.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
           )}
+
 
           {/* ─── SYSTEM TAB ─── */}
           {activeTab === 'system' && (

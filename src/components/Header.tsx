@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Search, Plus, Settings2, FolderPlus, Film, Command, LogOut, ShieldAlert, ChevronDown, Database } from 'lucide-react';
+import { Search, Plus, Settings2, FolderPlus, Film, Command, LogOut, ShieldAlert, ChevronDown, Database, Globe } from 'lucide-react';
 import { VaultStats } from '@/types/vault';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -131,6 +131,16 @@ export function Header({
             <Film className="w-4 h-4 text-indigo-400" />
             <span>Reels</span>
           </button>
+
+          {/* Community Link - Desktop only */}
+          <Link
+            href="/community"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold transition-all cursor-pointer shadow-md hover:scale-105 active:scale-95"
+            title="Community Feed"
+          >
+            <Globe className="w-4 h-4 text-emerald-400" />
+            <span>Community</span>
+          </Link>
 
           {/* Category Manager */}
           <button
