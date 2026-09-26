@@ -352,7 +352,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, metadata });
     }
 
-    // 3. Instagram Smart 1-Click Ingestion & Technical Domain Thumbnailing
+    // 3. Instagram Smart 1-Click Ingestion — Fetch actual thumbnail from Instagram page
     if (platform === 'Instagram') {
       const igMatch = parsedUrl.href.match(/\/(reel|reels|p)\/([A-Za-z0-9_-]+)/i);
       const shortcode = igMatch ? igMatch[2] : (parsedUrl.pathname.split('/').filter(Boolean).pop() || 'ig');
@@ -364,13 +364,67 @@ export async function POST(req: NextRequest) {
 
       const { categoryName, tags, priority } = autoClassifyContent(igTitle, 'Instagram Reel video IT coding technology', 'Instagram');
 
-      // Domain-matched high-res technical photography background image
-      const domainTechImage = getDomainImage(categoryName, shortcode);
+      // Fetch actual Instagram page to get real thumbnail from og:image
+      let instagramThumbnail = null;
+      let finalTitle = igTitle;
+      let finalDescription = `Instagram Reel (${categoryName}) • Code: ${shortcode}`;
+
+      try {
+        const response = await fetch(parsedUrl.href, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          },
+          next: { revalidate: 0 },
+          signal: AbortSignal.timeout(5000),
+        });
+
+        if (response.ok) {
+          const html = await response.text();
+          const $ = cheerio.load(html);
+          
+          // Extract og:image (Instagram's actual video thumbnail)
+          const ogImage = 
+            $('meta[property="og:image"]').attr('content') ||
+            $('meta[name="twitter:image"]').attr('content') ||
+            null;
+          
+          if (ogImage) {
+            instagramThumbnail = ogImage;
+          }
+          
+          // Extract actual title from og:title
+          const ogTitle = 
+            $('meta[property="og:title"]').attr('content') ||
+            $('meta[name="twitter:title"]').attr('content') ||
+            $('title').text() ||
+            '';
+          
+          if (ogTitle) {
+            finalTitle = cleanTitle(ogTitle) || igTitle;
+          }
+          
+          // Extract description from og:description
+          const ogDescription = 
+            $('meta[property="og:description"]').attr('content') ||
+            $('meta[name="twitter:description"]').attr('content') ||
+            null;
+          
+          if (ogDescription) {
+            finalDescription = ogDescription.slice(0, 300);
+          }
+        }
+      } catch (fetchErr) {
+        console.warn('Instagram fetch failed, using fallback:', fetchErr);
+      }
+
+      // Fallback to domain-matched image if fetch failed
+      const finalThumbnail = instagramThumbnail || getDomainImage(categoryName, shortcode);
 
       const metadata: SmartIngestionResult = {
-        title: igTitle,
-        description: `Instagram Reel (${categoryName}) • Code: ${shortcode}`,
-        thumbnail_url: domainTechImage,
+        title: finalTitle,
+        description: finalDescription,
+        thumbnail_url: finalThumbnail,
         platform: 'Instagram',
         media_type: 'REEL',
         aspect_ratio: 'PORTRAIT_9_16',
