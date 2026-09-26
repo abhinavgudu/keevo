@@ -33,12 +33,11 @@ function getEmbedUrl(url: string): string | null {
         return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0`;
       }
     }
-    // Instagram Reels
-    if (urlObj.hostname.includes('instagram.com') && (urlObj.pathname.includes('/reel/') || urlObj.pathname.includes('/p/'))) {
-      const parts = urlObj.pathname.split('/').filter(Boolean);
-      const idIndex = parts.findIndex(p => p === 'reel' || p === 'p') + 1;
-      if (idIndex > 0 && parts[idIndex]) {
-        return `https://www.instagram.com/p/${parts[idIndex]}/embed/`;
+    // Instagram Reels & Posts (All URL variations)
+    if (urlObj.hostname.includes('instagram.com') || urlObj.hostname.includes('instagr.am')) {
+      const match = url.match(/(?:instagram\.com|instagr\.am)\/(?:p|reel|reels|tv|share\/reel|share\/p)\/([A-Za-z0-9_-]+)/i);
+      if (match && match[1]) {
+        return `https://www.instagram.com/p/${match[1]}/embed/`;
       }
     }
   } catch (e) {

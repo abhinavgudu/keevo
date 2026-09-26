@@ -22,13 +22,12 @@ interface PortraitReelCardProps {
 }
 
 function getInstagramEmbedUrl(sourceUrl: string): string | null {
+  if (!sourceUrl) return null;
   try {
-    const urlObj = new URL(sourceUrl);
-    if (!urlObj.hostname.includes('instagram.com')) return null;
-    const parts = urlObj.pathname.split('/').filter(Boolean);
-    const idIndex = parts.findIndex((p) => p === 'reel' || p === 'reels' || p === 'p') + 1;
-    if (idIndex > 0 && parts[idIndex]) {
-      return `https://www.instagram.com/p/${parts[idIndex]}/embed/`;
+    const cleanUrl = sourceUrl.trim();
+    const match = cleanUrl.match(/(?:instagram\.com|instagr\.am)\/(?:p|reel|reels|tv|share\/reel|share\/p)\/([A-Za-z0-9_-]+)/i);
+    if (match && match[1]) {
+      return `https://www.instagram.com/p/${match[1]}/embed/`;
     }
   } catch {
     return null;
@@ -197,6 +196,18 @@ export function PortraitReelCard({
 
         {/* Bottom content */}
         <div className="absolute bottom-0 inset-x-0 p-4 z-20 flex flex-col justify-end">
+          {/* Shared By Author Badge */}
+          {item.shared_by && (
+            <div className="mb-2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/85 border border-emerald-500/40 text-[10px] font-medium text-emerald-300 backdrop-blur-md shadow-md w-fit">
+              <div className="w-4 h-4 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-slate-950 text-[9px] font-black shrink-0">
+                {(item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]).charAt(0).toUpperCase()}
+              </div>
+              <span className="truncate max-w-[150px]">
+                Posted by {item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]}
+              </span>
+            </div>
+          )}
+
           {item.category && (
             <div className="mb-2">
               <span

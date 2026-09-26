@@ -115,6 +115,18 @@ export function DocumentPdfCard({
               </div>
             )}
 
+            {/* Shared By Author Badge */}
+            {item.shared_by && (
+              <div className="mb-2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-[10px] font-medium text-emerald-300 w-fit">
+                <div className="w-4 h-4 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-slate-950 text-[9px] font-black shrink-0">
+                  {(item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]).charAt(0).toUpperCase()}
+                </div>
+                <span className="truncate max-w-[150px]">
+                  Posted by {item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]}
+                </span>
+              </div>
+            )}
+
             {/* Title */}
             <h3
               onClick={() => onOpenPdf(item)}

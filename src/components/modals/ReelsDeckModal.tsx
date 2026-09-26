@@ -57,14 +57,13 @@ function getEmbedInfo(url: string, muted: boolean): { type: 'youtube' | 'instagr
       }
     }
 
-    // Instagram Reel / Post
-    if (u.hostname.includes('instagram.com')) {
-      const parts = u.pathname.split('/').filter(Boolean);
-      const idx = parts.findIndex((p) => p === 'reel' || p === 'reels' || p === 'p') + 1;
-      if (idx > 0 && parts[idx]) {
+    // Instagram Reel / Post (All URL variations)
+    if (u.hostname.includes('instagram.com') || u.hostname.includes('instagr.am')) {
+      const match = url.match(/(?:instagram\.com|instagr\.am)\/(?:p|reel|reels|tv|share\/reel|share\/p)\/([A-Za-z0-9_-]+)/i);
+      if (match && match[1]) {
         return {
           type: 'instagram',
-          embedUrl: `https://www.instagram.com/reel/${parts[idx]}/embed/`,
+          embedUrl: `https://www.instagram.com/p/${match[1]}/embed/`,
         };
       }
     }
@@ -379,6 +378,11 @@ export function ReelsDeckModal({
                           }}
                         >
                           {item.category.name}
+                        </span>
+                      )}
+                      {item.shared_by && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 backdrop-blur-md flex items-center gap-1">
+                          Posted by {item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]}
                         </span>
                       )}
                       {item.priority === 'MUST_LEARN' && (

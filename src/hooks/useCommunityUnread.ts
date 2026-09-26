@@ -19,16 +19,9 @@ export function useCommunityUnread() {
       const items = data.items || [];
 
       // Get last seen timestamp from localStorage
-      let lastSeenStr = localStorage.getItem(COMMUNITY_SEEN_KEY);
-      
-      // If never visited before, set baseline to now so historical items don't trigger unread badge
-      if (!lastSeenStr) {
-        const nowStr = Date.now().toString();
-        localStorage.setItem(COMMUNITY_SEEN_KEY, nowStr);
-        lastSeenStr = nowStr;
-      }
-
-      const lastSeenTime = parseInt(lastSeenStr, 10) || Date.now();
+      const lastSeenStr = localStorage.getItem(COMMUNITY_SEEN_KEY);
+      // If user has never visited /community, lastSeenTime is 0 so all community posts count as unread!
+      const lastSeenTime = lastSeenStr ? parseInt(lastSeenStr, 10) || 0 : 0;
       const currentUserId = user?.id;
 
       // Filter unread items (items created after lastSeenTime and NOT created by current user)
