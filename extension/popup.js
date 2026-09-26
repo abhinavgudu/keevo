@@ -71,7 +71,7 @@ async function removeStorage(keys) {
 async function init() {
   // Load settings
   const stored = await getStorage([KEYS.API_BASE, KEYS.AUTH_TOKEN, KEYS.USER_EMAIL, KEYS.SETTINGS]);
-  const apiBase = stored[KEYS.API_BASE] || 'http://localhost:3001';
+  const apiBase = stored[KEYS.API_BASE] || 'https://keeva0.vercel.app';
   const token = stored[KEYS.AUTH_TOKEN];
   const email = stored[KEYS.USER_EMAIL];
   const settings = stored[KEYS.SETTINGS] || { autoDetect: true, showNotifs: true };
@@ -349,7 +349,7 @@ function setupListeners(apiBase, token, settings) {
     if (area === 'sync' && changes[KEYS.AUTH_TOKEN]?.newValue) {
       const newToken = changes[KEYS.AUTH_TOKEN].newValue;
       const stored = await getStorage([KEYS.API_BASE, KEYS.USER_EMAIL]);
-      const base = stored[KEYS.API_BASE] || 'http://localhost:3001';
+      const base = stored[KEYS.API_BASE] || 'https://keeva0.vercel.app';
       const email = stored[KEYS.USER_EMAIL] || 'Connected';
       showConnected(email);
       await loadCurrentPageMeta(newToken, base);

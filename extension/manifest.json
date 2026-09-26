@@ -40,8 +40,9 @@
   ],
   "host_permissions": [
     "https://*/*",
-    "http://localhost:*",
-    "http://127.0.0.1:*"
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*",
+    "https://keeva0.vercel.app/*"
   ],
   "web_accessible_resources": [
     {

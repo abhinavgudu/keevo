@@ -30,7 +30,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!targetUrl) return;
 
   const stored = await chrome.storage.sync.get([KEYS.API_BASE, KEYS.AUTH_TOKEN]);
-  const apiBase = stored[KEYS.API_BASE] || 'http://localhost:3001';
+  const apiBase = stored[KEYS.API_BASE] || 'https://keeva0.vercel.app';
   const token = stored[KEYS.AUTH_TOKEN];
 
   if (!token) {
