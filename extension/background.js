@@ -1,164 +1,61 @@
-// Keeva Browser Extension - Background Service Worker
-// Handles context menus, API communication, and auth
+// Keeva Chrome Extension — background.js (Service Worker)
+// Handles: context menus, auth token capture, cross-tab messaging
 
-const KEEVO_API_BASE = (async () => {
-  const { apiBase } = await chrome.storage.sync.get('apiBase');
-  return apiBase || 'http://localhost:3000';
-})();
+const KEYS = {
+  API_BASE: 'keeva_api_base',
+  AUTH_TOKEN: 'keeva_auth_token',
+  USER_EMAIL: 'keeva_user_email',
+};
 
-async function getApiBase() {
-  const { apiBase } = await chrome.storage.sync.get('apiBase');
-  return apiBase || 'http://localhost:3000';
-}
+// ─── Context Menu Setup ──────────────────────────────────────────────────────
 
-async function getAuthToken() {
-  const { authToken } = await chrome.storage.sync.get('authToken');
-  return authToken;
-}
-
-// Create context menus on install
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'keeva-save-link',
-    title: 'Save to Keeva Vault',
-    contexts: ['link', 'page', 'selection', 'video', 'audio'],
-    documentUrlPatterns: ['http://*/*', 'https://*/*']
-  });
-
-  chrome.contextMenus.create({
-    id: 'keeva-save-video',
-    title: 'Save Video/Reel to Keeva',
-    contexts: ['video'],
-    documentUrlPatterns: ['http://*/*', 'https://*/*']
-  });
-
-  chrome.contextMenus.create({
-    id: 'keeva-save-pdf',
-    title: 'Save PDF/Document to Keeva',
-    contexts: ['link'],
-    targetUrlPatterns: ['*.pdf', '*.doc', '*.docx', '*.ppt', '*.pptx'],
-    documentUrlPatterns: ['http://*/*', 'https://*/*']
+  // Remove existing menus first
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'save-to-keeva',
+      title: '⚡ Save to Keeva',
+      contexts: ['page', 'link', 'video', 'image'],
+    });
+    chrome.contextMenus.create({
+      id: 'save-link-to-keeva',
+      title: '🔗 Save This Link to Keeva',
+      contexts: ['link'],
+    });
   });
 });
 
-// Context menu click handler
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  const apiBase = await getApiBase();
-  const token = await getAuthToken();
+  const targetUrl = info.linkUrl || info.srcUrl || info.pageUrl || tab.url;
+  if (!targetUrl) return;
+
+  const stored = await chrome.storage.sync.get([KEYS.API_BASE, KEYS.AUTH_TOKEN]);
+  const apiBase = stored[KEYS.API_BASE] || 'http://localhost:3001';
+  const token = stored[KEYS.AUTH_TOKEN];
 
   if (!token) {
-    showNotification('Please login to Keeva first', 'error');
-    chrome.action.openPopup();
-    return;
-  }
-
-  let url = info.linkUrl || info.pageUrl || info.srcUrl || '';
-  let title = info.selectionText || '';
-
-  if (!url && tab?.url) url = tab.url;
-
-  if (!url) {
-    showNotification('No URL found to save', 'error');
+    chrome.tabs.create({ url: `${apiBase}/auth/signin?ref=extension` });
     return;
   }
 
   try {
-    showNotification('Saving to Keeva...', 'info');
-
-    const response = await fetch(`${apiBase}/api/scrape`, {
+    // Scrape
+    const scrapeRes = await fetch(`${apiBase}/api/scrape`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ url })
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ url: targetUrl }),
+      signal: AbortSignal.timeout(8000),
     });
+    const scrapeData = await scrapeRes.json();
+    const meta = scrapeData.metadata || {};
 
-    const data = await response.json();
-
-    if (data.success && data.metadata) {
-      const meta = data.metadata;
-      const saveResponse = await fetch(`${apiBase}/api/save-from-extension`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          title: meta.title || title || url,
-          source_url: meta.source_url || url,
-          platform: meta.platform || 'Web',
-          media_type: meta.media_type || 'ARTICLE',
-          aspect_ratio: meta.aspect_ratio || 'LANDSCAPE_16_9',
-          thumbnail_url: meta.thumbnail_url || null,
-          priority: meta.autoPriority || 'HIGH',
-          description: meta.description || '',
-          tags: meta.autoTags || [],
-          category_name: meta.autoCategoryName || ''
-        })
-      });
-
-      const saveData = await saveResponse.json();
-
-      if (saveData.success) {
-        showNotification(`Saved: ${meta.title?.slice(0, 40)}...`, 'success');
-      } else {
-        showNotification('Save failed: ' + (saveData.error || 'Unknown error'), 'error');
-      }
-    } else {
-      showNotification('Could not extract metadata', 'error');
-    }
-  } catch (err) {
-    console.error('Keeva save error:', err);
-    showNotification('Failed to save: ' + err.message, 'error');
-  }
-});
-
-// Listen for messages from content script / popup
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'SAVE_CURRENT_PAGE') {
-    handleSaveCurrentPage(message.data).then(sendResponse);
-    return true; // async response
-  }
-  if (message.type === 'CHECK_AUTH') {
-    getAuthToken().then(token => sendResponse({ authenticated: !!token }));
-    return true;
-  }
-  if (message.type === 'GET_TRANSCRIPT') {
-    handleGetTranscript(message.videoUrl).then(sendResponse);
-    return true;
-  }
-});
-
-async function handleSaveCurrentPage(data) {
-  const apiBase = await getApiBase();
-  const token = await getAuthToken();
-
-  if (!token) return { success: false, error: 'Not authenticated' };
-
-  try {
-    const response = await fetch(`${apiBase}/api/scrape`, {
+    // Save
+    const saveRes = await fetch(`${apiBase}/api/save-from-extension`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ url: data.url })
-    });
-
-    const result = await response.json();
-    if (!result.success) return { success: false, error: result.error };
-
-    const meta = result.metadata;
-    const saveResponse = await fetch(`${apiBase}/api/save-from-extension`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        title: meta.title || data.title || data.url,
-        source_url: meta.source_url || data.url,
+        title: meta.title || tab.title || targetUrl,
+        source_url: meta.source_url || targetUrl,
         platform: meta.platform || 'Web',
         media_type: meta.media_type || 'ARTICLE',
         aspect_ratio: meta.aspect_ratio || 'LANDSCAPE_16_9',
@@ -166,48 +63,81 @@ async function handleSaveCurrentPage(data) {
         priority: meta.autoPriority || 'HIGH',
         description: meta.description || '',
         tags: meta.autoTags || [],
-        category_name: meta.autoCategoryName || ''
-      })
+        category_name: meta.autoCategoryName || '',
+      }),
+      signal: AbortSignal.timeout(10000),
     });
 
-    return await saveResponse.json();
+    const saveData = await saveRes.json();
+
+    if (saveData.success || saveRes.ok) {
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icons/icon48.png',
+        title: '✓ Saved to Keeva!',
+        message: (meta.title || targetUrl).slice(0, 80),
+        priority: 1,
+      });
+    } else {
+      throw new Error(saveData.error || 'Save failed');
+    }
   } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
-
-async function handleGetTranscript(videoUrl) {
-  const apiBase = await getApiBase();
-  const token = await getAuthToken();
-
-  if (!token) return { success: false, error: 'Not authenticated' };
-
-  try {
-    const response = await fetch(`${apiBase}/api/transcript`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ videoUrl })
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon48.png',
+      title: 'Keeva — Save Failed',
+      message: err.message.slice(0, 100),
+      priority: 2,
     });
-    return await response.json();
-  } catch (err) {
-    return { success: false, error: err.message };
   }
-}
+});
 
-function showNotification(message, type = 'info') {
-  chrome.notifications.create({
-    type: 'basic',
-    iconUrl: 'icons/icon48.png',
-    title: 'Keeva Vault',
-    message,
-    priority: type === 'error' ? 2 : 1
-  });
-}
+// ─── Auth Token Capture ───────────────────────────────────────────────────────
+// When user logs into Keeva app, it can call postMessage with token
+// OR the Keeva app can set the token in localStorage which we read via content script
 
-// Handle extension icon click - open popup automatically handled by manifest
-chrome.action.onClicked.addListener((tab) => {
-  // Popup opens automatically
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'KEEVA_AUTH_TOKEN') {
+    const { token, email } = message;
+    chrome.storage.sync.set({
+      [KEYS.AUTH_TOKEN]: token,
+      [KEYS.USER_EMAIL]: email || '',
+    }, () => {
+      sendResponse({ success: true });
+    });
+    return true; // keep channel open
+  }
+
+  if (message.type === 'KEEVA_LOGOUT') {
+    chrome.storage.sync.remove([KEYS.AUTH_TOKEN, KEYS.USER_EMAIL], () => {
+      sendResponse({ success: true });
+    });
+    return true;
+  }
+
+  if (message.type === 'GET_TOKEN') {
+    chrome.storage.sync.get([KEYS.AUTH_TOKEN], (result) => {
+      sendResponse({ token: result[KEYS.AUTH_TOKEN] || null });
+    });
+    return true;
+  }
+});
+
+// ─── Tab Navigation Listener ──────────────────────────────────────────────────
+// Update badge/icon when on a saveable page
+
+chrome.tabs.onActivated.addListener(async ({ tabId }) => {
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!tab) return;
+
+  const stored = await chrome.storage.sync.get([KEYS.AUTH_TOKEN]);
+  const isLoggedIn = !!stored[KEYS.AUTH_TOKEN];
+
+  // Show badge dot if logged in
+  if (isLoggedIn) {
+    chrome.action.setBadgeText({ text: '✓', tabId });
+    chrome.action.setBadgeBackgroundColor({ color: '#00E5FF', tabId });
+  } else {
+    chrome.action.setBadgeText({ text: '', tabId });
+  }
 });

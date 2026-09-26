@@ -3,147 +3,488 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Keeva Vault</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Keeva</title>
   <style>
-    * { box-sizing: border-box; }
-    body { width: 360px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    .btn { @apply px-4 py-2 rounded-xl font-semibold text-sm transition-all active:scale-95; }
-    .btn-primary { @apply bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 text-white; }
-    .btn-secondary { @apply bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700; }
-    .btn-danger { @apply bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30; }
-    .input { @apply w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500; }
-    .card { @apply bg-slate-900/80 border border-slate-800 rounded-2xl p-4; }
-    .badge { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono; }
-    .badge-cyan { @apply bg-cyan-500/15 text-cyan-300 border border-cyan-500/20; }
-    .badge-amber { @apply bg-amber-500/15 text-amber-300 border border-amber-500/20; }
-    .badge-rose { @apply bg-rose-500/15 text-rose-300 border border-rose-500/20; }
-    .badge-emerald { @apply bg-emerald-500/15 text-emerald-300 border border-emerald-500/20; }
-    .skeleton { @apply animate-pulse bg-slate-800 rounded; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #06070B;
+      --surface: #0d0f18;
+      --border: rgba(255,255,255,0.07);
+      --border-glow: rgba(0,229,255,0.25);
+      --text: #f1f5f9;
+      --muted: #64748b;
+      --cyan: #00E5FF;
+      --indigo: #6366f1;
+      --pink: #d946ef;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+    }
+
+    body {
+      width: 380px;
+      min-height: 500px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 14px;
+      overflow-x: hidden;
+    }
+
+    /* --- Layout --- */
+    #app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* --- Header --- */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(to bottom, rgba(0,229,255,0.04), transparent);
+    }
+    .logo-wrap {
+      width: 36px; height: 36px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #00E5FF 0%, #6366f1 50%, #d946ef 100%);
+      padding: 1.5px;
+      flex-shrink: 0;
+    }
+    .logo-inner {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      border-radius: 10.5px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-inner svg { filter: drop-shadow(0 0 6px rgba(0,229,255,0.5)); }
+    .brand-name { font-size: 18px; font-weight: 900; color: white; letter-spacing: -0.5px; }
+    .brand-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px; font-weight: 700;
+      background: rgba(0,229,255,0.12);
+      border: 1px solid rgba(0,229,255,0.3);
+      color: var(--cyan);
+      padding: 2px 6px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+    }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .settings-btn {
+      width: 30px; height: 30px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+    .settings-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+
+    /* --- Status Bar --- */
+    .status-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+    }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .status-dot.connected { background: var(--emerald); box-shadow: 0 0 6px var(--emerald); animation: pulse-dot 2s infinite; }
+    .status-dot.disconnected { background: var(--rose); }
+    .status-text { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); }
+    .status-email { color: var(--text); font-weight: 600; font-size: 11px; }
+    @keyframes pulse-dot { 0%,100%{ opacity:1; } 50%{ opacity:0.5; } }
+
+    /* --- Content --- */
+    .content { flex: 1; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+
+    /* --- Current Page Card --- */
+    .page-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      position: relative;
+      overflow: hidden;
+    }
+    .page-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      opacity: 0.4;
+    }
+    .thumb {
+      width: 52px; height: 52px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: none; }
+    .thumb-fallback { color: var(--muted); }
+    .page-meta { flex: 1; min-width: 0; }
+    .page-title {
+      font-size: 12px; font-weight: 700; color: white;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+      line-height: 1.4; margin-bottom: 5px;
+    }
+    .page-url { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
+    .tags-row { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tag {
+      font-size: 9px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+      padding: 2px 7px; border-radius: 20px; letter-spacing: 0.3px;
+    }
+    .tag-instagram { background: rgba(213,70,239,0.15); color: #e879f9; border: 1px solid rgba(213,70,239,0.3); }
+    .tag-youtube { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+    .tag-tiktok { background: rgba(0,229,255,0.1); color: var(--cyan); border: 1px solid rgba(0,229,255,0.25); }
+    .tag-linkedin { background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); }
+    .tag-pdf { background: rgba(244,63,94,0.15); color: #fb7185; border: 1px solid rgba(244,63,94,0.3); }
+    .tag-web { background: rgba(0,229,255,0.08); color: var(--cyan); border: 1px solid rgba(0,229,255,0.2); }
+    .tag-priority { background: rgba(245,158,11,0.12); color: var(--amber); border: 1px solid rgba(245,158,11,0.25); }
+    .tag-category { background: rgba(99,102,241,0.12); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.25); }
+
+    /* --- Preview fetching state --- */
+    .fetch-state {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px;
+      background: rgba(0,229,255,0.05);
+      border: 1px solid rgba(0,229,255,0.15);
+      border-radius: 12px;
+      font-size: 11px; color: var(--cyan);
+    }
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(0,229,255,0.2);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* --- Save Button (BIG primary CTA) --- */
+    .save-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--cyan), var(--indigo), var(--pink));
+      color: white;
+      font-size: 14px;
+      font-weight: 800;
+      border: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 30px rgba(0,229,255,0.2), 0 4px 15px rgba(99,102,241,0.2);
+    }
+    .save-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 35px rgba(0,229,255,0.3); }
+    .save-btn:active { transform: scale(0.98); }
+    .save-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .save-btn-shine {
+      position: absolute; top: 0; left: -100%;
+      width: 80%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+      transition: left 0.5s;
+    }
+    .save-btn:hover .save-btn-shine { left: 200%; }
+
+    /* --- Secondary row --- */
+    .action-row { display: flex; gap: 6px; }
+    .btn-sm {
+      flex: 1;
+      padding: 9px 8px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      font-size: 11px; font-weight: 600;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      transition: all 0.2s;
+    }
+    .btn-sm:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); }
+    .btn-sm:active { transform: scale(0.97); }
+    .btn-sm.danger:hover { background: rgba(244,63,94,0.1); border-color: rgba(244,63,94,0.3); color: #fb7185; }
+
+    /* --- Auth section --- */
+    .auth-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+    }
+    .auth-emoji { font-size: 36px; margin-bottom: 10px; }
+    .auth-title { font-size: 16px; font-weight: 800; color: white; margin-bottom: 5px; }
+    .auth-sub { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+
+    /* --- Success state --- */
+    .success-overlay {
+      position: absolute; inset: 0;
+      background: rgba(6,7,11,0.92);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      border-radius: 16px;
+      z-index: 10;
+      transition: opacity 0.3s;
+    }
+    .success-icon { font-size: 40px; margin-bottom: 8px; }
+    .success-text { font-size: 14px; font-weight: 700; color: var(--emerald); }
+    .success-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    /* --- Settings panel --- */
+    #settingsPanel { display: none; padding: 14px; }
+    #settingsPanel.active { display: block; }
+    .settings-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .settings-label { font-size: 12px; color: var(--text); font-weight: 500; }
+    .settings-sub { font-size: 10px; color: var(--muted); margin-top: 1px; font-family: 'JetBrains Mono', monospace; }
+    .input-field {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      outline: none;
+      transition: border-color 0.2s;
+      margin-top: 4px;
+    }
+    .input-field:focus { border-color: var(--cyan); }
+    /* Toggle switch */
+    .toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,0.1);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: 0.3s;
+      border: 1px solid var(--border);
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      left: 3px; bottom: 2px;
+      background: var(--muted);
+      transition: 0.3s;
+    }
+    .toggle input:checked + .toggle-slider { background: rgba(0,229,255,0.2); border-color: var(--cyan); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(14px); background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+
+    /* --- Footer --- */
+    .footer {
+      padding: 8px 14px;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 9px; font-family: 'JetBrains Mono', monospace; color: var(--muted);
+    }
+    .footer a { color: var(--cyan); text-decoration: none; }
+    .footer a:hover { color: white; }
+
+    /* --- Toast --- */
+    #toast {
+      position: fixed; bottom: 14px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(13,15,24,0.95);
+      border: 1px solid rgba(0,229,255,0.3);
+      color: var(--cyan);
+      font-size: 11px; font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 20px;
+      white-space: nowrap;
+      backdrop-filter: blur(12px);
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 100;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.error { border-color: rgba(244,63,94,0.4); color: #fb7185; }
+    #toast.success { border-color: rgba(16,185,129,0.4); color: var(--emerald); }
+
+    /* Hidden utility */
+    .hidden { display: none !important; }
   </style>
 </head>
-<body class="bg-[#06070B] text-slate-100 p-4">
-  <div id="app">
-    <!-- Header -->
-    <div class="flex items-center gap-3 mb-4">
-      <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1.5px]">
-        <div class="w-full h-full bg-[#06070B] rounded-[14px] flex items-center justify-center">
-          <svg viewBox="0 0 120 100" width="22" height="22" fill="none">
-            <defs><linearGradient id="pg1" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#00E5FF"/><stop offset="50%" stopColor="#6366F1"/><stop offset="100%" stopColor="#D946EF"/>
-            </linearGradient></defs>
-            {/* K */}
-            <path d="M18 25 L18 75 M18 50 L35 25 M18 50 L35 75" stroke="url(#pg1)" strokeWidth="11" strokeLinecap="round"/>
-            {/* E */}
-            <path d="M45 25 L60 25 M45 50 L58 50 M45 75 L60 75 M45 25 L45 75" stroke="url(#pg1)" strokeWidth="11" strokeLinecap="round"/>
-            {/* E */}
-            <path d="M70 25 L85 25 M70 50 L83 50 M70 75 L85 75 M70 25 L70 75" stroke="url(#pg1)" strokeWidth="11" strokeLinecap="round"/>
-            {/* V */}
-            <path d="M90 25 L96 75 L102 25" stroke="url(#pg1)" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round"/>
-            {/* A */}
-            <path d="M108 75 L115 25 L122 75 M110 50 L120 50" stroke="url(#pg1)" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
-      </div>
-      <div>
-        <h1 class="text-lg font-black text-white">Keeva</h1>
-        <p class="text-[10px] text-slate-400 font-mono">Save to Vault</p>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-wrap">
+      <div class="logo-inner">
+        <svg viewBox="0 0 100 100" width="20" height="20" fill="none">
+          <defs>
+            <linearGradient id="kg1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#00E5FF"/>
+              <stop offset="50%" stop-color="#6366F1"/>
+              <stop offset="100%" stop-color="#D946EF"/>
+            </linearGradient>
+          </defs>
+          <rect x="26" y="22" width="11" height="56" rx="3" fill="url(#kg1)"/>
+          <path d="M37 50 L68 22 L78 22 L47 50Z" fill="url(#kg1)" opacity="0.95"/>
+          <path d="M37 50 L68 78 L78 78 L47 50Z" fill="url(#kg1)" opacity="0.95"/>
+          <circle cx="44" cy="50" r="4" fill="#00E5FF" opacity="0.9"/>
+        </svg>
       </div>
     </div>
-
-    <!-- Auth Status -->
-    <div id="authSection" class="card mb-4">
-      <div id="unauthenticated" class="hidden">
-        <p class="text-sm text-slate-400 mb-3">Connect your Keeva account to save content</p>
-        <button id="loginBtn" class="btn btn-primary w-full">Login / Signup</button>
-        <p class="text-[11px] text-slate-500 mt-2 text-center">Opens Keeva in new tab</p>
+    <div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="brand-name">Keeva</span>
+        <span class="brand-badge">2.0</span>
       </div>
-      <div id="authenticated" class="hidden">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <div id="avatar" class="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center text-white text-xs font-black"></div>
-            <div>
-              <p id="userEmail" class="text-sm font-semibold text-white"></p>
-              <p class="text-[10px] text-emerald-400 font-mono">● Connected</p>
-            </div>
-          </div>
-          <button id="logoutBtn" class="btn btn-secondary text-[10px] px-2 py-1">Logout</button>
-        </div>
-      </div>
+      <div style="font-size:9px;color:#475569;font-family:'JetBrains Mono',monospace;margin-top:1px">Media Intelligence Vault</div>
     </div>
-
-    <!-- Current Page Info -->
-    <div id="pageInfo" class="card mb-4 hidden">
-      <div class="flex items-start gap-3">
-        <div id="pageThumb" class="w-16 h-16 rounded-xl bg-slate-800 flex-shrink-0 relative overflow-hidden">
-          <img id="thumbImg" src="" alt="" class="w-full h-full object-cover hidden">
-          <div id="thumbFallback" class="w-full h-full flex items-center justify-center">
-            <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          </div>
-        </div>
-        <div class="flex-1 min-w-0">
-          <p id="pageTitle" class="text-sm font-semibold text-white truncate"></p>
-          <p id="pagePlatform" class="text-[10px] text-slate-400 font-mono"></p>
-          <div id="pageTags" class="flex flex-wrap gap-1 mt-2"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Video Detected Section -->
-    <div id="videoSection" class="card mb-4 hidden">
-      <div class="flex items-center gap-2 text-xs font-semibold text-cyan-400 mb-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        <span>Video Detected</span>
-      </div>
-      <div class="space-y-2">
-        <button id="saveVideoBtn" class="btn btn-primary w-full flex items-center justify-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-          Save Video to Vault
-        </button>
-        <button id="getTranscriptBtn" class="btn btn-secondary w-full flex items-center justify-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-          Get Transcript (AI)
-        </button>
-      </div>
-      <p id="transcriptStatus" class="text-[10px] text-slate-500 text-center hidden"></p>
-    </div>
-
-    <!-- Quick Save Current Page -->
-    <div id="quickSaveSection" class="card mb-4 hidden">
-      <p class="text-sm text-slate-300 mb-3">Save this page to your vault</p>
-      <input type="text" id="customTitle" class="input mb-3" placeholder="Custom title (optional)">
-      <div class="flex gap-2">
-        <button id="savePageBtn" class="btn btn-primary flex-1">Save Page</button>
-        <button id="saveAsPdfBtn" class="btn btn-secondary">Save as PDF</button>
-      </div>
-    </div>
-
-    <!-- Settings -->
-    <div class="card">
-      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Settings</p>
-      <div class="space-y-2">
-        <label class="flex items-center justify-between cursor-pointer">
-          <span class="text-sm text-slate-300">Auto-detect videos</span>
-          <input type="checkbox" id="autoDetect" class="w-5 h-5 accent-cyan-500 rounded border-slate-700 bg-slate-800" checked>
-        </label>
-        <label class="flex items-center justify-between cursor-pointer">
-          <span class="text-sm text-slate-300">Show notifications</span>
-          <input type="checkbox" id="showNotifs" class="w-5 h-5 accent-cyan-500 rounded border-slate-700 bg-slate-800" checked>
-        </label>
-        <div class="pt-2 border-t border-slate-800">
-          <label class="block text-[10px] text-slate-500 mb-1">API Base URL</label>
-          <input type="text" id="apiBase" class="input text-[11px]" placeholder="http://localhost:3000">
-        </div>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-500 font-mono">
-      <span>v1.0.0</span>
-      <a href="https://github.com/yourusername/keevo" target="_blank" class="text-cyan-400 hover:text-cyan-300">Docs</a>
+    <div class="header-right">
+      <button class="settings-btn" id="settingsToggle" title="Settings">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+      </button>
     </div>
   </div>
 
-  <script type="module" src="popup.js"></script>
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div class="status-dot disconnected" id="statusDot"></div>
+    <span class="status-text" id="statusText">Not connected</span>
+    <span class="status-email hidden" id="statusEmail"></span>
+    <button class="hidden" id="logoutMini" style="margin-left:auto;font-size:9px;font-family:'JetBrains Mono',monospace;color:#475569;background:none;border:none;cursor:pointer;text-decoration:underline">Logout</button>
+  </div>
+
+  <!-- Main Content -->
+  <div class="content" id="mainContent">
+
+    <!-- Not Logged In State -->
+    <div id="unauthState" class="hidden">
+      <div class="auth-card">
+        <div class="auth-emoji">🔐</div>
+        <div class="auth-title">Login to Keeva</div>
+        <div class="auth-sub">Save any content from anywhere to your personal intelligence vault. Connect your account to get started.</div>
+        <button class="save-btn" id="loginBtn" style="font-size:13px;padding:12px">
+          <div class="save-btn-shine"></div>
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+          Open Keeva & Login
+        </button>
+      </div>
+    </div>
+
+    <!-- Logged In State -->
+    <div id="authState" class="hidden">
+
+      <!-- Current Page Preview Card -->
+      <div class="page-card" id="pageCard">
+        <div class="thumb" id="thumbContainer">
+          <img id="thumbImg" alt="">
+          <div class="thumb-fallback" id="thumbFallback">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          </div>
+        </div>
+        <div class="page-meta">
+          <div class="page-title" id="pageTitle">Loading page info...</div>
+          <div class="page-url" id="pageUrl"></div>
+          <div class="tags-row" id="tagsRow"></div>
+        </div>
+        <!-- Success overlay -->
+        <div class="success-overlay hidden" id="successOverlay">
+          <div class="success-icon">✅</div>
+          <div class="success-text">Saved to Keeva!</div>
+          <div class="success-sub" id="successSub"></div>
+        </div>
+      </div>
+
+      <!-- Fetching indicator -->
+      <div class="fetch-state hidden" id="fetchState">
+        <div class="spinner"></div>
+        <span id="fetchText">Fetching metadata...</span>
+      </div>
+
+      <!-- BIG Save Button -->
+      <button class="save-btn" id="saveBtn" disabled>
+        <div class="save-btn-shine"></div>
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+        <span id="saveBtnText">Save to Keeva Vault</span>
+      </button>
+
+      <!-- Secondary Actions -->
+      <div class="action-row">
+        <button class="btn-sm" id="openVaultBtn" title="Open Keeva Vault">
+          <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          Open Vault
+        </button>
+        <button class="btn-sm" id="copyUrlBtn" title="Copy Current URL">
+          <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          Copy URL
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Panel -->
+  <div id="settingsPanel">
+    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-family:'JetBrains Mono',monospace">Settings</div>
+
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">API Base URL</div>
+        <div class="settings-sub">Your Keeva app URL</div>
+      </div>
+    </div>
+    <input type="url" class="input-field" id="apiBaseInput" placeholder="https://your-keeva-url.com">
+
+    <div class="settings-row" style="margin-top:12px">
+      <div>
+        <div class="settings-label">Auto-detect platform</div>
+        <div class="settings-sub">Detect Instagram/YouTube/etc.</div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="autoDetectToggle" checked><span class="toggle-slider"></span></label>
+    </div>
+
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Show notifications</div>
+        <div class="settings-sub">After save success/fail</div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="showNotifsToggle" checked><span class="toggle-slider"></span></label>
+    </div>
+
+    <button class="save-btn" id="saveSettingsBtn" style="margin-top:14px;font-size:13px;padding:11px">
+      <div class="save-btn-shine"></div>
+      Save Settings
+    </button>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>v2.0.0 · Keeva</span>
+    <a href="#" id="footerLink">Open Vault ↗</a>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="popup.js"></script>
 </body>
 </html>

@@ -284,18 +284,16 @@ return (
                   <span>{isUpdatingPublic ? 'Sharing...' : (isPublic ? 'Public in Community' : 'Share to Community')}</span>
                 </button>
 
-                {/* Transcript Button - only for video content */}
-                {(item.media_type === 'REEL' || item.aspect_ratio === 'PORTRAIT_9_16' || 
-                  item.platform === 'YouTube' || item.platform === 'YouTube Shorts' || 
-                  item.platform === 'Instagram' || item.platform === 'TikTok') && (
+                {/* Transcript Button - only for YouTube where it's actually possible */}
+                {(item.platform === 'YouTube' || item.platform === 'YouTube Shorts') && item.transcript_json?.length ? (
                   <button
                     onClick={() => setShowTranscript(true)}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 text-xs font-semibold text-cyan-300 transition-colors"
                   >
                     <FileText className="w-4 h-4" />
-                    <span>{item.transcript_json?.length ? `Transcript (${item.transcript_json.length})` : 'Generate Transcript'}</span>
+                    <span>Transcript ({item.transcript_json.length} segments)</span>
                   </button>
-                )}
+                ) : null}
               </div>
 
               <span className="text-xs text-slate-500 font-mono flex items-center gap-1">

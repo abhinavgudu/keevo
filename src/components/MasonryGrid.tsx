@@ -49,7 +49,7 @@ export function MasonryGrid({
   }
 
   return (
-    <div className="w-full columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5 space-y-5">
+    <div className="w-full columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-5 space-y-5">
       {items.map((item) => {
         if (item.media_type === 'DOCUMENT' || item.aspect_ratio === 'STANDARD_DOCUMENT') {
           return (

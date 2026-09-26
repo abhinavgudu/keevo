@@ -23,7 +23,7 @@ interface HeaderProps {
 function KeevaMark({ size = 24 }: { size?: number }) {
   return (
     <img
-      src="/keeva-logo.svg"
+      src="/keeva-logo.png"
       alt="Keeva Logo"
       width={size}
       height={size}

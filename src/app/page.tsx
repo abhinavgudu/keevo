@@ -22,6 +22,8 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { GlobalDropzone } from '@/components/GlobalDropzone';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { Footer } from '@/components/Footer';
+import { ExitConfirmPopup } from '@/components/ExitConfirmPopup';
+import { useMobileBackHandler } from '@/hooks/useMobileBackHandler';
 import { Plus, Loader2, BookmarkCheck, Compass } from 'lucide-react';
 
 export default function KeevaDashboard() {
@@ -37,7 +39,7 @@ export default function KeevaDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedMediaType, setSelectedMediaType] = useState<FilterMediaType>('ALL');
-  const [sortBy, setSortBy] = useState<SortOption>('PRIORITY_DESC');
+  const [sortBy, setSortBy] = useState<SortOption>('NEWEST');
 
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -48,6 +50,9 @@ export default function KeevaDashboard() {
   const [activePdfItem, setActivePdfItem] = useState<ContentItem | null>(null);
   const [activeMediaItem, setActiveMediaItem] = useState<ContentItem | null>(null);
   const [activeTranscriptItem, setActiveTranscriptItem] = useState<ContentItem | null>(null);
+
+  // Exit confirmation popup
+  const [showExitPopup, setShowExitPopup] = useState(false);
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -266,7 +271,7 @@ export default function KeevaDashboard() {
     setSearchQuery('');
     setSelectedCategoryId(null);
     setSelectedMediaType('ALL');
-    setSortBy('PRIORITY_DESC');
+    setSortBy('NEWEST');
   };
 
   const scrollToTop = () => {
@@ -274,8 +279,33 @@ export default function KeevaDashboard() {
   };
 
   const hasActiveFilters = Boolean(
-    searchQuery || selectedCategoryId !== null || selectedMediaType !== 'ALL' || sortBy !== 'PRIORITY_DESC'
+    searchQuery || selectedCategoryId !== null || selectedMediaType !== 'ALL' || sortBy !== 'NEWEST'
   );
+
+  // Close any top-most open modal (for back button handling)
+  const closeTopModal = useCallback(() => {
+    if (isCommandPaletteOpen) { setIsCommandPaletteOpen(false); return; }
+    if (isSettingsModalOpen) { setIsSettingsModalOpen(false); return; }
+    if (isReelsDeckOpen) { setIsReelsDeckOpen(false); return; }
+    if (isCategoryModalOpen) { setIsCategoryModalOpen(false); return; }
+    if (activeTranscriptItem) { setActiveTranscriptItem(null); return; }
+    if (activeMediaItem) { setActiveMediaItem(null); return; }
+    if (activePdfItem) { setActivePdfItem(null); return; }
+    if (isAddModalOpen) { setIsAddModalOpen(false); return; }
+  }, [isCommandPaletteOpen, isSettingsModalOpen, isReelsDeckOpen, isCategoryModalOpen, activeTranscriptItem, activeMediaItem, activePdfItem, isAddModalOpen]);
+
+  const hasAnyModalOpen = isAddModalOpen || isCategoryModalOpen || isSettingsModalOpen ||
+    isReelsDeckOpen || isCommandPaletteOpen || !!activePdfItem || !!activeMediaItem ||
+    !!activeTranscriptItem;
+
+  // Mobile back button handler
+  useMobileBackHandler({
+    hasOpenModal: hasAnyModalOpen,
+    hasActiveFilters,
+    closeModal: closeTopModal,
+    resetFilters: handleResetFilters,
+    onExitRequest: () => setShowExitPopup(true),
+  });
 
   // Show loading spinner while auth is being checked
   if (authLoading || (!user && !authLoading)) {
@@ -486,6 +516,17 @@ export default function KeevaDashboard() {
         item={activeTranscriptItem}
         isOpen={!!activeTranscriptItem}
         onClose={() => setActiveTranscriptItem(null)}
+      />
+
+      {/* Mobile Exit Confirmation Popup */}
+      <ExitConfirmPopup
+        isOpen={showExitPopup}
+        onStay={() => setShowExitPopup(false)}
+        onExit={() => {
+          setShowExitPopup(false);
+          // Actually exit: navigate back in history
+          window.history.go(-1);
+        }}
       />
     </div>
   );

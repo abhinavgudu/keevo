@@ -1,188 +1,125 @@
-// Keeva Browser Extension - Content Script
-// Detects video elements, provides page metadata, handles transcript extraction
+// Keeva Chrome Extension — content.js
+// Runs on all pages. Key jobs:
+// 1. Auto-capture auth token when user logs into Keeva app
+// 2. Provide page metadata to the popup
 
 (function () {
   'use strict';
 
-  // Detect platform from URL
-  function detectPlatform(url) {
-    const u = url.toLowerCase();
-    if (u.includes('instagram.com/reel') || u.includes('instagram.com/p/')) return 'Instagram';
-    if (u.includes('youtube.com/shorts') || u.includes('youtu.be/') && u.includes('shorts')) return 'YouTube Shorts';
-    if (u.includes('youtube.com') || u.includes('youtu.be')) return 'YouTube';
-    if (u.includes('tiktok.com')) return 'TikTok';
-    if (u.includes('linkedin.com')) return 'LinkedIn';
-    if (u.includes('twitter.com') || u.includes('x.com')) return 'Twitter/X';
-    if (u.match(/\.(pdf|doc|docx|ppt|pptx)(\?|$)/)) return 'PDF';
-    return 'Web';
-  }
+  // ─── Auth Token Auto-Capture ─────────────────────────────────────────────
+  // When Keeva app sets session token in localStorage, we forward it to extension
+  const KEEVA_HOST_PATTERNS = [
+    /keeva/i,
+    /localhost:\d+/i,
+    /reelsvault/i,
+    /127\.0\.0\.1/i,
+  ];
 
-  // Extract metadata from page
-  function extractPageMetadata() {
-    const metadata = {
-      url: window.location.href,
-      title: document.title,
-      description: '',
-      thumbnail_url: null,
-      platform: detectPlatform(window.location.href),
-      videoElements: []
+  const isKeevaOrigin = KEEVA_HOST_PATTERNS.some(p => p.test(window.location.host));
+
+  if (isKeevaOrigin) {
+    // Try reading token from localStorage (set by Keeva app after login)
+    function tryCapturAuthToken() {
+      try {
+        // Supabase stores session like: sb-<project>-auth-token
+        const keys = Object.keys(localStorage);
+        const authKey = keys.find(k => k.includes('auth-token') || k.includes('supabase.auth.token'));
+        if (!authKey) return;
+
+        const raw = localStorage.getItem(authKey);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        const token = parsed?.access_token || parsed?.currentSession?.access_token;
+        const email = parsed?.user?.email || parsed?.currentSession?.user?.email;
+
+        if (token) {
+          chrome.runtime.sendMessage({
+            type: 'KEEVA_AUTH_TOKEN',
+            token,
+            email: email || '',
+          });
+        }
+      } catch (e) {
+        // Silently fail
+      }
+    }
+
+    // Run on load
+    tryCapturAuthToken();
+
+    // Watch for localStorage changes (login event)
+    const origSetItem = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = function (key, value) {
+      origSetItem(key, value);
+      if (key.includes('auth-token') || key.includes('supabase.auth.token')) {
+        setTimeout(tryCapturAuthToken, 200);
+      }
     };
 
-    // Open Graph tags
-    const ogTitle = document.querySelector('meta[property="og:title"]')?.content;
-    const ogDesc = document.querySelector('meta[property="og:description"]')?.content;
-    const ogImage = document.querySelector('meta[property="og:image"]')?.content;
-    const ogVideo = document.querySelector('meta[property="og:video"]')?.content;
-
-    if (ogTitle) metadata.title = ogTitle;
-    if (ogDesc) metadata.description = ogDesc;
-    if (ogImage) metadata.thumbnail_url = ogImage;
-    if (ogVideo) metadata.video_url = ogVideo;
-
-    // Twitter Card
-    const twitterTitle = document.querySelector('meta[name="twitter:title"]')?.content;
-    const twitterDesc = document.querySelector('meta[name="twitter:description"]')?.content;
-    const twitterImage = document.querySelector('meta[name="twitter:image"]')?.content;
-
-    if (twitterTitle && !ogTitle) metadata.title = twitterTitle;
-    if (twitterDesc && !ogDesc) metadata.description = twitterDesc;
-    if (twitterImage && !ogImage) metadata.thumbnail_url = twitterImage;
-
-    // Find video elements
-    document.querySelectorAll('video').forEach((video, idx) => {
-      const src = video.src || video.querySelector('source')?.src;
-      if (src) {
-        metadata.videoElements.push({
-          index: idx,
-          src,
-          poster: video.poster,
-          duration: video.duration,
-          isShorts: window.location.href.includes('/shorts/') ||
-            (video.videoWidth && video.videoHeight && video.videoHeight > video.videoWidth)
+    // Also listen for custom postMessage from the Keeva app
+    window.addEventListener('message', (event) => {
+      if (event.source !== window) return;
+      if (event.data?.type === 'KEEVA_AUTH_TOKEN' && event.data?.token) {
+        chrome.runtime.sendMessage({
+          type: 'KEEVA_AUTH_TOKEN',
+          token: event.data.token,
+          email: event.data.email || '',
         });
       }
     });
-
-    // YouTube specific
-    if (metadata.platform === 'YouTube' || metadata.platform === 'YouTube Shorts') {
-      const ytVideoId = new URLSearchParams(window.location.search).get('v') ||
-        window.location.pathname.split('/shorts/')[1]?.split('/')[0] ||
-        window.location.pathname.split('/').pop();
-      if (ytVideoId) {
-        metadata.youtube_id = ytVideoId;
-        metadata.thumbnail_url = metadata.thumbnail_url || `https://img.youtube.com/vi/${ytVideoId}/hqdefault.jpg`;
-      }
-    }
-
-    // Instagram specific
-    if (metadata.platform === 'Instagram') {
-      const metaDesc = document.querySelector('meta[name="description"]')?.content;
-      if (metaDesc) metadata.description = metaDesc;
-    }
-
-    return metadata;
   }
 
-  // Listen for messages from background/popup
+  // ─── Page Metadata Extraction ────────────────────────────────────────────
+  // Popup calls GET_PAGE_METADATA → we respond with rich metadata
+
+  function getMetaContent(selector) {
+    return document.querySelector(selector)?.getAttribute('content') || null;
+  }
+
+  function extractPageMetadata() {
+    const url = window.location.href;
+    const title = getMetaContent('meta[property="og:title"]') ||
+                  getMetaContent('meta[name="twitter:title"]') ||
+                  document.title || '';
+    const description = getMetaContent('meta[property="og:description"]') ||
+                        getMetaContent('meta[name="description"]') || '';
+    const thumbnail = getMetaContent('meta[property="og:image"]') ||
+                      getMetaContent('meta[name="twitter:image"]') || null;
+    const siteName = getMetaContent('meta[property="og:site_name"]') || '';
+
+    // Detect video elements
+    const videoElements = Array.from(document.querySelectorAll('video')).map(v => ({
+      src: v.src || v.currentSrc,
+      poster: v.poster,
+    })).filter(v => v.src);
+
+    // YouTube video ID
+    let youtube_id = null;
+    const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    if (ytMatch) youtube_id = ytMatch[1];
+
+    return {
+      url,
+      title: title.slice(0, 200),
+      description: description.slice(0, 500),
+      thumbnail_url: thumbnail,
+      site_name: siteName,
+      videoElements: videoElements.slice(0, 3),
+      youtube_id,
+    };
+  }
+
+  // Listen for popup requesting metadata
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'GET_PAGE_METADATA') {
-      sendResponse({ success: true, metadata: extractPageMetadata() });
-    }
-    if (message.type === 'GET_VIDEO_ELEMENTS') {
-      const videos = Array.from(document.querySelectorAll('video')).map((v, i) => ({
-        index: i,
-        src: v.src || v.querySelector('source')?.src,
-        poster: v.poster,
-        duration: v.duration,
-        currentTime: v.currentTime
-      }));
-      sendResponse({ success: true, videos });
-    }
-    if (message.type === 'EXTRACT_TRANSCRIPT') {
-      extractTranscriptFromPage(message.videoSelector).then(sendResponse);
+      try {
+        const meta = extractPageMetadata();
+        sendResponse({ success: true, metadata: meta });
+      } catch (e) {
+        sendResponse({ success: false, error: e.message });
+      }
       return true;
     }
   });
-
-  // Try to extract transcript from YouTube/Instagram/TikTok
-  async function extractTranscriptFromPage(selector) {
-    const video = document.querySelector(selector || 'video');
-    if (!video) return { success: false, error: 'No video element found' };
-
-    // YouTube captions
-    if (window.location.hostname.includes('youtube.com')) {
-      return extractYouTubeTranscript();
-    }
-
-    // Instagram - no direct access
-    if (window.location.hostname.includes('instagram.com')) {
-      return { success: false, error: 'Instagram transcripts not accessible from content script' };
-    }
-
-    // Generic video - would need external API
-    return { success: false, error: 'Transcript extraction requires backend API' };
-  }
-
-  function extractYouTubeTranscript() {
-    // Try to get caption track from ytInitialData
-    try {
-      const ytData = window.ytInitialData || {};
-      const captions = ytData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-      if (captions?.length) {
-        const enCaption = captions.find(c => c.languageCode?.startsWith('en')) || captions[0];
-        if (enCaption?.baseUrl) {
-          return fetch(enCaption.baseUrl)
-            .then(r => r.text())
-            .then(xml => parseYouTubeCaptionXML(xml))
-            .then(segments => ({ success: true, transcript: segments, language: enCaption.languageCode }));
-        }
-      }
-    } catch (e) {
-      console.warn('YouTube transcript extraction failed:', e);
-    }
-    return { success: false, error: 'No captions available' };
-  }
-
-  function parseYouTubeCaptionXML(xml) {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(xml, 'text/xml');
-    const segments = [];
-    doc.querySelectorAll('text').forEach(el => {
-      const start = parseFloat(el.getAttribute('start') || '0');
-      const dur = parseFloat(el.getAttribute('dur') || '0');
-      segments.push({
-        text: el.textContent,
-        start,
-        end: start + dur
-      });
-    });
-    return segments;
-  }
-
-  // Add visual indicator for detected videos
-  function addVideoIndicators() {
-    document.querySelectorAll('video').forEach((video, idx) => {
-      if (video.dataset.keevoProcessed) return;
-      video.dataset.keevoProcessed = 'true';
-
-      // Add right-click hint
-      video.style.cursor = 'pointer';
-      video.title = 'Right-click → Save to Keeva Vault';
-    });
-  }
-
-  // Run on load
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', addVideoIndicators);
-  } else {
-    addVideoIndicators();
-  }
-
-  // Also run for dynamic content
-  const observer = new MutationObserver(() => addVideoIndicators());
-  observer.observe(document.body, { childList: true, subtree: true });
-
-  // Expose metadata to popup
-  window.__KEEVA_METADATA__ = extractPageMetadata();
 
 })();

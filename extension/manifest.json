@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Keeva — Save to Vault",
-  "version": "1.0.0",
-  "description": "Right-click any link/video/PDF to instantly save to your Keeva intelligence vault with auto-categorization",
+  "version": "2.0.0",
+  "description": "Save any Instagram Reel, YouTube video, article, or link to your Keeva intelligence vault with one click. AI auto-categorizes everything.",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -11,7 +11,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Keeva Vault",
+    "default_title": "Keeva — Save to Vault",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -20,8 +20,7 @@
     }
   },
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {
@@ -35,11 +34,14 @@
     "activeTab",
     "storage",
     "scripting",
-    "tabs"
+    "tabs",
+    "notifications",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "https://*/*",
-    "http://localhost:*"
+    "http://localhost:*",
+    "http://127.0.0.1:*"
   ],
   "web_accessible_resources": [
     {

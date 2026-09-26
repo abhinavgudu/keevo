@@ -1,114 +1,83 @@
-# Keeva Browser Extension - Installation Guide
+# Keeva Chrome Extension v2.0
 
-## Quick Install (Development Mode)
+Save any web content to your Keeva vault with **one click** — right from your browser toolbar.
 
-### Chrome / Edge / Brave / Arc
-1. Open `chrome://extensions/` (or `edge://extensions/`)
-2. Enable **Developer mode** (top right toggle)
-3. Click **Load unpacked**
-4. Select the `extension/` folder from this repo
-5. Pin the Keeva icon to your toolbar
+---
 
-### Firefox
-1. Open `about:debugging#/runtime/this-firefox`
-2. Click **Load Temporary Add-on**
-3. Select `extension/manifest.json`
+## ✨ What it does
 
-## Configuration
+| Feature | Details |
+|---|---|
+| **1-Click Save** | Click the Keeva icon → hit "Save to Keeva Vault" |
+| **Auto-Detection** | Detects Instagram, YouTube, LinkedIn, TikTok, PDFs automatically |
+| **AI Metadata** | Fetches title, thumbnail, category, tags automatically |
+| **Right-Click Save** | Right-click any link/video → "Save to Keeva" |
+| **Auto Login** | Opens Keeva tab → logs in → extension connects automatically |
 
-After installation, click the extension icon and:
-1. Enter your **Keeva API Base URL** (e.g., `http://localhost:3000` or your production URL)
-2. Click **Login / Signup** - opens Keeva in a new tab
-3. Sign in to your Keeva account
-4. Return to extension - you'll see "Connected" status
+---
 
-## Usage
+## 🚀 Install in Chrome (3 steps)
 
-### Right-click Context Menu
-- **Right-click any link** → "Save to Keeva Vault"
-- **Right-click on a video** → "Save Video/Reel to Keeva"
-- **Right-click PDF links** → "Save PDF/Document to Keeva"
-
-### Extension Popup
-- Click the Keeva icon in toolbar
-- See current page metadata
-- **Save Page** - saves current page as article
-- **Save Video** - saves detected video as Reel (9:16)
-- **Generate Transcript** - AI transcription via AssemblyAI (requires API key)
-
-### Keyboard Shortcut (Optional)
-Set in `chrome://extensions/shortcuts`:
-- Default: `Ctrl+Shift+K` (or `Cmd+Shift+K` on Mac)
-
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| **Smart Ingestion** | Auto-detects platform (Instagram, YouTube, TikTok, LinkedIn, Twitter/X, PDF) |
-| **Auto-Categorization** | AI classifies content into categories (Dev & Tech, AI/ML, Design, etc.) |
-| **Priority Scoring** | Calculates priority (MUST_LEARN=100, HIGH=75, MEDIUM=50, LOW=25) |
-| **Video Transcripts** | AssemblyAI-powered transcription with speaker labels, chapters, entities |
-| **9:16 Preservation** | Maintains vertical video aspect ratio for Reels/Shorts |
-| **Offline Support** | Queues saves when offline, syncs when online |
-
-## Environment Variables (Backend)
-
-Add to your `.env.local`:
-```bash
-# AssemblyAI for transcripts (get free key at assemblyai.com)
-ASSEMBLYAI_API_KEY=your_assemblyai_key_here
+### Step 1 — Open Extensions
+Open Chrome and go to:
+```
+chrome://extensions/
 ```
 
-## Permissions Explained
+### Step 2 — Enable Developer Mode
+Toggle **"Developer mode"** ON (top-right corner)
 
-- **contextMenus** - Right-click "Save to Keeva"
-- **activeTab** - Read current page URL/metadata
-- **storage** - Save auth token, settings locally
-- **scripting** - Inject content script for video detection
-- **tabs** - Open Keeva login page
-- **host_permissions** - Access all sites for scraping
+### Step 3 — Load the Extension
+Click **"Load unpacked"** → Select the `extension/` folder from your Keeva project
 
-## Development
+That's it! The Keeva icon will appear in your toolbar. 🎉
 
-```bash
-# Watch for changes (manual reload needed)
-# Edit files in extension/ folder
-# Refresh extension in chrome://extensions/
-```
+---
 
-## Production Build
+## 🔐 First-Time Login
 
-```bash
-# Create zip for Chrome Web Store
-cd extension
-zip -r keeva-extension.zip . -x "*.md" "*.svg" "*.git*"
-```
+1. Click the Keeva extension icon
+2. Click **"Open Keeva & Login"**
+3. Login to your Keeva account in the tab that opens
+4. The extension **auto-connects** — no manual token copy needed!
 
-## Troubleshooting
+---
 
-**"Not authenticated"** - Click Login in popup, sign in to Keeva, return to popup
-
-**"Failed to save"** - Check API Base URL is correct and server is running
-
-**"Transcription failed"** - Ensure `ASSEMBLYAI_API_KEY` is set in backend `.env.local`
-
-**Video not detected** - Refresh page, ensure video element exists in DOM
-
-## Architecture
+## 📁 Project Structure
 
 ```
 extension/
-├── manifest.json          # Manifest V3 config
-├── background.js          # Service worker (context menus, API calls)
-├── content.js             # Content script (page metadata, video detection)
-├── popup.html             # Extension popup UI
-├── popup.js               # Popup logic (save, transcript, auth)
-└── icons/                 # Extension icons (16, 32, 48, 128)
+├── manifest.json     — Extension config (MV3)
+├── popup.html        — The popup UI
+├── popup.js          — Popup logic
+├── background.js     — Service worker (context menus, auth capture)
+├── content.js        — Runs on pages (auth token capture, metadata)
+└── icons/
+    ├── icon16.png
+    ├── icon32.png
+    ├── icon48.png
+    └── icon128.png
 ```
 
-## API Endpoints Used
+---
 
-- `POST /api/scrape` - Extract metadata from URL
-- `POST /api/save-from-extension` - Save item from extension
-- `POST /api/transcript` - Generate AI transcript
-- `GET /api/auth/me` - Verify auth token
+## ⚙️ Settings
+
+Click the ⚙️ gear icon in the popup:
+
+- **API Base URL** — Your Keeva app URL (default: `http://localhost:3001`)
+- **Auto-detect platform** — Toggle Instagram/YouTube detection
+- **Show notifications** — Chrome notifications on save
+
+---
+
+## 🐛 Troubleshooting
+
+**Extension shows "Not connected"**
+→ Click "Open Keeva & Login" and login to your account
+
+**Save fails with error**
+→ Check API Base URL in Settings matches your Keeva app URL
+
+**Right-click menu not showing**
+→ Reload the extension in `chrome://extensions/`

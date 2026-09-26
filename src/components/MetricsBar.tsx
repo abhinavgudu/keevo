@@ -68,7 +68,7 @@ export function MetricsBar({
       </div>
 
       {/* Desktop Grid Layout (>= md) */}
-      <div className="hidden md:grid md:grid-cols-4 lg:grid-cols-5 gap-3">
+      <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-5 gap-3">
         {/* Total Items */}
         <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
@@ -125,7 +125,7 @@ export function MetricsBar({
         {/* Favorites */}
         <button
           onClick={onFilterFavorites}
-          className="p-3.5 rounded-2xl bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800/80 backdrop-blur-md flex items-center gap-3 text-left transition-all group cursor-pointer col-span-2 sm:col-span-4 lg:col-span-1"
+          className="p-3.5 rounded-2xl bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800/80 backdrop-blur-md flex items-center gap-3 text-left transition-all group cursor-pointer md:col-span-2 lg:col-span-1"
         >
           <div className="w-10 h-10 rounded-xl bg-pink-500/10 border border-pink-500/30 flex items-center justify-center text-pink-400 shrink-0 group-hover:scale-105 transition-transform">
             <Heart className="w-5 h-5 text-pink-500 fill-pink-500" />

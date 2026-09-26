@@ -12,8 +12,8 @@ export const metadata: Metadata = {
     title: 'Keeva',
   },
   icons: {
-    icon: '/keeva-logo.svg',
-    apple: '/keeva-logo.svg',
+    icon: '/keeva-icon.png',
+    apple: '/keeva-logo.png',
   },
   openGraph: {
     title: 'Keeva — Personal Media Intelligence Vault',

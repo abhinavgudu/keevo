@@ -101,7 +101,7 @@ export class VaultStorage {
     let query = supabase
       .from('content_items')
       .select('*')
-      .order('priority_score', { ascending: false });
+      .order('created_at', { ascending: false });
       
     if (_currentUserId) { 
       query = (query as any).eq('user_id', _currentUserId); 
@@ -139,7 +139,7 @@ export class VaultStorage {
       }
     }
 
-    return Array.from(uniqueMap.values()).sort((a: ContentItem, b: ContentItem) => b.priority_score - a.priority_score);
+    return Array.from(uniqueMap.values()).sort((a: ContentItem, b: ContentItem) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 
   static async saveItem(item: Partial<ContentItem> & { title: string; source_url: string }): Promise<ContentItem> {
