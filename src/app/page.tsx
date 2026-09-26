@@ -23,6 +23,7 @@ import { GlobalDropzone } from '@/components/GlobalDropzone';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { Footer } from '@/components/Footer';
 import { ExitConfirmPopup } from '@/components/ExitConfirmPopup';
+import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
 import { useMobileBackHandler } from '@/hooks/useMobileBackHandler';
 import { Plus, Loader2, BookmarkCheck, Compass } from 'lucide-react';
 
@@ -439,6 +440,9 @@ export default function KeevaDashboard() {
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         onScrollToTop={scrollToTop}
       />
+
+      {/* PWA Smart Install Prompt */}
+      <PwaInstallPrompt />
 
       {/* Toast Notification */}
       {toastMessage && (

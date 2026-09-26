@@ -3,10 +3,12 @@
   "short_name": "Keeva",
   "description": "Your personal media intelligence vault — save, organize, and auto-prioritize Instagram Reels, YouTube Videos, LinkedIn Posts, Articles, and PDF Documents.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#06070B",
   "theme_color": "#06070B",
   "orientation": "portrait-primary",
+  "categories": ["productivity", "utilities", "education"],
   "icons": [
     {
       "src": "/keeva-icon.png",
