@@ -106,7 +106,7 @@ function ShareTargetContent() {
         <div className="flex items-center justify-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1.5px] shadow-lg shadow-cyan-500/30 overflow-hidden">
             <div className="w-full h-full bg-[#06070B] rounded-[10px] flex items-center justify-center p-1">
-              <img src="/keeva-logo.svg" alt="Keeva" className="w-full h-full object-contain filter drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]" />
+              <img src="/keeva-logo.png" alt="Keeva" className="w-full h-full object-contain filter drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]" />
             </div>
           </div>
           <span className="text-xl font-black tracking-tight text-white">

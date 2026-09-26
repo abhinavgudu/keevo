@@ -42,7 +42,7 @@ export default function SignInPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[2px] shadow-2xl shadow-cyan-500/40 mb-4 group hover:scale-105 transition-transform duration-300">
             <div className="w-full h-full bg-[#06070B] rounded-[22px] flex items-center justify-center overflow-hidden p-2">
-              <img src="/keeva-logo.svg" alt="Keeva Logo" className="w-full h-full object-contain filter drop-shadow-[0_0_12px_rgba(0,240,255,0.6)]" />
+              <img src="/keeva-logo.png" alt="Keeva Logo" className="w-full h-full object-contain filter drop-shadow-[0_0_12px_rgba(0,240,255,0.6)]" />
             </div>
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight">

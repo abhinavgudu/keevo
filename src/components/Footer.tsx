@@ -15,34 +15,13 @@ export function Footer() {
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1px] shadow-md shadow-cyan-500/20">
               <div className="w-full h-full bg-[#06070B] rounded-[6px] flex items-center justify-center">
-                <svg viewBox="0 0 120 120" className="w-4 h-4" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <linearGradient id="fkg1" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#00E5FF"/>
-                      <stop offset="30%" stopColor="#06B6D4"/>
-                      <stop offset="60%" stopColor="#6366F1"/>
-                      <stop offset="100%" stopColor="#A855F7"/>
-                    </linearGradient>
-                  </defs>
-                  {/* KEEVA lettermark - modern geometric */}
-                  <g transform="translate(60, 60)">
-                    {/* K */}
-                    <path d="M-32 -22 L-32 22 M-32 0 L-18 -22 M-32 0 L-18 22" 
-                          stroke="url(#fkg1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                    {/* E */}
-                    <path d="M-8 -22 L4 -22 M-8 0 L0 0 M-8 22 L4 22 M-8 -22 L-8 22" 
-                          stroke="url(#fkg1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                    {/* E */}
-                    <path d="M12 -22 L24 -22 M12 0 L18 0 M12 22 L24 22 M12 -22 L12 22" 
-                          stroke="url(#fkg1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                    {/* V */}
-                    <path d="M30 -22 L36 22 L42 -22" 
-                          stroke="url(#fkg1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                    {/* A */}
-                    <path d="M48 22 L54 -22 L60 22 M51 0 L57 0" 
-                          stroke="url(#fkg1)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                  </g>
-                </svg>
+                <img
+                  src="/keeva-logo.png"
+                  alt="Keeva Logo"
+                  width={24}
+                  height={24}
+                  className="w-4 h-4 object-contain filter drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]"
+                />
               </div>
             </div>
             <span className="text-slate-300 text-sm font-bold tracking-tight">
