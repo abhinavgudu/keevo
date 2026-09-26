@@ -108,6 +108,39 @@ function generateFallbackTitle(url: string, platform: string): string {
   }
 }
 
+const DOMAIN_TECHNICAL_IMAGES: Record<string, string[]> = {
+  'Dev & Tech': [
+    'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=600&auto=format&fit=crop',
+  ],
+  'AI & Machine Learning': [
+    'https://images.unsplash.com/photo-1677442136019-21780efad99a?q=80&w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=600&auto=format&fit=crop',
+  ],
+  'Design & UI/UX': [
+    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?q=80&w=600&auto=format&fit=crop',
+  ],
+  'Finance & Growth': [
+    'https://images.unsplash.com/photo-1642543492481-44e81e3914a7?q=80&w=600&auto=format&fit=crop',
+  ],
+  'LinkedIn Insights': [
+    'https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=600&auto=format&fit=crop',
+  ],
+};
+
+function getDomainImage(categoryName: string, seed: string): string {
+  const images = DOMAIN_TECHNICAL_IMAGES[categoryName] || DOMAIN_TECHNICAL_IMAGES['Dev & Tech'];
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash << 5) - hash + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  const idx = Math.abs(hash) % images.length;
+  return images[idx];
+}
+
 // Smart AI Auto-Classifier for Categories & Tags
 function autoClassifyContent(title: string, desc: string, platform: string): {
   categoryName: string;
@@ -115,10 +148,9 @@ function autoClassifyContent(title: string, desc: string, platform: string): {
   priority: PriorityLevel;
 } {
   const combined = `${title} ${desc} ${platform}`.toLowerCase();
-
   const tags: string[] = [];
 
-  // Tech & Engineering Keywords
+  // Tech & Engineering Keywords (IT Domain)
   if (
     combined.includes('react') ||
     combined.includes('nextjs') ||
@@ -137,12 +169,19 @@ function autoClassifyContent(title: string, desc: string, platform: string): {
     combined.includes('kubernetes') ||
     combined.includes('database') ||
     combined.includes('backend') ||
-    combined.includes('fullstack')
+    combined.includes('fullstack') ||
+    combined.includes('code') ||
+    combined.includes('coding') ||
+    combined.includes('developer') ||
+    combined.includes('tech') ||
+    combined.includes('it')
   ) {
+    tags.push('IT_Dev');
     if (combined.includes('system design') || combined.includes('architecture')) tags.push('SystemDesign');
     if (combined.includes('redis')) tags.push('Redis');
     if (combined.includes('next') || combined.includes('react')) tags.push('NextJS');
     if (combined.includes('typescript') || combined.includes('javascript')) tags.push('TypeScript');
+    if (combined.includes('python')) tags.push('Python');
     if (combined.includes('database') || combined.includes('postgres')) tags.push('Postgres');
     return { categoryName: 'Dev & Tech', tags, priority: 'MUST_LEARN' };
   }
@@ -162,7 +201,7 @@ function autoClassifyContent(title: string, desc: string, platform: string): {
     combined.includes('agent') ||
     combined.includes('transformer')
   ) {
-    tags.push('AI', 'MachineLearning');
+    tags.push('AI_ML', 'MachineLearning');
     if (combined.includes('llm') || combined.includes('gpt')) tags.push('LLM');
     if (combined.includes('prompt')) tags.push('Prompts');
     return { categoryName: 'AI & Machine Learning', tags, priority: 'MUST_LEARN' };
@@ -218,7 +257,7 @@ function autoClassifyContent(title: string, desc: string, platform: string): {
     return { categoryName: 'Finance & Growth', tags, priority: 'HIGH' };
   }
 
-  return { categoryName: 'Dev & Tech', tags: ['Knowledge'], priority: 'HIGH' };
+  return { categoryName: 'Dev & Tech', tags: ['IT_Dev', 'Reel'], priority: 'HIGH' };
 }
 
 export async function POST(req: NextRequest) {
@@ -251,7 +290,7 @@ export async function POST(req: NextRequest) {
       const meta: SmartIngestionResult = {
         title: cleanDocTitle,
         description: `PDF Document automatically indexed from ${parsedUrl.hostname}`,
-        thumbnail_url: null,  // no fake wallpaper — real OG image will be fetched or left empty
+        thumbnail_url: null,
         platform: 'PDF',
         media_type: 'DOCUMENT',
         aspect_ratio: 'STANDARD_DOCUMENT',
@@ -313,7 +352,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, metadata });
     }
 
-    // 3. Instagram Fast & Vibrant Metadata Extraction
+    // 3. Instagram Smart 1-Click Ingestion & Technical Domain Thumbnailing
     if (platform === 'Instagram') {
       const igMatch = parsedUrl.href.match(/\/(reel|reels|p)\/([A-Za-z0-9_-]+)/i);
       const shortcode = igMatch ? igMatch[2] : (parsedUrl.pathname.split('/').filter(Boolean).pop() || 'ig');
@@ -323,15 +362,15 @@ export async function POST(req: NextRequest) {
         igTitle = `Instagram Reel #${shortcode}`;
       }
 
-      const { categoryName, tags, priority } = autoClassifyContent(igTitle, 'Instagram Reel video', 'Instagram');
+      const { categoryName, tags, priority } = autoClassifyContent(igTitle, 'Instagram Reel video IT coding technology', 'Instagram');
 
-      // Unique full-color high-res photography thumbnail per shortcode seed (no grayscale/blur)
-      const thumbnailUrl = `https://picsum.photos/seed/ig_${shortcode}/600/1000`;
+      // Domain-matched high-res technical photography background image
+      const domainTechImage = getDomainImage(categoryName, shortcode);
 
       const metadata: SmartIngestionResult = {
         title: igTitle,
-        description: `Instagram Reel (9:16 Portrait Video) • Code: ${shortcode}`,
-        thumbnail_url: thumbnailUrl,
+        description: `Instagram Reel (${categoryName}) • Code: ${shortcode}`,
+        thumbnail_url: domainTechImage,
         platform: 'Instagram',
         media_type: 'REEL',
         aspect_ratio: 'PORTRAIT_9_16',

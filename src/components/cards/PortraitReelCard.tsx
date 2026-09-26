@@ -91,12 +91,16 @@ export function PortraitReelCard({
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-black/30 pointer-events-none" />
 
           {/* Top Floating Badges */}
-          <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-            {/* Platform Tag */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-xs font-semibold text-white shadow-lg">
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10 gap-2">
+            {/* Platform & Domain Tag */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-xs font-semibold text-white shadow-lg">
               {getPlatformIcon(item.platform)}
               <span>{item.platform}</span>
-              <span className="text-[10px] text-cyan-400 font-mono font-bold ml-0.5">9:16</span>
+              {item.category && (
+                <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                  {item.category.name}
+                </span>
+              )}
             </div>
 
             {/* Priority Score Tag */}

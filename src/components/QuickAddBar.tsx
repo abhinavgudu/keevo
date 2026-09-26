@@ -207,12 +207,17 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal }: QuickAddBarProps) {
         {/* Header Row */}
         <div className="flex items-center justify-between gap-2 mb-2.5 sm:mb-3">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-600 border border-cyan-400/40 flex items-center justify-center text-white shrink-0 shadow-md shadow-cyan-500/30 animate-pulse">
               <Sparkles className="w-3.5 h-3.5" />
             </div>
-            <h2 className="text-xs sm:text-sm font-bold text-white truncate">
-              Smart 1-Click Ingestion
-            </h2>
+            <div>
+              <h2 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
+                <span>Smart 1-Click AI Ingestion</span>
+                <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold hidden sm:inline-block">
+                  Auto-Detect Domain
+                </span>
+              </h2>
+            </div>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">

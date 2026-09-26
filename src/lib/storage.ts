@@ -1,4 +1,4 @@
-﻿import { Category, ContentItem, VaultStats, calculatePriorityScore } from '@/types/vault';
+import { Category, ContentItem, VaultStats, calculatePriorityScore } from '@/types/vault';
 import { getSupabaseClient } from './supabase';
 
 // Auth user context — set from AuthContext on login
@@ -6,6 +6,26 @@ let _currentUserId: string | null = null;
 
 export function setVaultUserId(uid: string | null) {
   _currentUserId = uid;
+}
+
+export function normalizeUrl(rawUrl: string): string {
+  if (!rawUrl) return '';
+  try {
+    const u = new URL(rawUrl.trim());
+    u.searchParams.delete('igsh');
+    u.searchParams.delete('utm_source');
+    u.searchParams.delete('utm_medium');
+    u.searchParams.delete('utm_campaign');
+    u.searchParams.delete('feature');
+    u.searchParams.delete('si');
+    let path = u.pathname;
+    if (path.length > 1 && path.endsWith('/')) {
+      path = path.slice(0, -1);
+    }
+    return `${u.protocol}//${u.hostname}${path}${u.search ? u.search : ''}`.toLowerCase();
+  } catch {
+    return rawUrl.trim().toLowerCase().replace(/\/$/, '');
+  }
 }
 
 export class VaultStorage {
@@ -96,7 +116,7 @@ export class VaultStorage {
     
     if (!data) return [];
 
-    return data.map((item: any) => {
+    const mapped = data.map((item: any) => {
       const recalculatedScore = calculatePriorityScore(
         item.priority,
         item.access_count,
@@ -108,12 +128,34 @@ export class VaultStorage {
         priority_score: recalculatedScore,
         category: item.category_id ? categoryMap.get(item.category_id) : undefined,
       };
-    }).sort((a: ContentItem, b: ContentItem) => b.priority_score - a.priority_score);
+    });
+
+    // Deduplicate by normalized source_url & id
+    const uniqueMap = new Map<string, ContentItem>();
+    for (const item of mapped) {
+      const key = item.source_url ? normalizeUrl(item.source_url) : item.id;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, item);
+      }
+    }
+
+    return Array.from(uniqueMap.values()).sort((a: ContentItem, b: ContentItem) => b.priority_score - a.priority_score);
   }
 
   static async saveItem(item: Partial<ContentItem> & { title: string; source_url: string }): Promise<ContentItem> {
     const supabase = getSupabaseClient();
     if (!supabase) throw new Error('Supabase client not initialized');
+
+    // Deduplication check: if no item.id provided, check if URL is already saved
+    let targetId = item.id;
+    if (!targetId && item.source_url) {
+      const existingItems = await this.getItems();
+      const normNew = normalizeUrl(item.source_url);
+      const existingMatch = existingItems.find((i) => normalizeUrl(i.source_url) === normNew);
+      if (existingMatch) {
+        targetId = existingMatch.id;
+      }
+    }
 
     const createdAt = item.created_at || new Date().toISOString();
     const accessCount = item.access_count ?? 0;
@@ -123,7 +165,7 @@ export class VaultStorage {
     const priorityScore = calculatePriorityScore(priority, accessCount, isFavorite, createdAt);
 
 const fullItem: ContentItem = {
-      id: item.id || `item-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id: targetId || `item-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       category_id: item.category_id || null,
       title: item.title,
       source_url: item.source_url,
