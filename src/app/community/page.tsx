@@ -73,7 +73,7 @@ export default function CommunityPage() {
 
   return (
     <div className="min-h-screen bg-[#06070B] text-slate-200 p-4 sm:p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full max-w-[98%] 2xl:max-w-[96%] mx-auto">
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-white flex items-center gap-3">
             <Globe className="w-8 h-8 text-cyan-500" /> Keeva Community

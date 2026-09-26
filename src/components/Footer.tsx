@@ -9,7 +9,7 @@ export function Footer() {
       {/* Subtle gradient line at top */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
+      <div className="w-full max-w-[98%] 2xl:max-w-[96%] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-5 sm:py-6">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
           {/* Left: Brand */}
           <div className="flex items-center gap-2.5">

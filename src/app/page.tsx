@@ -357,8 +357,8 @@ export default function KeevaDashboard() {
         isSupabaseActive={isSupabaseActive}
       />
 
-      {/* Dashboard Body */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 relative z-10">
+      {/* Dashboard Body - Fluid 100% responsive width on large displays */}
+      <main className="flex-1 w-full max-w-[98%] 2xl:max-w-[96%] mx-auto px-3 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-6 relative z-10">
         {/* Omni-Capture Quick Ingestion Hero Bar */}
         <QuickAddBar
           onSaveItem={handleSaveItem}

@@ -25,36 +25,39 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  const targetUrl = info.linkUrl || info.srcUrl || info.pageUrl || tab.url;
-  if (!targetUrl) return;
+// ─── Save Helper ─────────────────────────────────────────────────────────────
 
+async function saveUrlToVault(targetUrl, fallbackTitle = '') {
   const stored = await chrome.storage.sync.get([KEYS.API_BASE, KEYS.AUTH_TOKEN]);
   const apiBase = stored[KEYS.API_BASE] || 'https://keeva0.vercel.app';
   const token = stored[KEYS.AUTH_TOKEN];
 
   if (!token) {
-    chrome.tabs.create({ url: `${apiBase}/auth/signin?ref=extension` });
-    return;
+    return { success: false, needAuth: true, loginUrl: `${apiBase}/auth/signin?ref=extension` };
   }
 
   try {
-    // Scrape
-    const scrapeRes = await fetch(`${apiBase}/api/scrape`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ url: targetUrl }),
-      signal: AbortSignal.timeout(8000),
-    });
-    const scrapeData = await scrapeRes.json();
-    const meta = scrapeData.metadata || {};
+    // Scrape metadata
+    let meta = {};
+    try {
+      const scrapeRes = await fetch(`${apiBase}/api/scrape`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url: targetUrl }),
+        signal: AbortSignal.timeout(8000),
+      });
+      const scrapeData = await scrapeRes.json();
+      meta = scrapeData.metadata || {};
+    } catch (e) {
+      console.warn('Scrape fallback:', e);
+    }
 
     // Save
     const saveRes = await fetch(`${apiBase}/api/save-from-extension`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        title: meta.title || tab.title || targetUrl,
+        title: meta.title || fallbackTitle || targetUrl,
         source_url: meta.source_url || targetUrl,
         platform: meta.platform || 'Web',
         media_type: meta.media_type || 'ARTICLE',
@@ -75,9 +78,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         type: 'basic',
         iconUrl: 'icons/icon48.png',
         title: '✓ Saved to Keeva!',
-        message: (meta.title || targetUrl).slice(0, 80),
+        message: (meta.title || fallbackTitle || targetUrl).slice(0, 80),
         priority: 1,
       });
+      return { success: true, title: meta.title || fallbackTitle || targetUrl };
     } else {
       throw new Error(saveData.error || 'Save failed');
     }
@@ -89,12 +93,23 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       message: err.message.slice(0, 100),
       priority: 2,
     });
+    return { success: false, error: err.message };
+  }
+}
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  const targetUrl = info.linkUrl || info.srcUrl || info.pageUrl || tab?.url;
+  if (!targetUrl) return;
+
+  const result = await saveUrlToVault(targetUrl, tab?.title || '');
+  if (result.needAuth) {
+    const stored = await chrome.storage.sync.get([KEYS.API_BASE]);
+    const apiBase = stored[KEYS.API_BASE] || 'https://keeva0.vercel.app';
+    chrome.tabs.create({ url: `${apiBase}/auth/signin?ref=extension` });
   }
 });
 
-// ─── Auth Token Capture ───────────────────────────────────────────────────────
-// When user logs into Keeva app, it can call postMessage with token
-// OR the Keeva app can set the token in localStorage which we read via content script
+// ─── Auth Token & Message Handling ───────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'KEEVA_AUTH_TOKEN') {
@@ -116,9 +131,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'GET_TOKEN') {
-    chrome.storage.sync.get([KEYS.AUTH_TOKEN], (result) => {
-      sendResponse({ token: result[KEYS.AUTH_TOKEN] || null });
+    chrome.storage.sync.get([KEYS.AUTH_TOKEN, KEYS.API_BASE], (result) => {
+      sendResponse({
+        token: result[KEYS.AUTH_TOKEN] || null,
+        apiBase: result[KEYS.API_BASE] || 'https://keeva0.vercel.app',
+      });
     });
+    return true;
+  }
+
+  if (message.type === 'QUICK_SAVE_PAGE') {
+    saveUrlToVault(message.url, message.title).then((res) => {
+      sendResponse(res);
+    });
+    return true; // async response
+  }
+
+  if (message.type === 'OPEN_LOGIN_TAB') {
+    chrome.storage.sync.get([KEYS.API_BASE], (res) => {
+      const apiBase = res[KEYS.API_BASE] || 'https://keeva0.vercel.app';
+      chrome.tabs.create({ url: `${apiBase}/auth/signin?ref=extension` });
+    });
+    sendResponse({ success: true });
     return true;
   }
 });
