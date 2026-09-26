@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Search, Plus, Settings2, FolderPlus, Film, Command, LogOut, ShieldAlert, ChevronDown, Database, Globe } from 'lucide-react';
+import { Search, Plus, Settings2, FolderPlus, Film, Command, LogOut, ShieldAlert, ChevronDown, Database, Globe, Home, Crown, User } from 'lucide-react';
 import { VaultStats } from '@/types/vault';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCommunityUnread } from '@/hooks/useCommunityUnread';
@@ -176,13 +176,13 @@ export function Header({
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu((p) => !p)}
-                className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group"
+                className="flex items-center gap-1.5 p-1.5 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-cyan-500/30 transition-all cursor-pointer group"
                 title="Account"
               >
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center text-white text-xs font-black shadow-md">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center text-white text-xs font-black shadow-md ring-2 ring-cyan-500/20">
                   {avatarLetter}
                 </div>
-                <ChevronDown className="w-3 h-3 text-slate-500 group-hover:text-slate-300 transition-colors hidden sm:block" />
+                <ChevronDown className="w-3 h-3 text-slate-500 group-hover:text-cyan-400 transition-colors hidden sm:block" />
               </button>
 
               {showUserMenu && (
@@ -190,37 +190,103 @@ export function Header({
                   {/* Backdrop */}
                   <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
                   {/* Dropdown */}
-                  <div className="absolute right-0 mt-2 w-56 bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl backdrop-blur-xl z-50 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-slate-800">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center text-white text-sm font-black shadow-md shrink-0">
+                  <div className="absolute right-0 mt-2 w-64 bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl backdrop-blur-xl z-50 overflow-hidden">
+                    {/* User Profile Header */}
+                    <div className="px-4 py-4 border-b border-slate-800 bg-gradient-to-r from-cyan-500/10 to-indigo-500/10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center text-white text-lg font-black shadow-md ring-2 ring-cyan-500/30 shrink-0">
                           {avatarLetter}
                         </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-semibold text-white truncate">{shortEmail}</div>
-                          <div className="text-[10px] text-emerald-400 font-mono">● Active</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-bold text-white truncate">
+                            {user.user_metadata?.first_name || user.user_metadata?.last_name 
+                              ? `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim()
+                              : (user.email || 'User').split('@')[0]}
+                          </div>
+                          <div className="text-[11px] text-slate-400 truncate">{user.email || 'No email'}</div>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-mono border border-emerald-500/30">
+                              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block mr-1" /> Active
+                            </span>
+                            {user.email! === 'miabhisu@gmail.com' && (
+                              <span className="px-2 py-0.5 rounded-full bg-fuchsia-500/20 text-fuchsia-400 text-[10px] font-mono border border-fuchsia-500/30">
+                                <Crown className="w-2.5 h-2.5 inline mr-0.5" /> Admin
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="p-1.5 space-y-0.5">
-                      {/* Admin Panel — only for admin */}
-                      {user?.email === 'miabhisu@gmail.com' && (
-                        <Link
-                          href="/admin"
-                          onClick={() => setShowUserMenu(false)}
-                          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-fuchsia-300 hover:text-fuchsia-200 hover:bg-fuchsia-500/10 transition-all text-sm cursor-pointer group"
-                        >
-                          <ShieldAlert className="w-4 h-4" />
-                          <span className="font-medium">Admin Panel</span>
-                        </Link>
-                      )}
+
+                    {/* Quick Stats */}
+                    <div className="px-4 py-3 border-b border-slate-800 grid grid-cols-3 gap-2">
+                      <div className="text-center p-2 rounded-xl bg-slate-800/50">
+                        <div className="text-lg font-bold text-cyan-400">0</div>
+                        <div className="text-[10px] text-slate-500">Items</div>
+                      </div>
+                      <div className="text-center p-2 rounded-xl bg-slate-800/50">
+                        <div className="text-lg font-bold text-rose-400">0</div>
+                        <div className="text-[10px] text-slate-500">Favorites</div>
+                      </div>
+                      <div className="text-center p-2 rounded-xl bg-slate-800/50">
+                        <div className="text-lg font-bold text-amber-400">0</div>
+                        <div className="text-[10px] text-slate-500">Must Learn</div>
+                      </div>
+                    </div>
+
+                    {/* Navigation Links */}
+                    <div className="p-2 space-y-1">
+                      <Link
+                        href="/"
+                        onClick={() => setShowUserMenu(false)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-cyan-500/10 transition-all text-sm cursor-pointer group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors">
+                          <Home className="w-4 h-4 text-cyan-400" />
+                        </div>
+                        <span className="font-medium">My Vault</span>
+                      </Link>
+
+                      <Link
+                        href="/community"
+                        onClick={() => setShowUserMenu(false)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-emerald-500/10 transition-all text-sm cursor-pointer group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
+                          <Globe className="w-4 h-4 text-emerald-400" />
+                        </div>
+                        <span className="font-medium">Community</span>
+                      </Link>
+
+                      <Link
+                        href="/admin"
+                        onClick={() => setShowUserMenu(false)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-fuchsia-500/10 transition-all text-sm cursor-pointer group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center group-hover:bg-fuchsia-500/20 transition-colors">
+                          <ShieldAlert className="w-4 h-4 text-fuchsia-400" />
+                        </div>
+                        <span className="font-medium">Admin Panel</span>
+                      </Link>
+
                       <button
                         onClick={() => { setShowUserMenu(false); signOut(); }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-300 hover:text-red-300 hover:bg-red-500/10 transition-all text-sm cursor-pointer group"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:text-red-300 hover:bg-red-500/10 transition-all text-sm cursor-pointer group"
                       >
-                        <LogOut className="w-4 h-4 group-hover:text-red-400 transition-colors" />
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center group-hover:bg-red-500/20 transition-colors">
+                          <LogOut className="w-4 h-4 text-red-400" />
+                        </div>
                         <span className="font-medium">Sign Out</span>
                       </button>
+                    </div>
+
+                    {/* Account Info Footer */}
+                    <div className="px-4 py-3 border-t border-slate-800 bg-slate-950/50">
+                      <div className="text-[10px] text-slate-500 text-center">
+                        <span className="font-mono">{user.id.slice(0, 8)}...</span>
+                        <span className="mx-1">·</span>
+                        Joined {new Date(user.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                      </div>
                     </div>
                   </div>
                 </>
