@@ -6,6 +6,7 @@ import { Search, Plus, Settings2, FolderPlus, Film, Command, LogOut, ShieldAlert
 import { VaultStats } from '@/types/vault';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCommunityUnread } from '@/hooks/useCommunityUnread';
+import { KeevaMark } from '@/components/KeevaMark';
 
 interface HeaderProps {
   searchQuery: string;
@@ -20,17 +21,6 @@ interface HeaderProps {
 }
 
 /** Keeva inline logo mark */
-function KeevaMark({ size = 24 }: { size?: number }) {
-  return (
-    <img
-      src="/keeva-logo.png"
-      alt="Keeva Logo"
-      width={size}
-      height={size}
-      className="w-full h-full object-cover rounded-full filter drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]"
-    />
-  );
-}
 
 export function Header({
   searchQuery,
@@ -56,11 +46,7 @@ export function Header({
 
         {/* Brand & Logo */}
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1.5px] shadow-lg shadow-cyan-500/25 overflow-hidden">
-            <div className="w-full h-full bg-[#06070B] rounded-full flex items-center justify-center overflow-hidden">
-              <KeevaMark size={22} />
-            </div>
-          </div>
+          <KeevaMark className="w-9 h-9 sm:w-10 sm:h-10" alt="Keeva" />
           <div>
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="text-lg sm:text-xl font-black tracking-tight text-white">

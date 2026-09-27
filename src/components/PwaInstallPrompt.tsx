@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, X, Sparkles, Smartphone, Check, Share } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { KeevaMark } from '@/components/KeevaMark';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -139,15 +140,7 @@ export function PwaInstallPrompt() {
 
         {/* Header with App Logo */}
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1.5px] shadow-lg shadow-cyan-500/30 shrink-0 overflow-hidden">
-            <div className="w-full h-full bg-[#06070B] rounded-full flex items-center justify-center overflow-hidden p-1">
-              <img
-                src="/keeva-logo.png"
-                alt="Keeva App"
-                className="w-full h-full object-cover rounded-full filter drop-shadow-[0_0_8px_rgba(0,240,255,0.7)]"
-              />
-            </div>
-          </div>
+            <KeevaMark className="w-12 h-12 shrink-0" alt="Keeva App" />
           <div className="min-w-0 pr-6">
             <div className="flex items-center gap-1.5">
               <h4 className="text-sm font-black text-white tracking-tight">Install Keeva App</h4>

@@ -4,10 +4,11 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { ContentItem } from '@/types/vault';
 import { CommunityCard } from '@/components/cards/CommunityCard';
 import { MediaPreviewModal } from '@/components/modals/MediaPreviewModal';
+import { KeevaMark } from '@/components/KeevaMark';
 import { EditCommunityPostModal } from '@/components/modals/EditCommunityPostModal';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  Loader2, Globe, Compass, LayoutList, Columns3, Check, AlertCircle, X
+  Loader2, Compass, LayoutList, Columns3, Check, AlertCircle, X
 } from 'lucide-react';
 
 type Layout = 'feed' | 'masonry';
@@ -153,7 +154,8 @@ export default function CommunityPage() {
         <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-              <Globe className="w-8 h-8 text-cyan-500" /> Keeva Community
+              <KeevaMark className="w-11 h-11" alt="Keeva" />
+              <span>Keeva Community</span>
             </h1>
             <p className="text-slate-400 mt-2">Discover content shared by the community.</p>
           </div>

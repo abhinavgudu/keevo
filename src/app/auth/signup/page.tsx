@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { KeevaMark } from '@/components/KeevaMark';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2, CheckCircle2, AlertCircle, User } from 'lucide-react';
 
 export default function SignUpPage() {
@@ -73,11 +74,10 @@ export default function SignUpPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo & Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[2px] shadow-2xl shadow-cyan-500/40 mb-4 group hover:scale-105 transition-transform duration-300 overflow-hidden">
-            <div className="w-full h-full bg-[#06070B] rounded-full flex items-center justify-center overflow-hidden p-1.5">
-              <img src="/keeva-logo.png" alt="Keeva Logo" className="w-full h-full object-cover rounded-full filter drop-shadow-[0_0_12px_rgba(0,240,255,0.6)]" />
-            </div>
-          </div>
+            <KeevaMark
+              className="w-20 h-20 p-[2px] shadow-2xl shadow-cyan-500/40 mb-4 hover:scale-105 transition-transform duration-300"
+              alt="Keeva Logo"
+            />
           <h1 className="text-3xl font-black text-white tracking-tight">
             Join Keeva
           </h1>

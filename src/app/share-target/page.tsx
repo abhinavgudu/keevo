@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { VaultStorage } from '@/lib/storage';
 import { CheckCircle, AlertTriangle, Loader2, Sparkles, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { KeevaMark } from '@/components/KeevaMark';
 
 function ShareTargetContent() {
   const searchParams = useSearchParams();
@@ -104,11 +105,7 @@ function ShareTargetContent() {
       <div className="w-full max-w-md bg-slate-900/70 border border-slate-800/80 backdrop-blur-xl rounded-2xl p-6 md:p-8 shadow-2xl relative z-10 text-center">
         {/* Header Branding */}
         <div className="flex items-center justify-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1.5px] shadow-lg shadow-cyan-500/30 overflow-hidden">
-            <div className="w-full h-full bg-[#06070B] rounded-[10px] flex items-center justify-center p-1">
-              <img src="/keeva-logo.png" alt="Keeva" className="w-full h-full object-contain filter drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]" />
-            </div>
-          </div>
+            <KeevaMark className="w-10 h-10" alt="Keeva" />
           <span className="text-xl font-black tracking-tight text-white">
             Keeva<span className="text-cyan-400"> Auto-Capture</span>
           </span>
