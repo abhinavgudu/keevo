@@ -1,0 +1,73 @@
+<svg viewBox="0 0 512 512" width="512" height="512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background Radial Glow -->
+    <radialGradient id="bgGlow3D" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00F0FF" stop-opacity="0.3"/>
+      <stop offset="50%" stop-color="#A855F7" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#06070B" stop-opacity="0"/>
+    </radialGradient>
+    
+    <!-- Neon Cyan-Indigo-Violet Gradient -->
+    <linearGradient id="kNeonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F0FF"/>
+      <stop offset="35%" stop-color="#3B82F6"/>
+      <stop offset="70%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </linearGradient>
+
+    <!-- Metallic Highlight Stroke -->
+    <linearGradient id="kMetalHighlight" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="50%" stop-color="#38BDF8" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#F472B6" stop-opacity="0.95"/>
+    </linearGradient>
+
+    <!-- Glass Facet Overlay -->
+    <linearGradient id="facetGlass" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Glow Filter -->
+    <filter id="ultraGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="512" height="512" rx="128" fill="#06070B"/>
+  <circle cx="256" cy="256" r="240" fill="url(#bgGlow3D)"/>
+
+  <!-- Outer Glowing Diamond Frame -->
+  <g filter="url(#ultraGlow)">
+    <path d="M 256 48 L 444 256 L 256 464 L 68 256 Z" fill="none" stroke="url(#kNeonGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+    <path d="M 256 48 L 444 256 L 256 464 L 68 256 Z" fill="none" stroke="url(#kMetalHighlight)" stroke-width="2" opacity="0.6"/>
+
+    <!-- Inner Geometric Facet Lines -->
+    <path d="M 256 48 L 256 464" stroke="url(#kNeonGrad)" stroke-width="2" stroke-dasharray="6 6" opacity="0.35"/>
+    <path d="M 68 256 L 444 256" stroke="url(#kNeonGrad)" stroke-width="2" stroke-dasharray="6 6" opacity="0.35"/>
+  </g>
+
+  <!-- Central Bold Metallic 3D Letter "K" -->
+  <g filter="url(#ultraGlow)">
+    <!-- Main Vertical Bar of K -->
+    <path d="M 160 128 L 216 128 L 216 384 L 160 384 Z" fill="url(#kNeonGrad)" />
+    <path d="M 160 128 L 216 128 L 216 384 L 160 384 Z" stroke="url(#kMetalHighlight)" stroke-width="3" fill="none"/>
+    <path d="M 160 128 L 188 128 L 188 384 L 160 384 Z" fill="url(#facetGlass)"/>
+
+    <!-- Top Diagonal Arm of K -->
+    <path d="M 206 270 L 332 136 C 340 128 354 128 362 136 L 374 148 C 382 156 382 170 374 178 L 268 290 Z" fill="url(#kNeonGrad)"/>
+    <path d="M 206 270 L 332 136 C 340 128 354 128 362 136 L 374 148 C 382 156 382 170 374 178 L 268 290 Z" stroke="url(#kMetalHighlight)" stroke-width="3" fill="none"/>
+    <path d="M 206 270 L 332 136 L 348 152 L 240 280 Z" fill="url(#facetGlass)"/>
+
+    <!-- Bottom Diagonal Arm of K -->
+    <path d="M 252 274 L 358 384 C 366 392 366 406 358 414 L 346 426 C 338 434 324 434 316 426 L 198 300 Z" fill="url(#kNeonGrad)"/>
+    <path d="M 252 274 L 358 384 C 366 392 366 406 358 414 L 346 426 C 338 434 324 434 316 426 L 198 300 Z" stroke="url(#kMetalHighlight)" stroke-width="3" fill="none"/>
+    <path d="M 252 274 L 358 384 L 342 400 L 226 290 Z" fill="url(#facetGlass)"/>
+
+    <!-- Central Diamond Spark Core -->
+    <polygon points="256,236 272,256 256,276 240,256" fill="#00F0FF" />
+    <circle cx="256" cy="256" r="6" fill="#FFFFFF"/>
+  </g>
+</svg>

@@ -36,6 +36,16 @@ export interface ContentItem {
   access_count: number;
   is_favorite: boolean;
   is_public?: boolean;
+  community_caption?: string;
+  community_edited_at?: string | null;
+  /** Supplied by the community feed so a card can show the count without a request. */
+  comment_count?: number;
+  /**
+   * Social likes, supplied by the community feed. Distinct from `is_favorite`,
+   * which is a private vault flag that also adds +30 to the priority score.
+   */
+  like_count?: number;
+  liked_by_me?: boolean;
   created_at: string;
   description?: string;
   tags?: string[];
@@ -50,7 +60,19 @@ export interface ContentItem {
     email: string;
     first_name?: string;
     last_name?: string;
+    avatar_url?: string;
   };
+}
+
+export interface CommunityComment {
+  id: string;
+  item_id: string;
+  user_id: string;
+  parent_id: string | null;
+  body: string;
+  author_name: string;
+  author_email: string;
+  created_at: string;
 }
 
 export interface ScrapedMetadata {

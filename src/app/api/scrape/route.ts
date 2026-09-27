@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { classifyContent } from '@/lib/classify';
 import * as cheerio from 'cheerio';
 import { AspectRatioType, MediaType, PriorityLevel, ScrapedMetadata } from '@/types/vault';
 
 export interface SmartIngestionResult extends ScrapedMetadata {
   autoCategoryName?: string;
+  autoCategoryConfidence?: 'high' | 'medium' | 'low';
   autoTags: string[];
   autoPriority: PriorityLevel;
 }
@@ -130,8 +132,11 @@ const DOMAIN_TECHNICAL_IMAGES: Record<string, string[]> = {
   ],
 };
 
-function getDomainImage(categoryName: string, seed: string): string {
-  const images = DOMAIN_TECHNICAL_IMAGES[categoryName] || DOMAIN_TECHNICAL_IMAGES['Dev & Tech'];
+// Accepts null because the classifier deliberately returns no category when the
+// signal is too weak. The `||` fallback then picks the generic image, which is
+// the intended behaviour rather than a special case at the call site.
+function getDomainImage(categoryName: string | null, seed: string): string {
+  const images = DOMAIN_TECHNICAL_IMAGES[categoryName ?? ''] || DOMAIN_TECHNICAL_IMAGES['Dev & Tech'];
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
     hash = (hash << 5) - hash + seed.charCodeAt(i);
@@ -141,124 +146,6 @@ function getDomainImage(categoryName: string, seed: string): string {
   return images[idx];
 }
 
-// Smart AI Auto-Classifier for Categories & Tags
-function autoClassifyContent(title: string, desc: string, platform: string): {
-  categoryName: string;
-  tags: string[];
-  priority: PriorityLevel;
-} {
-  const combined = `${title} ${desc} ${platform}`.toLowerCase();
-  const tags: string[] = [];
-
-  // Tech & Engineering Keywords (IT Domain)
-  if (
-    combined.includes('react') ||
-    combined.includes('nextjs') ||
-    combined.includes('next.js') ||
-    combined.includes('javascript') ||
-    combined.includes('typescript') ||
-    combined.includes('python') ||
-    combined.includes('rust') ||
-    combined.includes('golang') ||
-    combined.includes('redis') ||
-    combined.includes('postgres') ||
-    combined.includes('system design') ||
-    combined.includes('architecture') ||
-    combined.includes('api') ||
-    combined.includes('docker') ||
-    combined.includes('kubernetes') ||
-    combined.includes('database') ||
-    combined.includes('backend') ||
-    combined.includes('fullstack') ||
-    combined.includes('code') ||
-    combined.includes('coding') ||
-    combined.includes('developer') ||
-    combined.includes('tech') ||
-    combined.includes('it')
-  ) {
-    tags.push('IT_Dev');
-    if (combined.includes('system design') || combined.includes('architecture')) tags.push('SystemDesign');
-    if (combined.includes('redis')) tags.push('Redis');
-    if (combined.includes('next') || combined.includes('react')) tags.push('NextJS');
-    if (combined.includes('typescript') || combined.includes('javascript')) tags.push('TypeScript');
-    if (combined.includes('python')) tags.push('Python');
-    if (combined.includes('database') || combined.includes('postgres')) tags.push('Postgres');
-    return { categoryName: 'Dev & Tech', tags, priority: 'MUST_LEARN' };
-  }
-
-  // AI & Machine Learning Keywords
-  if (
-    combined.includes('ai') ||
-    combined.includes('llm') ||
-    combined.includes('gpt') ||
-    combined.includes('deepseek') ||
-    combined.includes('openai') ||
-    combined.includes('claude') ||
-    combined.includes('gemini') ||
-    combined.includes('machine learning') ||
-    combined.includes('neural') ||
-    combined.includes('prompt') ||
-    combined.includes('agent') ||
-    combined.includes('transformer')
-  ) {
-    tags.push('AI_ML', 'MachineLearning');
-    if (combined.includes('llm') || combined.includes('gpt')) tags.push('LLM');
-    if (combined.includes('prompt')) tags.push('Prompts');
-    return { categoryName: 'AI & Machine Learning', tags, priority: 'MUST_LEARN' };
-  }
-
-  // Design & UI/UX Keywords
-  if (
-    combined.includes('design') ||
-    combined.includes('ui') ||
-    combined.includes('ux') ||
-    combined.includes('figma') ||
-    combined.includes('css') ||
-    combined.includes('tailwind') ||
-    combined.includes('animation') ||
-    combined.includes('glassmorphism') ||
-    combined.includes('typography') ||
-    combined.includes('prototype')
-  ) {
-    tags.push('UIUX', 'Design');
-    if (combined.includes('figma')) tags.push('Figma');
-    if (combined.includes('css') || combined.includes('tailwind')) tags.push('CSS');
-    return { categoryName: 'Design & UI/UX', tags, priority: 'HIGH' };
-  }
-
-  // LinkedIn & Career Insights
-  if (
-    platform === 'LinkedIn' ||
-    combined.includes('career') ||
-    combined.includes('leadership') ||
-    combined.includes('management') ||
-    combined.includes('hiring') ||
-    combined.includes('interview') ||
-    combined.includes('resume') ||
-    combined.includes('branding')
-  ) {
-    tags.push('Growth', 'Career', 'Strategy');
-    return { categoryName: 'LinkedIn Insights', tags, priority: 'HIGH' };
-  }
-
-  // Finance, Growth & SaaS
-  if (
-    combined.includes('finance') ||
-    combined.includes('crypto') ||
-    combined.includes('investing') ||
-    combined.includes('saas') ||
-    combined.includes('mrr') ||
-    combined.includes('startup') ||
-    combined.includes('business') ||
-    combined.includes('marketing') ||
-    combined.includes('growth')
-  ) {
-    tags.push('Finance', 'SaaS', 'Growth');
-    return { categoryName: 'Finance & Growth', tags, priority: 'HIGH' };
-  }
-
-  return { categoryName: 'Dev & Tech', tags: ['IT_Dev', 'Reel'], priority: 'HIGH' };
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -285,7 +172,7 @@ export async function POST(req: NextRequest) {
     ) {
       const filename = parsedUrl.pathname.split('/').pop() || 'Document.pdf';
       const cleanDocTitle = decodeURIComponent(filename).replace('.pdf', '').replace(/[-_]/g, ' ');
-      const { categoryName, tags, priority } = autoClassifyContent(cleanDocTitle, 'Document PDF', 'PDF');
+      const { categoryName, tags, priority, confidence } = classifyContent({ title: cleanDocTitle, url: parsedUrl.href });
 
       const meta: SmartIngestionResult = {
         title: cleanDocTitle,
@@ -296,7 +183,8 @@ export async function POST(req: NextRequest) {
         aspect_ratio: 'STANDARD_DOCUMENT',
         source_url: parsedUrl.href,
         site_name: parsedUrl.hostname,
-        autoCategoryName: categoryName,
+        autoCategoryName: categoryName ?? undefined,
+    autoCategoryConfidence: confidence,
         autoTags: tags,
         autoPriority: priority,
       };
@@ -334,7 +222,7 @@ export async function POST(req: NextRequest) {
       }
 
       const finalTitle = ytTitle || (isShort ? 'YouTube Shorts Reel' : 'YouTube Video');
-      const { categoryName, tags, priority } = autoClassifyContent(finalTitle, 'YouTube video', 'YouTube');
+      const { categoryName, tags, priority, confidence } = classifyContent({ title: finalTitle, url: parsedUrl.href });
 
       const metadata: SmartIngestionResult = {
         title: finalTitle,
@@ -345,7 +233,8 @@ export async function POST(req: NextRequest) {
         aspect_ratio: isShort ? 'PORTRAIT_9_16' : 'LANDSCAPE_16_9',
         source_url: parsedUrl.href,
         site_name: 'YouTube',
-        autoCategoryName: categoryName,
+        autoCategoryName: categoryName ?? undefined,
+    autoCategoryConfidence: confidence,
         autoTags: tags,
         autoPriority: priority,
       };
@@ -362,7 +251,7 @@ export async function POST(req: NextRequest) {
         igTitle = `Instagram Reel #${shortcode}`;
       }
 
-      const { categoryName, tags, priority } = autoClassifyContent(igTitle, 'Instagram Reel video IT coding technology', 'Instagram');
+      const { categoryName, tags, priority, confidence } = classifyContent({ title: igTitle, url: parsedUrl.href });
 
       // Fetch actual Instagram page to get real thumbnail from og:image
       let instagramThumbnail = null;
@@ -430,7 +319,8 @@ export async function POST(req: NextRequest) {
         aspect_ratio: 'PORTRAIT_9_16',
         source_url: parsedUrl.href,
         site_name: 'Instagram',
-        autoCategoryName: categoryName,
+        autoCategoryName: categoryName ?? undefined,
+    autoCategoryConfidence: confidence,
         autoTags: tags,
         autoPriority: priority,
       };
@@ -447,7 +337,7 @@ export async function POST(req: NextRequest) {
         tkTitle = `TikTok Video #${videoId.slice(-6)}`;
       }
 
-      const { categoryName, tags, priority } = autoClassifyContent(tkTitle, 'TikTok video', 'TikTok');
+      const { categoryName, tags, priority, confidence } = classifyContent({ title: tkTitle, url: parsedUrl.href });
 
       // Unique full-color high-res thumbnail per TikTok video ID
       const thumbnailUrl = `https://picsum.photos/seed/tk_${videoId}/600/1000`;
@@ -461,7 +351,8 @@ export async function POST(req: NextRequest) {
         aspect_ratio: 'PORTRAIT_9_16',
         source_url: parsedUrl.href,
         site_name: 'TikTok',
-        autoCategoryName: categoryName,
+        autoCategoryName: categoryName ?? undefined,
+    autoCategoryConfidence: confidence,
         autoTags: tags,
         autoPriority: priority,
       };
@@ -490,7 +381,7 @@ export async function POST(req: NextRequest) {
 
     if (!html) {
       const fallbackTitle = generateFallbackTitle(parsedUrl.href, platform);
-      const { categoryName, tags, priority } = autoClassifyContent(fallbackTitle, '', platform);
+      const { categoryName, tags, priority, confidence } = classifyContent({ title: fallbackTitle, platform, url: parsedUrl.href });
       const fallbackMeta: SmartIngestionResult = {
         title: fallbackTitle,
         description: `Saved ${platform} content from ${parsedUrl.hostname}`,
@@ -500,7 +391,8 @@ export async function POST(req: NextRequest) {
         aspect_ratio: defaultAspectRatio,
         source_url: parsedUrl.href,
         site_name: parsedUrl.hostname,
-        autoCategoryName: categoryName,
+        autoCategoryName: categoryName ?? undefined,
+    autoCategoryConfidence: confidence,
         autoTags: tags,
         autoPriority: priority,
       };
@@ -549,7 +441,7 @@ export async function POST(req: NextRequest) {
     }
 
     const finalTitle = cleanTitle(ogTitle) || generateFallbackTitle(parsedUrl.href, platform);
-    const { categoryName, tags, priority } = autoClassifyContent(finalTitle, ogDescription, platform);
+    const { categoryName, tags, priority, confidence } = classifyContent({ title: finalTitle, description: ogDescription, platform, url: parsedUrl.href });
 
     const metadata: SmartIngestionResult = {
       title: finalTitle,
@@ -560,7 +452,8 @@ export async function POST(req: NextRequest) {
       aspect_ratio: calculatedAspectRatio,
       source_url: parsedUrl.href,
       site_name: ogSiteName,
-      autoCategoryName: categoryName,
+      autoCategoryName: categoryName ?? undefined,
+    autoCategoryConfidence: confidence,
       autoTags: tags,
       autoPriority: priority,
     };

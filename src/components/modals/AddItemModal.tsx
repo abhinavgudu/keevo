@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Category, ContentItem, MediaType, AspectRatioType, PriorityLevel } from '@/types/vault';
+import { LEGACY_CATEGORY_ALIASES } from '@/lib/categories';
 import { X, Sparkles, Link as LinkIcon, FileText, Upload, Check, AlertCircle, Loader2, Clipboard, ChevronDown, ChevronUp } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -31,6 +32,7 @@ export function AddItemModal({ isOpen, onClose, categories, onSave }: AddItemMod
   const [priority, setPriority] = useState<PriorityLevel>('MUST_LEARN');
   const [tags, setTags] = useState<string[]>([]);
   const [docFileUrl, setDocFileUrl] = useState<string | null>(null);
+  const [detection, setDetection] = useState<{ name: string; confidence: 'high' | 'medium' | 'low' } | null>(null);
 
   if (!isOpen) return null;
 
@@ -38,6 +40,9 @@ export function AddItemModal({ isOpen, onClose, categories, onSave }: AddItemMod
     if (!urlToScrape.trim()) return;
     setIsScraping(true);
     setErrorMsg('');
+    // Clear the previous verdict up front so a failed re-scrape cannot leave a
+    // stale "Detected X" banner above whatever is on screen now.
+    setDetection(null);
 
     try {
       const res = await fetch('/api/scrape', {
@@ -58,12 +63,19 @@ export function AddItemModal({ isOpen, onClose, categories, onSave }: AddItemMod
       setPriority(meta.autoPriority || 'MUST_LEARN');
       setTags(meta.autoTags || []);
 
-      // Auto-match category
-      if (meta.autoCategoryName && categories.length > 0) {
-        const found = categories.find(
-          (c) => c.name.toLowerCase() === meta.autoCategoryName.toLowerCase()
-        );
-        if (found) setCategoryId(found.id);
+      // Auto-match category. The scrape route reports a confidence, so the
+      // user can see *why* something was picked and override it in one click
+      // instead of wondering which category their post landed in.
+      const detected: string | null = meta.autoCategoryName || null;
+      const confidence: 'high' | 'medium' | 'low' = meta.autoCategoryConfidence || 'low';
+      setDetection(detected ? { name: detected, confidence } : null);
+
+      if (detected && categories.length > 0) {
+        const wanted = LEGACY_CATEGORY_ALIASES[detected.toLowerCase()] ?? detected;
+        const found = categories.find((c) => c.name.toLowerCase() === wanted.toLowerCase());
+        // A low-confidence guess is not auto-applied; it is only offered.
+        if (found && confidence !== 'low') setCategoryId(found.id);
+        else if (found) setDetection({ name: detected, confidence });
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Auto-detection failed. You can still save directly.');
@@ -269,6 +281,34 @@ export function AddItemModal({ isOpen, onClose, categories, onSave }: AddItemMod
         {/* Category Picker — always visible once content is detected */}
         {title && !isScraping && (
           <div className="mb-4">
+            {detection && (
+              <div
+                className={`mb-3 flex items-start gap-2 rounded-xl border px-3 py-2 text-[11px] leading-relaxed ${
+                  detection.confidence === 'high'
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                    : detection.confidence === 'medium'
+                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                      : 'border-slate-700 bg-slate-900/60 text-slate-400'
+                }`}
+              >
+                <span className="shrink-0 leading-none pt-px">
+                  {detection.confidence === 'low' ? '◔' : '◕'}
+                </span>
+                <span>
+                  {detection.confidence === 'low' ? (
+                    <>
+                      Not enough signal to file this automatically. <strong className="font-semibold">{detection.name}</strong>{' '}
+                      was a weak guess — pick a category below, or leave it blank to save it uncategorised.
+                    </>
+                  ) : (
+                    <>
+                      Detected <strong className="font-semibold">{detection.name}</strong> ({detection.confidence} confidence).
+                      Change it below if that is wrong.
+                    </>
+                  )}
+                </span>
+              </div>
+            )}
             <label className="block text-xs font-semibold text-slate-300 mb-2">
               📁 Choose Category
             </label>

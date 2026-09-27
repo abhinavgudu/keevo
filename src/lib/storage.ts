@@ -1,5 +1,25 @@
 import { Category, ContentItem, VaultStats, calculatePriorityScore } from '@/types/vault';
 import { getSupabaseClient } from './supabase';
+import {
+  buildVaultFilter,
+  UNCATEGORIZED_ID,
+  type CategoryCounts,
+  type ItemQueryOptions,
+} from './vaultFilters';
+
+export {
+  buildVaultFilter,
+  sanitizeSearchTerm,
+  UNCATEGORIZED_ID,
+  MEDIA_FILTER_GROUPS,
+} from './vaultFilters';
+export type {
+  CategoryCounts,
+  ItemQueryOptions,
+  VaultMediaFilter,
+  VaultSortOption,
+} from './vaultFilters';
+
 
 // Auth user context — set from AuthContext on login
 let _currentUserId: string | null = null;
@@ -30,6 +50,7 @@ export function normalizeUrl(rawUrl: string): string {
 
 export class VaultStorage {
   // --- CATEGORIES ---
+
   static async getCategories(): Promise<Category[]> {
     const supabase = getSupabaseClient();
     if (!supabase) {
@@ -37,17 +58,42 @@ export class VaultStorage {
       return [];
     }
 
-    let query = supabase.from('categories').select('*').order('created_at', { ascending: true });
-    if (_currentUserId) { 
-      query = (query as any).eq('user_id', _currentUserId); 
+    // Global categories (user_id IS NULL) are the shared taxonomy and belong to
+    // every account, so they must be included alongside the user's own. Filtering
+    // on `user_id` alone excluded every seeded category, which is why auto-detected
+    // names never resolved and posts saved uncategorised. It also used to return
+    // other users' categories while signed out, since the filter is skipped.
+    const globalQuery = supabase
+      .from('categories')
+      .select('*')
+      .is('user_id', null)
+      .order('created_at', { ascending: true });
+
+    if (_currentUserId) {
+      const { data, error } = await globalQuery;
+      if (error) {
+        console.error('Supabase categories fetch error:', error);
+        return [];
+      }
+
+      const { data: own, error: ownError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('user_id', _currentUserId)
+        .order('created_at', { ascending: true });
+      if (ownError) {
+        console.error('Supabase categories fetch error:', ownError);
+      }
+
+      return [...(data || []), ...(own || [])];
     }
-    
-    const { data, error } = await query;
+
+    const { data, error } = await globalQuery;
     if (error) {
       console.error('Supabase categories fetch error:', error);
       return [];
     }
-    
+
     return data || [];
   }
 
@@ -88,7 +134,100 @@ export class VaultStorage {
   }
 
   // --- CONTENT ITEMS ---
-  static async getItems(): Promise<ContentItem[]> {
+  /**
+   * Per-category post counts for the pill row.
+   *
+   * Deliberately selects two small columns rather than whole rows: the counts
+   * must be known before deciding which pills to render, so this cannot depend on
+   * the item list, which is itself filtered by the active category.
+   *
+   * `source_url` is included so the same normalized-URL dedupe that getItems
+   * applies can be applied here. Without it the pills would advertise more posts
+   * than the grid can show (a saved duplicate would count twice), and the
+   * "N of M" counter would disagree with itself.
+   */
+  static async getCategoryCounts(): Promise<CategoryCounts> {
+    const empty: CategoryCounts = { counts: {}, total: 0, uncategorized: 0 };
+    const supabase = getSupabaseClient();
+    if (!supabase) return empty;
+
+    let q = supabase.from('content_items').select('category_id, source_url');
+    if (_currentUserId) {
+      q = (q as unknown as { eq: (c: string, v: string) => typeof q }).eq('user_id', _currentUserId);
+    }
+
+    // Same ordering as getItems so both agree on which duplicate survives.
+    const { data, error } = await (
+      q as unknown as {
+        order: (c: string, o: { ascending: boolean }) => PromiseLike<{ data: unknown; error: unknown }>;
+      }
+    ).order('created_at', { ascending: false });
+    if (error) {
+      console.error('Supabase category counts fetch error:', error);
+      return empty;
+    }
+
+    const counts: Record<string, number> = {};
+    const seen = new Set<string>();
+    let uncategorized = 0;
+    let total = 0;
+
+    for (const row of (data ?? []) as Array<{ category_id: string | null; source_url: string | null }>) {
+      const key = row.source_url ? normalizeUrl(row.source_url) : null;
+      if (key) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
+      total += 1;
+      if (row.category_id) {
+        counts[row.category_id] = (counts[row.category_id] ?? 0) + 1;
+      } else {
+        uncategorized += 1;
+      }
+    }
+
+    return { counts, total, uncategorized };
+  }
+
+  /** Single-row fetch for the mutations that used to pull the whole vault. */
+  static async getItemById(id: string): Promise<ContentItem | null> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+
+    let q = supabase.from('content_items').select('*').eq('id', id);
+    if (_currentUserId) {
+      q = (q as unknown as { eq: (c: string, v: string) => typeof q }).eq('user_id', _currentUserId);
+    }
+
+    const { data, error } = await q.limit(1);
+    if (error) {
+      console.error('Supabase item fetch error:', error);
+      return null;
+    }
+    if (!data || data.length === 0) return null;
+
+    const row = data[0] as Record<string, unknown>;
+    const categories = await this.getCategories();
+    return {
+      ...row,
+      priority_score: calculatePriorityScore(
+        row.priority as never,
+        row.access_count as number,
+        row.is_favorite as boolean,
+        row.created_at as string
+      ),
+      category: row.category_id
+        ? categories.find((c) => c.id === (row.category_id as string))
+        : undefined,
+    } as ContentItem;
+  }
+
+  /**
+   * Narrows the query server-side so only the rows the UI is actually showing
+   * cross the wire. Defaults to no filtering, which every internal caller
+   * (saveItem dedupe, export, import) relies on.
+   */
+  static async getItems(options: ItemQueryOptions = {}): Promise<ContentItem[]> {
     const supabase = getSupabaseClient();
     if (!supabase) {
       console.warn('Supabase client not initialized');
@@ -98,37 +237,86 @@ export class VaultStorage {
     const categories = await this.getCategories();
     const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
-    let query = supabase
-      .from('content_items')
-      .select('*')
-      .order('created_at', { ascending: false });
-      
-    if (_currentUserId) { 
-      query = (query as any).eq('user_id', _currentUserId); 
+    const runQuery = async (filter: string | null) => {
+      let q = supabase.from('content_items').select('*');
+
+      if (_currentUserId) {
+        q = (q as unknown as { eq: (c: string, v: string) => typeof q }).eq('user_id', _currentUserId);
+      }
+      if (options.categoryId === UNCATEGORIZED_ID) {
+        q = (q as unknown as { is: (c: string, v: null) => typeof q }).is('category_id', null);
+      } else if (options.categoryId) {
+        q = (q as unknown as { eq: (c: string, v: string) => typeof q }).eq(
+          'category_id',
+          options.categoryId
+        );
+      }
+      if (filter) {
+        q = (q as unknown as { or: (f: string) => typeof q }).or(filter);
+      }
+      if (options.limit) {
+        q = (q as unknown as { limit: (n: number) => typeof q }).limit(options.limit);
+      }
+
+      // Sorting stays client-side on purpose: priority_score shown on the cards
+      // is recalculated in JS (uncapped access bonus + time decay) and does not
+      // match the stored column, so ordering by the column would disagree with
+      // the number rendered on each card. Sorting the filtered set costs no
+      // bandwidth, which is where the savings actually come from.
+      return await (q as unknown as {
+        order: (c: string, o: { ascending: boolean }) => PromiseLike<{ data: unknown[]; error: unknown }>;
+      }).order('created_at', { ascending: false });
+    };
+
+    // Degrade rather than render an empty vault: if the combined filter is
+    // rejected, retry with fewer conditions before giving up entirely.
+    const attempts: Array<{ filter: string | null; label: string }> = [];
+    const combined = buildVaultFilter(options);
+    if (combined) {
+      attempts.push({ filter: combined, label: 'search+media' });
+      const searchOnly = buildVaultFilter({ ...options, mediaType: 'ALL' });
+      if (searchOnly) attempts.push({ filter: searchOnly, label: 'search only' });
+      const mediaOnly = buildVaultFilter({ ...options, search: '' });
+      if (mediaOnly) attempts.push({ filter: mediaOnly, label: 'media only' });
+    } else {
+      attempts.push({ filter: null, label: 'unfiltered' });
     }
-    
-    const { data, error } = await query;
-    
-    if (error) {
-      console.error('Supabase items fetch error:', error);
+
+    let data: unknown[] | null = null;
+    let lastError: unknown = null;
+
+    for (const attempt of attempts) {
+      const { data: rows, error } = await runQuery(attempt.filter);
+      if (!error) {
+        if (attempt.label !== attempts[0].label) {
+          console.warn(`Vault filter fell back to "${attempt.label}"`);
+        }
+        data = rows ?? [];
+        break;
+      }
+      lastError = error;
+      console.error(`Supabase items fetch error (${attempt.label}):`, error);
+    }
+
+    if (data === null) {
+      console.error('Supabase items fetch failed for every filter variant:', lastError);
       return [];
     }
-    
-    if (!data) return [];
 
-    const mapped = data.map((item: any) => {
+    const mapped = (data as Array<Record<string, unknown>>).map((item) => {
       const recalculatedScore = calculatePriorityScore(
-        item.priority,
-        item.access_count,
-        item.is_favorite,
-        item.created_at
+        item.priority as never,
+        item.access_count as number,
+        item.is_favorite as boolean,
+        item.created_at as string
       );
       return {
         ...item,
         priority_score: recalculatedScore,
-        category: item.category_id ? categoryMap.get(item.category_id) : undefined,
-      };
+        category: item.category_id ? categoryMap.get(item.category_id as string) : undefined,
+      } as unknown as ContentItem;
     });
+
 
     // Deduplicate by normalized source_url & id
     const uniqueMap = new Map<string, ContentItem>();
@@ -204,8 +392,7 @@ const fullItem: ContentItem = {
   }
 
   static async incrementAccess(id: string): Promise<ContentItem | null> {
-    const items = await this.getItems();
-    const item = items.find((i) => i.id === id);
+    const item = await this.getItemById(id);
     if (!item) return null;
 
     const newCount = (item.access_count || 0) + 1;
@@ -216,8 +403,7 @@ const fullItem: ContentItem = {
   }
 
   static async toggleFavorite(id: string): Promise<ContentItem | null> {
-    const items = await this.getItems();
-    const item = items.find((i) => i.id === id);
+    const item = await this.getItemById(id);
     if (!item) return null;
 
     return this.saveItem({
@@ -225,6 +411,7 @@ const fullItem: ContentItem = {
       is_favorite: !item.is_favorite,
     });
   }
+
 
   static async deleteItem(id: string): Promise<boolean> {
     const supabase = getSupabaseClient();
@@ -252,18 +439,113 @@ const fullItem: ContentItem = {
   }
 
   // --- STATS ---
+  /**
+   * Aggregates from the six columns the metrics actually need instead of
+   * hydrating every item. The old version called getItems(), which pulled whole
+   * rows for the entire vault on every load and on every favourite/access
+   * update — that alone defeated selecting a single category.
+   *
+   * MUST_LEARN is still resolved against the JS-recalculated score, not the
+   * stored column, so the banner keeps matching the priority numbers on the cards.
+   */
   static async getStats(): Promise<VaultStats> {
-    const items = await this.getItems();
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      return {
+        totalItems: 0,
+        mustLearnCount: 0,
+        reelsCount: 0,
+        landscapeCount: 0,
+        documentsCount: 0,
+        favoritesCount: 0,
+        totalAccesses: 0,
+      };
+    }
+
+    let q = supabase
+      .from('content_items')
+      .select('priority, access_count, is_favorite, created_at, aspect_ratio, media_type, source_url');
+    if (_currentUserId) {
+      q = (q as unknown as { eq: (c: string, v: string) => typeof q }).eq('user_id', _currentUserId);
+    }
+
+    const { data, error } = await (
+      q as unknown as {
+        order: (c: string, o: { ascending: boolean }) => PromiseLike<{ data: unknown; error: unknown }>;
+      }
+    ).order('created_at', { ascending: false });
+    if (error) {
+      console.error('Supabase stats fetch error:', error);
+      return {
+        totalItems: 0,
+        mustLearnCount: 0,
+        reelsCount: 0,
+        landscapeCount: 0,
+        documentsCount: 0,
+        favoritesCount: 0,
+        totalAccesses: 0,
+      };
+    }
+
+    const rows = (data ?? []) as Array<{
+      priority: string;
+      access_count: number | null;
+      is_favorite: boolean | null;
+      created_at: string;
+      aspect_ratio: string | null;
+      media_type: string | null;
+      source_url: string | null;
+    }>;
+
+    let mustLearnCount = 0;
+    let reelsCount = 0;
+    let landscapeCount = 0;
+    let documentsCount = 0;
+    let favoritesCount = 0;
+    let totalAccesses = 0;
+    let totalItems = 0;
+    // Same normalized-URL dedupe as getItems, so the banner counts the posts the
+    // grid can actually show rather than raw rows.
+    const seen = new Set<string>();
+
+    for (const row of rows) {
+      if (row.source_url) {
+        const key = normalizeUrl(row.source_url);
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
+
+      totalItems += 1;
+      const accessCount = row.access_count ?? 0;
+      const isFavorite = row.is_favorite ?? false;
+      totalAccesses += accessCount;
+
+      const score = calculatePriorityScore(
+        row.priority as never,
+        accessCount,
+        isFavorite,
+        row.created_at
+      );
+      if (row.priority === 'MUST_LEARN' || score >= 100) mustLearnCount += 1;
+      if (row.aspect_ratio === 'PORTRAIT_9_16' || row.media_type === 'REEL') reelsCount += 1;
+      if (row.aspect_ratio === 'LANDSCAPE_16_9') landscapeCount += 1;
+      if (row.media_type === 'DOCUMENT' || row.aspect_ratio === 'STANDARD_DOCUMENT') {
+        documentsCount += 1;
+      }
+      if (isFavorite) favoritesCount += 1;
+    }
+
     return {
-      totalItems: items.length,
-      mustLearnCount: items.filter((i) => i.priority === 'MUST_LEARN' || i.priority_score >= 100).length,
-      reelsCount: items.filter((i) => i.aspect_ratio === 'PORTRAIT_9_16' || i.media_type === 'REEL').length,
-      landscapeCount: items.filter((i) => i.aspect_ratio === 'LANDSCAPE_16_9').length,
-      documentsCount: items.filter((i) => i.media_type === 'DOCUMENT' || i.aspect_ratio === 'STANDARD_DOCUMENT').length,
-      favoritesCount: items.filter((i) => i.is_favorite).length,
-      totalAccesses: items.reduce((acc, curr) => acc + (curr.access_count || 0), 0),
+      totalItems,
+      mustLearnCount,
+      reelsCount,
+      landscapeCount,
+      documentsCount,
+      favoritesCount,
+      totalAccesses,
     };
   }
+
 
   // --- EXPORT & IMPORT ---
   static async exportData(): Promise<string> {

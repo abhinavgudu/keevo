@@ -11,10 +11,9 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'Keeva',
   },
-  icons: {
-    icon: '/keeva-icon.png',
-    apple: '/keeva-logo.png',
-  },
+  // Icons come from the app-dir file conventions (favicon.ico, icon.svg,
+  // apple-icon.png). Declaring `icons` here would override all three and
+  // silently downgrade the favicon back to whatever single file it named.
   openGraph: {
     title: 'Keeva — Personal Media Intelligence Vault',
     description: 'Your ultra-smart personal content vault — save, organize, and auto-prioritize Instagram Reels, YouTube Videos, LinkedIn Posts, Articles, and PDF Documents.',

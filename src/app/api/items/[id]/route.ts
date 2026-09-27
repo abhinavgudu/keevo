@@ -11,7 +11,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { is_public } = body;
+    const { is_public, community_caption } = body;
 
     if (typeof is_public !== 'boolean') {
       return NextResponse.json({ error: 'is_public must be a boolean' }, { status: 400 });
@@ -32,9 +32,19 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
+    const updatePayload: Record<string, unknown> = { is_public };
+    if (typeof community_caption === 'string') {
+      updatePayload.community_caption = community_caption;
+      // Stamp the edit so the feed can mark the post as edited. Cleared when the
+      // post leaves the community, since a private post has no visible caption.
+      updatePayload.community_edited_at = is_public && community_caption.trim()
+        ? new Date().toISOString()
+        : null;
+    }
+
     const { data, error } = await supabase
       .from('content_items')
-      .update({ is_public })
+      .update(updatePayload)
       .eq('id', id)
       .eq('user_id', user.id)
       .select()

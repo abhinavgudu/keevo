@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/supabase';
 import { calculatePriorityScore } from '@/types/vault';
+import { LEGACY_CATEGORY_ALIASES } from '@/lib/categories';
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,25 +42,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Title and source_url required' }, { status: 400 });
     }
 
-    // Find or create category
+    // Find or create category.
+    // A global row (user_id IS NULL) is the shared taxonomy and is the right
+    // match for a recognised name — creating a per-user duplicate of "AI & ML"
+    // for every install is what left the vault full of one-off categories.
     let category_id = null;
     if (category_name) {
-      const { data: existingCat } = await supabase
+      const normalised = LEGACY_CATEGORY_ALIASES[category_name.trim().toLowerCase()] ?? category_name.trim();
+
+      const { data: globalCat } = await supabase
         .from('categories')
         .select('id')
-        .eq('name', category_name)
-        .eq('user_id', user.id)
-        .single();
+        .is('user_id', null)
+        .ilike('name', normalised)
+        .limit(1)
+        .maybeSingle();
 
-      if (existingCat) {
-        category_id = existingCat.id;
+      if (globalCat) {
+        category_id = globalCat.id;
       } else {
-        const { data: newCat } = await supabase
+        const { data: ownCat } = await supabase
           .from('categories')
-          .insert({ name: category_name, color_hex: '#3B82F6', user_id: user.id })
-          .select()
-          .single();
-        if (newCat) category_id = newCat.id;
+          .select('id')
+          .eq('user_id', user.id)
+          .ilike('name', normalised)
+          .limit(1)
+          .maybeSingle();
+
+        if (ownCat) {
+          category_id = ownCat.id;
+        } else {
+          // Only an unrecognised name earns a new personal category.
+          const { data: newCat } = await supabase
+            .from('categories')
+            .insert({ name: normalised, color_hex: '#3B82F6', user_id: user.id })
+            .select()
+            .single();
+          if (newCat) category_id = newCat.id;
+        }
       }
     }
 

@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Category, ContentItem, VaultStats } from '@/types/vault';
 import { VaultStorage } from '@/lib/storage';
+import type { CategoryCounts } from '@/lib/storage';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/Header';
@@ -32,12 +33,21 @@ export default function KeevaDashboard() {
   const router = useRouter();
   const [items, setItems] = useState<ContentItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryCounts, setCategoryCounts] = useState<CategoryCounts>({
+    counts: {},
+    total: 0,
+    uncategorized: 0,
+  });
   const [stats, setStats] = useState<VaultStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isItemsLoading, setIsItemsLoading] = useState(false);
   const [isSupabaseActive, setIsSupabaseActive] = useState(false);
 
   // Filters & Search State
   const [searchQuery, setSearchQuery] = useState('');
+  // Typing must not fire a query per keystroke; the list follows the debounced
+  // value while the input stays controlled by searchQuery.
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedMediaType, setSelectedMediaType] = useState<FilterMediaType>('ALL');
   const [sortBy, setSortBy] = useState<SortOption>('NEWEST');
@@ -63,15 +73,18 @@ export default function KeevaDashboard() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const loadVaultData = useCallback(async () => {
+  // Categories, per-category counts and the metrics banner. These describe the
+  // whole vault and must stay unfiltered — the pill row needs every count in
+  // order to decide which pills to show.
+  const loadVaultMeta = useCallback(async () => {
     try {
-      const [loadedCategories, loadedItems, loadedStats] = await Promise.all([
+      const [loadedCategories, loadedCounts, loadedStats] = await Promise.all([
         VaultStorage.getCategories(),
-        VaultStorage.getItems(),
+        VaultStorage.getCategoryCounts(),
         VaultStorage.getStats(),
       ]);
       setCategories(loadedCategories);
-      setItems(loadedItems);
+      setCategoryCounts(loadedCounts);
       setStats(loadedStats);
       setIsSupabaseActive(isSupabaseConfigured());
     } catch (err) {
@@ -81,6 +94,34 @@ export default function KeevaDashboard() {
     }
   }, []);
 
+  // Only the rows the current filters allow are fetched.
+  const loadItems = useCallback(async () => {
+    setIsItemsLoading(true);
+    try {
+      const loaded = await VaultStorage.getItems({
+        categoryId: selectedCategoryId,
+        search: debouncedSearch,
+        mediaType: selectedMediaType,
+      });
+      setItems(loaded);
+    } catch (err) {
+      console.error('Error loading filtered items:', err);
+      setItems([]);
+    } finally {
+      setIsItemsLoading(false);
+    }
+  }, [selectedCategoryId, debouncedSearch, selectedMediaType]);
+
+  const loadVaultData = useCallback(async () => {
+    await Promise.all([loadVaultMeta(), loadItems()]);
+  }, [loadVaultMeta, loadItems]);
+
+  // Debounce the search box into the query layer.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Auth guard — redirect unauthenticated users to /auth/signin
   useEffect(() => {
     if (!authLoading && !user) {
@@ -88,10 +129,19 @@ export default function KeevaDashboard() {
     }
   }, [authLoading, user, router]);
 
+  // Single fetch effect. loadItems changes identity on every filter change, so
+  // this re-queries the list when a filter moves; the vault-wide metadata
+  // (categories, counts, metrics) is filter-independent and is reloaded only when
+  // the signed-in user actually changes.
+  const metaLoadedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (user) {
-      loadVaultData();
+    if (!user) return;
+
+    if (metaLoadedFor.current !== user.id) {
+      metaLoadedFor.current = user.id;
+      loadVaultMeta();
     }
+    loadItems();
 
     // Check if redirected from share target or saved param
     if (typeof window !== 'undefined') {
@@ -101,7 +151,7 @@ export default function KeevaDashboard() {
         window.history.replaceState({}, '', '/');
       }
     }
-  }, [loadVaultData, user]);
+  }, [loadItems, loadVaultMeta, user]);
 
   // Global Keyboard Shortcuts (Cmd+K / Ctrl+K)
   useEffect(() => {
@@ -116,42 +166,20 @@ export default function KeevaDashboard() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
-  // Real-time sub-millisecond filtering with useMemo
+  // Search, category and media type are resolved in the query (see loadItems),
+  // so this only re-applies what cannot be expressed server-side and sorts.
   const filteredItems = useMemo(() => {
     let result = [...items];
 
-    // 1. Text Search Filter (Title, Description, Platform, Tags, Notes)
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter((item) => {
-        const titleMatch = item.title.toLowerCase().includes(q);
-        const descMatch = item.description?.toLowerCase().includes(q);
-        const platformMatch = item.platform.toLowerCase().includes(q);
-        const tagsMatch = item.tags?.some((t) => t.toLowerCase().includes(q));
-        const notesMatch = item.notes?.toLowerCase().includes(q);
-        return titleMatch || descMatch || platformMatch || tagsMatch || notesMatch;
-      });
-    }
-
-    // 2. Category Filter
-    if (selectedCategoryId) {
-      result = result.filter((item) => item.category_id === selectedCategoryId);
-    }
-
-    // 3. Media Type / Preset Filter
+    // MUST_LEARN is narrowed server-side on the stored priority_score, but the
+    // score rendered on each card is recalculated in JS (uncapped access bonus
+    // plus time decay), so the two can disagree. Re-check against the value the
+    // user actually sees, otherwise this tab would show cards scored under 100.
     if (selectedMediaType === 'MUST_LEARN') {
       result = result.filter((item) => item.priority === 'MUST_LEARN' || item.priority_score >= 100);
-    } else if (selectedMediaType === 'REEL') {
-      result = result.filter((item) => item.aspect_ratio === 'PORTRAIT_9_16' || item.media_type === 'REEL');
-    } else if (selectedMediaType === 'LANDSCAPE') {
-      result = result.filter((item) => item.aspect_ratio === 'LANDSCAPE_16_9');
-    } else if (selectedMediaType === 'PDF') {
-      result = result.filter((item) => item.media_type === 'DOCUMENT' || item.aspect_ratio === 'STANDARD_DOCUMENT');
-    } else if (selectedMediaType === 'FAVORITES') {
-      result = result.filter((item) => item.is_favorite);
     }
 
-    // 4. Sorting
+    // Sorting
     result.sort((a, b) => {
       if (sortBy === 'PRIORITY_DESC') {
         return b.priority_score - a.priority_score;
@@ -169,7 +197,7 @@ export default function KeevaDashboard() {
     });
 
     return result;
-  }, [items, searchQuery, selectedCategoryId, selectedMediaType, sortBy]);
+  }, [items, selectedMediaType, sortBy]);
 
   // Actions
   const handleOpenPdf = async (item: ContentItem) => {
@@ -208,7 +236,10 @@ export default function KeevaDashboard() {
       if (activePdfItem && activePdfItem.id === id) {
         setActivePdfItem(updated);
       }
-      VaultStorage.getStats().then(setStats);
+      // Re-favourite changes which rows the active filters match (the Favorites
+      // tab in particular) and shifts the priority score, so re-query instead of
+      // trusting the local patch.
+      await Promise.all([loadItems(), loadVaultMeta()]);
       showToast(updated.is_favorite ? 'Added to Favorites (+30 score bonus)' : 'Removed from Favorites');
     }
   };
@@ -216,14 +247,15 @@ export default function KeevaDashboard() {
   const handleDeleteItem = async (id: string) => {
     await VaultStorage.deleteItem(id);
     setItems((prev) => prev.filter((i) => i.id !== id));
-    VaultStorage.getStats().then(setStats);
+    await Promise.all([loadItems(), loadVaultMeta()]);
     showToast('Item deleted from Vault');
   };
 
   const handleSaveItem = async (itemPayload: Partial<ContentItem> & { title: string; source_url: string }) => {
     const saved = await VaultStorage.saveItem(itemPayload);
-    setItems((prev) => [saved, ...prev.filter((i) => i.id !== saved.id)]);
-    VaultStorage.getStats().then(setStats);
+    // A save can create a category (and therefore a new pill) and can land
+    // outside the active filter, so both the list and the meta are refreshed.
+    await Promise.all([loadItems(), loadVaultMeta()]);
     showToast(`Saved "${saved.title.slice(0, 28)}..." to Vault!`);
   };
 
@@ -244,6 +276,9 @@ export default function KeevaDashboard() {
     await VaultStorage.deleteCategory(id);
     setCategories((prev) => prev.filter((c) => c.id !== id));
     if (selectedCategoryId === id) setSelectedCategoryId(null);
+    // The FK is ON DELETE SET NULL, so the deleted category's posts reappear
+    // under Uncategorized and the counts move.
+    await Promise.all([loadItems(), loadVaultMeta()]);
     showToast('Category removed');
   };
 
@@ -262,8 +297,7 @@ export default function KeevaDashboard() {
   const handleClearAll = async () => {
     if (confirm('Are you sure you want to clear all vault content items?')) {
       await VaultStorage.clearAllItems();
-      setItems([]);
-      VaultStorage.getStats().then(setStats);
+      await Promise.all([loadItems(), loadVaultMeta()]);
       showToast('Vault cleared');
     }
   };
@@ -378,14 +412,16 @@ export default function KeevaDashboard() {
         {/* Filter & Sorting Toolbar */}
         <FilterBar
           categories={categories}
+          categoryCounts={categoryCounts}
           selectedCategoryId={selectedCategoryId}
           onSelectCategory={setSelectedCategoryId}
           selectedMediaType={selectedMediaType}
           onSelectMediaType={setSelectedMediaType}
           sortBy={sortBy}
           onSelectSortBy={setSortBy}
-          totalCount={items.length}
+          totalCount={categoryCounts.total}
           filteredCount={filteredItems.length}
+          isLoading={isItemsLoading}
           onReset={handleResetFilters}
           hasActiveFilters={hasActiveFilters}
         />
@@ -396,8 +432,9 @@ export default function KeevaDashboard() {
             <Loader2 className="w-10 h-10 text-cyan-400 animate-spin mb-4" />
             <p className="text-xs text-slate-400 font-mono">Loading Keeva OS...</p>
           </div>
-        ) : items.length === 0 ? (
-          /* Clean Empty State */
+        ) : categoryCounts.total === 0 ? (
+          /* Clean Empty State — the true "no posts at all" case. A filter that
+             matches nothing is handled by MasonryGrid, which offers a reset. */
           <div className="w-full py-16 flex flex-col items-center justify-center text-center px-4">
             <div className="w-18 h-18 rounded-3xl bg-slate-900/80 border border-slate-800 flex items-center justify-center text-cyan-400 mb-4 shadow-2xl">
               <Compass className="w-9 h-9 animate-pulse" />

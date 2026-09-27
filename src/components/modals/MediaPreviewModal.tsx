@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react';
 import { ContentItem } from '@/types/vault';
-import { X, ExternalLink, Heart, Eye, Sparkles, MessageSquare, Play, Flame, Check, Globe, FileText, Loader2 } from 'lucide-react';
+import { X, ExternalLink, Heart, Eye, Sparkles, MessageSquare, Play, Flame, Check, Globe, FileText } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { TranscriptViewerModal } from './TranscriptViewerModal';
+import { ShareToCommunityModal } from './ShareToCommunityModal';
 
 interface MediaPreviewModalProps {
   item: ContentItem | null;
@@ -35,7 +36,7 @@ function getEmbedUrl(url: string): string | null {
     }
     // Instagram Reels & Posts (All URL variations)
     if (urlObj.hostname.includes('instagram.com') || urlObj.hostname.includes('instagr.am')) {
-      const match = url.match(/(?:instagram\.com|instagr\.am)\/(?:p|reel|reels|tv|share\/reel|share\/p)\/([A-Za-z0-9_-]+)/i);
+      const match = url.match(/(?:\/reel\/|\/reels\/|\/p\/|\/tv\/)([A-Za-z0-9_-]+)/i);
       if (match && match[1]) {
         return `https://www.instagram.com/p/${match[1]}/embed/`;
       }
@@ -53,44 +54,23 @@ export function MediaPreviewModal({
   onToggleFavorite,
   onUpdateNotes,
 }: MediaPreviewModalProps) {
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const [notesText, setNotesText] = useState(item?.notes || '');
   const [isSavedNotes, setIsSavedNotes] = useState(false);
   const [isPublic, setIsPublic] = useState(item?.is_public || false);
-  const [isUpdatingPublic, setIsUpdatingPublic] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
 
   if (!isOpen || !item) return null;
 
   const isPortrait = item.aspect_ratio === 'PORTRAIT_9_16' || item.media_type === 'REEL';
   const embedUrl = getEmbedUrl(item.source_url);
+  const isOwner = !item.user_id || item.user_id === user?.id;
 
   const handleSaveNotes = () => {
     onUpdateNotes(item.id, notesText);
     setIsSavedNotes(true);
     setTimeout(() => setIsSavedNotes(false), 2000);
-  };
-
-  const handleTogglePublic = async () => {
-    if (!session?.access_token) return;
-    setIsUpdatingPublic(true);
-    try {
-      const res = await fetch(`/api/items/${item.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ is_public: !isPublic })
-      });
-      if (res.ok) {
-        setIsPublic(!isPublic);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsUpdatingPublic(false);
-    }
   };
 
 return (
@@ -266,22 +246,19 @@ return (
                   <span>{item.is_favorite ? 'Favorited' : 'Favorite (+30)'}</span>
                 </button>
 
-                <button
-                  onClick={handleTogglePublic}
-                  disabled={isUpdatingPublic}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                    isPublic 
-                      ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30' 
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                  } ${isUpdatingPublic ? 'opacity-70 cursor-wait' : ''}`}
-                >
-                  {isUpdatingPublic ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
+                {isOwner && (
+                  <button
+                    onClick={() => setShowShareModal(true)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                      isPublic
+                        ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                    }`}
+                  >
                     <Globe className={`w-4 h-4 ${isPublic ? 'text-emerald-400' : 'text-slate-400'}`} />
-                  )}
-                  <span>{isUpdatingPublic ? 'Sharing...' : (isPublic ? 'Public in Community' : 'Share to Community')}</span>
-                </button>
+                    <span>{isPublic ? 'Public in Community' : 'Share to Community'}</span>
+                  </button>
+                )}
 
                 {/* Transcript Button - only for YouTube where it's actually possible */}
                 {(item.platform === 'YouTube' || item.platform === 'YouTube Shorts') && item.transcript_json?.length ? (
@@ -310,6 +287,19 @@ return (
           onClose={() => setShowTranscript(false)}
         />
       )}
+
+      <ShareToCommunityModal
+        key={item?.id ?? 'none'}
+        item={item}
+        isOpen={showShareModal}
+        isCurrentlyPublic={isPublic}
+        onClose={() => setShowShareModal(false)}
+        onShared={(updatedItem) => {
+          setIsPublic(updatedItem.is_public ?? false);
+          setShowShareModal(false);
+        }}
+      />
     </>
   );
 }
+

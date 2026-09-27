@@ -27,7 +27,7 @@ function KeevaMark({ size = 24 }: { size?: number }) {
       alt="Keeva Logo"
       width={size}
       height={size}
-      className="w-full h-full object-contain filter drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]"
+      className="w-full h-full object-cover rounded-full filter drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]"
     />
   );
 }
@@ -56,9 +56,9 @@ export function Header({
 
         {/* Brand & Logo */}
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1.5px] shadow-lg shadow-cyan-500/25">
-            <div className="w-full h-full bg-[#06070B] rounded-[14px] flex items-center justify-center">
-              <KeevaMark size={20} />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1.5px] shadow-lg shadow-cyan-500/25 overflow-hidden">
+            <div className="w-full h-full bg-[#06070B] rounded-full flex items-center justify-center overflow-hidden">
+              <KeevaMark size={22} />
             </div>
           </div>
           <div>

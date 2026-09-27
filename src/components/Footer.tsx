@@ -13,14 +13,14 @@ export function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
           {/* Left: Brand */}
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1px] shadow-md shadow-cyan-500/20">
-              <div className="w-full h-full bg-[#06070B] rounded-[6px] flex items-center justify-center">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1px] shadow-md shadow-cyan-500/20 overflow-hidden">
+              <div className="w-full h-full bg-[#06070B] rounded-full flex items-center justify-center overflow-hidden">
                 <img
                   src="/keeva-logo.png"
                   alt="Keeva Logo"
                   width={24}
                   height={24}
-                  className="w-4 h-4 object-contain filter drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]"
+                  className="w-4 h-4 object-cover rounded-full filter drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]"
                 />
               </div>
             </div>

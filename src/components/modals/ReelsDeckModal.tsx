@@ -59,7 +59,7 @@ function getEmbedInfo(url: string, muted: boolean): { type: 'youtube' | 'instagr
 
     // Instagram Reel / Post (All URL variations)
     if (u.hostname.includes('instagram.com') || u.hostname.includes('instagr.am')) {
-      const match = url.match(/(?:instagram\.com|instagr\.am)\/(?:p|reel|reels|tv|share\/reel|share\/p)\/([A-Za-z0-9_-]+)/i);
+      const match = url.match(/(?:\/reel\/|\/reels\/|\/p\/|\/tv\/)([A-Za-z0-9_-]+)/i);
       if (match && match[1]) {
         return {
           type: 'instagram',

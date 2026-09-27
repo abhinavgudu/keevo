@@ -25,7 +25,7 @@ function getInstagramEmbedUrl(sourceUrl: string): string | null {
   if (!sourceUrl) return null;
   try {
     const cleanUrl = sourceUrl.trim();
-    const match = cleanUrl.match(/(?:instagram\.com|instagr\.am)\/(?:p|reel|reels|tv|share\/reel|share\/p)\/([A-Za-z0-9_-]+)/i);
+    const match = cleanUrl.match(/(?:\/reel\/|\/reels\/|\/p\/|\/tv\/)([A-Za-z0-9_-]+)/i);
     if (match && match[1]) {
       return `https://www.instagram.com/p/${match[1]}/embed/`;
     }
@@ -108,13 +108,20 @@ export function PortraitReelCard({
           />
           {/* Top badge overlay */}
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20 pointer-events-none">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-xs font-semibold text-white shadow-lg pointer-events-auto">
-              <Camera className="w-3.5 h-3.5 text-pink-400" />
-              <span>Instagram</span>
-              {item.category && (
-                <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-300 border border-pink-500/30">
-                  {item.category.name}
-                </span>
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-xs font-semibold text-white shadow-lg pointer-events-auto">
+                <Camera className="w-3.5 h-3.5 text-pink-400" />
+                <span>Instagram</span>
+              </div>
+              {item.shared_by && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/80 backdrop-blur-xl border border-emerald-500/40 text-emerald-300 text-[11px] font-semibold shadow-lg pointer-events-auto">
+                  <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-tr from-emerald-400 to-cyan-400 text-slate-950 flex items-center justify-center text-[8px] font-black shrink-0">
+                    {(item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]).charAt(0).toUpperCase()}
+                  </div>
+                  <span className="truncate max-w-[110px] text-white font-medium">
+                    {item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]}
+                  </span>
+                </div>
               )}
             </div>
             <div
@@ -170,13 +177,20 @@ export function PortraitReelCard({
 
         {/* Top badges */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20 gap-2">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-xs font-semibold text-white shadow-lg">
-            {getPlatformIcon(item.platform)}
-            <span>{item.platform}</span>
-            {item.category && (
-              <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                {item.category.name}
-              </span>
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-xs font-semibold text-white shadow-lg">
+              {getPlatformIcon(item.platform)}
+              <span>{item.platform}</span>
+            </div>
+            {item.shared_by && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/80 backdrop-blur-xl border border-emerald-500/40 text-emerald-300 text-[11px] font-semibold shadow-lg">
+                <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-tr from-emerald-400 to-cyan-400 text-slate-950 flex items-center justify-center text-[8px] font-black shrink-0">
+                  {(item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]).charAt(0).toUpperCase()}
+                </div>
+                <span className="truncate max-w-[100px] text-white font-medium">
+                  {item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]}
+                </span>
+              </div>
             )}
           </div>
           <div
@@ -196,18 +210,6 @@ export function PortraitReelCard({
 
         {/* Bottom content */}
         <div className="absolute bottom-0 inset-x-0 p-4 z-20 flex flex-col justify-end">
-          {/* Shared By Author Badge */}
-          {item.shared_by && (
-            <div className="mb-2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/85 border border-emerald-500/40 text-[10px] font-medium text-emerald-300 backdrop-blur-md shadow-md w-fit">
-              <div className="w-4 h-4 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-slate-950 text-[9px] font-black shrink-0">
-                {(item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]).charAt(0).toUpperCase()}
-              </div>
-              <span className="truncate max-w-[150px]">
-                Posted by {item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]}
-              </span>
-            </div>
-          )}
-
           {item.category && (
             <div className="mb-2">
               <span

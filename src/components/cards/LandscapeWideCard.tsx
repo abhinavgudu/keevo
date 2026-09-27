@@ -88,9 +88,21 @@ export function LandscapeWideCard({
 
           {/* Top Badges */}
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-xs font-semibold text-white shadow-lg">
-              {getPlatformIcon(item.platform)}
-              <span className="truncate max-w-[120px]">{domain}</span>
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-xs font-semibold text-white shadow-lg">
+                {getPlatformIcon(item.platform)}
+                <span className="truncate max-w-[120px]">{domain}</span>
+              </div>
+              {item.shared_by && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/80 backdrop-blur-xl border border-emerald-500/40 text-emerald-300 text-[11px] font-semibold shadow-lg">
+                  <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-tr from-emerald-400 to-cyan-400 text-slate-950 flex items-center justify-center text-[8px] font-black shrink-0">
+                    {(item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]).charAt(0).toUpperCase()}
+                  </div>
+                  <span className="truncate max-w-[110px] text-white font-medium">
+                    {item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div
@@ -117,18 +129,6 @@ export function LandscapeWideCard({
                   style={{ backgroundColor: `${item.category.color_hex}40`, borderColor: item.category.color_hex, borderWidth: '1px' }}
                 >
                   {item.category.name}
-                </span>
-              </div>
-            )}
-
-            {/* Shared By Author Badge */}
-            {item.shared_by && (
-              <div className="mb-2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-[10px] font-medium text-emerald-300 w-fit">
-                <div className="w-4 h-4 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-slate-950 text-[9px] font-black shrink-0">
-                  {(item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]).charAt(0).toUpperCase()}
-                </div>
-                <span className="truncate max-w-[150px]">
-                  Posted by {item.shared_by.first_name || item.shared_by.last_name ? `${item.shared_by.first_name || ''} ${item.shared_by.last_name || ''}`.trim() : item.shared_by.email.split('@')[0]}
                 </span>
               </div>
             )}
