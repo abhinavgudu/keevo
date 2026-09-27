@@ -251,12 +251,16 @@ export async function POST(req: NextRequest) {
         igTitle = `Instagram Reel #${shortcode}`;
       }
 
-      const { categoryName, tags, priority, confidence } = classifyContent({ title: igTitle, url: parsedUrl.href });
+      const firstPass = classifyContent({ title: igTitle, url: parsedUrl.href });
+      let categoryName = firstPass.categoryName;
+      let tags = firstPass.tags;
+      let priority = firstPass.priority;
+      let confidence = firstPass.confidence;
 
       // Fetch actual Instagram page to get real thumbnail from og:image
       let instagramThumbnail = null;
       let finalTitle = igTitle;
-      let finalDescription = `Instagram Reel (${categoryName}) • Code: ${shortcode}`;
+      let ogDescription = '';
 
       try {
         const response = await fetch(parsedUrl.href, {
@@ -294,18 +298,37 @@ export async function POST(req: NextRequest) {
           }
           
           // Extract description from og:description
-          const ogDescription = 
+          ogDescription = 
             $('meta[property="og:description"]').attr('content') ||
             $('meta[name="twitter:description"]').attr('content') ||
-            null;
+            '';
           
           if (ogDescription) {
-            finalDescription = ogDescription.slice(0, 300);
+            ogDescription = ogDescription.slice(0, 300);
           }
         }
       } catch (fetchErr) {
         console.warn('Instagram fetch failed, using fallback:', fetchErr);
       }
+
+      // The first pass only ever saw the synthetic "Instagram: <shortcode>" title,
+      // which carries no topical signal, so it could not place the post. Now that
+      // the page has been read, classify again against what it actually said. The
+      // first verdict is kept for when the second one finds nothing, which is the
+      // common case because Instagram serves a login wall to logged-out fetches.
+      const secondPass = classifyContent({
+        title: finalTitle,
+        description: ogDescription,
+        url: parsedUrl.href,
+      });
+      if (secondPass.categoryName) {
+        categoryName = secondPass.categoryName;
+        confidence = secondPass.confidence;
+      }
+      if (secondPass.tags.length > 0) tags = secondPass.tags;
+      if (secondPass.priority) priority = secondPass.priority;
+
+      const finalDescription = ogDescription || `Instagram Reel (${categoryName ?? 'Social'}) • Code: ${shortcode}`;
 
       // Fallback to domain-matched image if fetch failed
       const finalThumbnail = instagramThumbnail || getDomainImage(categoryName, shortcode);
@@ -320,7 +343,7 @@ export async function POST(req: NextRequest) {
         source_url: parsedUrl.href,
         site_name: 'Instagram',
         autoCategoryName: categoryName ?? undefined,
-    autoCategoryConfidence: confidence,
+        autoCategoryConfidence: confidence,
         autoTags: tags,
         autoPriority: priority,
       };

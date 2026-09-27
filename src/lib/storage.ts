@@ -38,6 +38,11 @@ export function normalizeUrl(rawUrl: string): string {
     u.searchParams.delete('utm_campaign');
     u.searchParams.delete('feature');
     u.searchParams.delete('si');
+    // Instagram's share sheet appends a per-session token, so the same reel
+    // arrives under a different URL every time it is shared. It identifies
+    // nothing about the post. `img_index` is deliberately left alone: within a
+    // carousel it selects a different image, which is different content.
+    u.searchParams.delete('stkn');
     let path = u.pathname;
     if (path.length > 1 && path.endsWith('/')) {
       path = path.slice(0, -1);
