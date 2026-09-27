@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 // Type-only: these are string enums, so casting the literals is safe and keeps
 // the picker itself out of the initial bundle.
 import type { Theme, EmojiStyle } from 'emoji-picker-react';
 import { CommunityComment } from '@/types/vault';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCommunityMembers } from '@/hooks/useCommunityMembers';
+import { applyMention, detectMentionQuery } from '@/lib/mentions';
+import { CommentBody } from '@/components/comments/CommentBody';
 import { MessageSquare, Smile, Send, Loader2, Trash2, CornerDownRight } from 'lucide-react';
 
 // The picker ships a large emoji dataset. Keep it out of the initial bundle —
@@ -28,6 +31,41 @@ function timeAgo(dateString: string) {
   const days = Math.floor(hrs / 24);
   if (days < 7) return `${days}d`;
   return new Date(dateString).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+}
+
+/** @mention autocomplete popup, shared by the main and reply composers. */
+function MentionList({
+  suggestions,
+  onPick,
+}: {
+  suggestions: { id: string; handle: string; name: string }[];
+  onPick: (handle: string) => void;
+}) {
+  if (!suggestions.length) return null;
+
+  return (
+    <div className="absolute bottom-full left-0 mb-2 z-50 w-56 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl shadow-black/50 overflow-hidden">
+      {suggestions.map((m) => (
+        <button
+          key={m.id}
+          // onMouseDown fires before the textarea's blur, so the click is not lost.
+          onMouseDown={(e) => {
+            e.preventDefault();
+            onPick(m.handle);
+          }}
+          className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-800 transition-colors"
+        >
+          <span className="shrink-0 w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-300">
+            {(m.name || m.handle).charAt(0).toUpperCase()}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[12px] text-slate-200 truncate">{m.name}</span>
+            <span className="block text-[10.5px] font-mono text-cyan-400 truncate">@{m.handle}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
 }
 
 interface CommunityCommentsProps {
@@ -55,6 +93,58 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
   const pickerRef = useRef<HTMLDivElement>(null);
   const replyPickerRef = useRef<HTMLDivElement>(null);
   const mainInputRef = useRef<HTMLTextAreaElement>(null);
+  const replyInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // The member list is only needed once somebody actually tries to mention
+  // someone, so it is not fetched for a thread that is merely opened.
+  const { members, handles: knownHandles } = useCommunityMembers(!!user);
+
+  // Which composer, if any, currently has the caret inside an unfinished
+  // @handle, and what has been typed after the "@" so far.
+  const [mentionState, setMentionState] = useState<{
+    target: 'main' | 'reply';
+    query: string;
+    start: number;
+  } | null>(null);
+
+  const suggestions = useMemo(() => {
+    if (!mentionState) return [];
+    const q = mentionState.query;
+    return members
+      .filter((m) => !q || m.handle.startsWith(q) || m.name.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [mentionState, members]);
+
+  // Any unfinished "@token" is enough to offer the list. A bare "@" showing the
+  // members is the expected behaviour, same as every other chat composer.
+  const showSuggestions = !!mentionState;
+
+  const syncMentionState = (target: 'main' | 'reply', value: string, caret: number) => {
+    const detected = detectMentionQuery(value, caret);
+    setMentionState(detected ? { target, query: detected.query, start: detected.start } : null);
+  };
+
+  const chooseMention = (handle: string) => {
+    if (!mentionState) return;
+    const isMain = mentionState.target === 'main';
+    const current = isMain ? draft : replyDraft;
+    const result = applyMention(current, mentionState.start, handle);
+
+    if (isMain) {
+      setDraft(result.text);
+    } else {
+      setReplyDraft(result.text);
+    }
+    setMentionState(null);
+
+    const input = isMain ? mainInputRef.current : replyInputRef.current;
+    // Restore focus and put the caret after the inserted handle, otherwise the
+    // popup click steals focus and the member has to click back into the box.
+    requestAnimationFrame(() => {
+      input?.focus();
+      input?.setSelectionRange(result.caret, result.caret);
+    });
+  };
 
   // The feed already knows the count, so a post with no comments — the common
   // case — never pays for a request just to render an empty thread. Fetch when
@@ -151,6 +241,7 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
     if (await submit(draft, null)) {
       setDraft('');
       setPickerOpen(false);
+      setMentionState(null);
     }
   };
 
@@ -159,6 +250,7 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
       setReplyDraft('');
       setReplyTo(null);
       setReplyPickerOpen(false);
+      setMentionState(null);
     }
   };
 
@@ -212,9 +304,7 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
             <span className="text-[12.5px] font-semibold text-white">{c.author_name || 'Keeva Member'}</span>
             <span className="text-[10.5px] text-slate-500 font-mono">{timeAgo(c.created_at)}</span>
           </div>
-          <p className="text-[13px] text-slate-300 leading-relaxed mt-0.5 whitespace-pre-wrap break-words">
-            {c.body}
-          </p>
+          <CommentBody body={c.body} knownHandles={knownHandles} />
           <div className="flex items-center gap-3 mt-1">
             {!nested && user && (
               <button
@@ -295,15 +385,38 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
             <div className="flex-1 min-w-0 relative">
               <div className="rounded-xl bg-slate-800/60 border border-slate-700 px-2.5 py-1.5 focus-within:border-cyan-500/50 transition-colors">
                 <textarea
+                  ref={replyInputRef}
                   rows={1}
                   autoFocus
                   value={replyDraft}
-                  onChange={(e) => setReplyDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReplySend(); } }}
+                  onChange={(e) => {
+                    setReplyDraft(e.target.value);
+                    syncMentionState('reply', e.target.value, e.target.selectionStart);
+                    if (mentionState?.target === 'reply') setReplyPickerOpen(false);
+                  }}
+                  onBlur={() => setMentionState(null)}
+                  onKeyDown={(e) => {
+                    if (mentionState?.target === 'reply' && suggestions.length) {
+                      if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === 'Tab') {
+                        e.preventDefault();
+                        chooseMention(suggestions[0].handle);
+                        return;
+                      }
+                      if (e.key === 'Escape') {
+                        e.preventDefault();
+                        setMentionState(null);
+                        return;
+                      }
+                    }
+                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReplySend(); }
+                  }}
                   placeholder={`Reply to ${replyTo.author_name || 'this comment'}…`}
                   className="w-full bg-transparent border-0 text-[13px] text-slate-200 placeholder-slate-600 focus:outline-none resize-none leading-relaxed max-h-24"
                   maxLength={MAX_BODY}
                 />
+                {showSuggestions && mentionState?.target === 'reply' && (
+                  <MentionList suggestions={suggestions} onPick={chooseMention} />
+                )}
                 <div className="flex items-center justify-between mt-1">
                   <div className="relative" ref={replyPickerRef}>
                     <button
@@ -369,13 +482,35 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
               ref={mainInputRef}
               rows={1}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                syncMentionState('main', e.target.value, e.target.selectionStart);
+                if (mentionState?.target === 'main') setPickerOpen(false);
+              }}
+              onBlur={() => setMentionState(null)}
+              onKeyDown={(e) => {
+                if (mentionState?.target === 'main' && suggestions.length) {
+                  if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === 'Tab') {
+                    e.preventDefault();
+                    chooseMention(suggestions[0].handle);
+                    return;
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setMentionState(null);
+                    return;
+                  }
+                }
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+              }}
               disabled={!user}
-              placeholder={user ? 'Add a comment…' : 'Sign in to join the conversation'}
+              placeholder={user ? 'Add a comment… (@name to mention)' : 'Sign in to join the conversation'}
               className="w-full bg-transparent border-0 text-[13px] text-slate-200 placeholder-slate-600 focus:outline-none resize-none leading-relaxed max-h-24 disabled:cursor-not-allowed"
               maxLength={MAX_BODY}
             />
+            {showSuggestions && mentionState?.target === 'main' && (
+              <MentionList suggestions={suggestions} onPick={chooseMention} />
+            )}
             {user && (
               <div className="flex items-center justify-between mt-1">
                 <div className="relative" ref={pickerRef}>

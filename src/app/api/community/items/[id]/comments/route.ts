@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
+import { getAuthorMap } from '@/lib/authorProfiles';
+import {
+  collapseByRecipient,
+  extractMentionHandles,
+  insertNotifications,
+  NotificationInput,
+  resolveMentionedUserIds,
+} from '@/lib/communityNotifications';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -104,7 +112,7 @@ export async function POST(
     // private vault item by guessing or leaking its id.
     const { data: item } = await admin
       .from('content_items')
-      .select('id, is_public')
+      .select('id, is_public, user_id')
       .eq('id', id)
       .single();
 
@@ -113,10 +121,11 @@ export async function POST(
     }
 
     let parentId: string | null = null;
+    let parentAuthorId: string | null = null;
     if (body.parent_id) {
       const { data: parent } = await admin
         .from('community_comments')
-        .select('id, item_id, parent_id')
+        .select('id, item_id, parent_id, user_id')
         .eq('id', body.parent_id)
         .single();
 
@@ -126,6 +135,20 @@ export async function POST(
       // One level of replies only — replying to a reply attaches to the thread
       // root instead of nesting.
       parentId = parent.parent_id || parent.id;
+      parentAuthorId = parent.user_id;
+    }
+
+    // @mentions resolve against the member list. A bad or stale handle simply
+    // matches nobody, so unknown mentions stay as plain text instead of failing
+    // the comment.
+    let mentionedIds: string[] = [];
+    try {
+      const handles = extractMentionHandles(text);
+      if (handles.length) {
+        mentionedIds = resolveMentionedUserIds(handles, await getAuthorMap());
+      }
+    } catch (err) {
+      console.error('Could not resolve mentions:', err);
     }
 
     const { data, error } = await client
@@ -144,6 +167,58 @@ export async function POST(
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    const authorName = displayName(user);
+
+    // Persist the resolved mention ids on the comment. Kept separate from the
+    // insert above on purpose: the `mentions` column only exists after the
+    // notifications migration, and a comment must still post successfully on a
+    // database that has not run it yet.
+    if (mentionedIds.length) {
+      try {
+        await admin.from('community_comments').update({ mentions: mentionedIds }).eq('id', data.id);
+      } catch (err) {
+        console.error('Could not persist comment mentions:', err);
+      }
+    }
+
+    // Notify the post owner, the person being replied to, and everyone
+    // mentioned — collapsed to one notification per person. insertNotifications
+    // never throws, so none of this can turn a posted comment into an error.
+    const candidates: NotificationInput[] = [
+      {
+        recipientUserId: item.user_id,
+        actorUserId: user.id,
+        actorName: authorName,
+        kind: parentId ? 'reply' : 'comment',
+        itemId: id,
+        commentId: data.id,
+      },
+    ];
+
+    if (parentAuthorId) {
+      candidates.push({
+        recipientUserId: parentAuthorId,
+        actorUserId: user.id,
+        actorName: authorName,
+        kind: 'reply',
+        itemId: id,
+        commentId: data.id,
+      });
+    }
+
+    for (const recipientUserId of mentionedIds) {
+      candidates.push({
+        recipientUserId,
+        actorUserId: user.id,
+        actorName: authorName,
+        kind: 'mention',
+        itemId: id,
+        commentId: data.id,
+      });
+    }
+
+    await insertNotifications(collapseByRecipient(candidates));
 
     return NextResponse.json({ comment: data }, { status: 201 });
   } catch (err) {

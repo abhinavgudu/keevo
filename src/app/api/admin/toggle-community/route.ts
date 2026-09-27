@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { authDisplayName } from '@/lib/authorProfiles';
+import { notifyNewPost } from '@/lib/communityNotifications';
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -29,12 +31,28 @@ export async function POST(request: Request) {
     const { itemId, is_public } = await request.json();
     if (!itemId) return NextResponse.json({ error: 'Missing itemId' }, { status: 400 });
 
+    // Same transition check as the owner's share route, so a post being added to
+    // the community from the admin panel is announced exactly once.
+    const { data: before } = await supabaseAdmin
+      .from('content_items')
+      .select('is_public')
+      .eq('id', itemId)
+      .maybeSingle();
+
     const { error } = await supabaseAdmin
       .from('content_items')
       .update({ is_public })
       .eq('id', itemId);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    if (is_public === true && before && before.is_public === false) {
+      await notifyNewPost({
+        actorUserId: user.id,
+        actorName: authDisplayName(user),
+        itemId,
+      });
+    }
 
     return NextResponse.json({ success: true, itemId, is_public });
   } catch (err) {

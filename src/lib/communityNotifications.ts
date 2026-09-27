@@ -1,0 +1,255 @@
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { CommunityAuthor } from './authorProfiles';
+import { extractMentionHandles, handleFromEmail } from './mentions';
+
+export { extractMentionHandles, handleFromEmail };
+
+/**
+ * Server-side helpers for the community notification feed.
+ *
+ * The feed is deliberately separate from the Community tab badge. That badge
+ * counts unread POSTS and is computed in the browser from
+ * keeva_community_last_seen_time; nothing here should ever be wired into it.
+ */
+
+export type CommunityNotificationKind = 'new_post' | 'comment' | 'reply' | 'mention' | 'like';
+
+export const COMMUNITY_NOTIFICATION_KINDS: CommunityNotificationKind[] = [
+  'new_post',
+  'comment',
+  'reply',
+  'mention',
+  'like',
+];
+
+export interface CommunityNotificationRow {
+  id: string;
+  recipient_user_id: string | null;
+  actor_user_id: string;
+  kind: CommunityNotificationKind;
+  item_id: string | null;
+  comment_id: string | null;
+  actor_name: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+export interface CommunityNotification extends CommunityNotificationRow {
+  /** Resolved from content_items in the feed route; null if the post is gone. */
+  item_title: string | null;
+  /** Short excerpt of the comment, for comment/reply/mention rows. */
+  comment_excerpt: string | null;
+}
+
+export interface CommunityMember {
+  id: string;
+  handle: string;
+  name: string;
+}
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+let cachedAdmin: SupabaseClient | null = null;
+
+function admin(): SupabaseClient {
+  if (!cachedAdmin) {
+    cachedAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+  }
+  return cachedAdmin;
+}
+
+// ── Mentions ─────────────────────────────────────────────────────────────────
+
+/**
+ * Map @handles to real account ids. Matches the email local-part, and also the
+ * first/last name, because a member reading a comment sees the author's name
+ * there and will naturally type that instead of their email prefix.
+ */
+export function resolveMentionedUserIds(
+  handles: string[],
+  authorMap: Record<string, CommunityAuthor>
+): string[] {
+  const byKey = new Map<string, string>();
+
+  for (const [id, author] of Object.entries(authorMap)) {
+    const keys = [handleFromEmail(author.email), author.first_name, author.last_name];
+    for (const key of keys) {
+      const normalized = (key || '').trim().toLowerCase();
+      // First writer wins so a stable email local-part is never shadowed by
+      // somebody else's first name.
+      if (normalized && !byKey.has(normalized)) byKey.set(normalized, id);
+    }
+  }
+
+  const ids = new Set<string>();
+  for (const handle of handles) {
+    const id = byKey.get(handle);
+    if (id) ids.add(id);
+  }
+  return Array.from(ids);
+}
+
+/** The mention list for the composer: handle + display name, no email addresses. */
+export function membersFromAuthorMap(
+  authorMap: Record<string, CommunityAuthor>,
+  excludeUserId?: string
+): CommunityMember[] {
+  return Object.entries(authorMap)
+    .filter(([id]) => id !== excludeUserId)
+    .map(([id, author]) => {
+      const name = [author.first_name, author.last_name].filter(Boolean).join(' ').trim();
+      const handle = handleFromEmail(author.email);
+      return { id, handle, name: name || handle };
+    })
+    .filter((m) => m.handle)
+    .sort((a, b) => a.handle.localeCompare(b.handle));
+}
+
+// ── Writing notifications ────────────────────────────────────────────────────
+
+/** Higher wins when one comment produces several events for the same person. */
+const KIND_PRIORITY: Record<CommunityNotificationKind, number> = {
+  mention: 3,
+  reply: 2,
+  comment: 1,
+  like: 0,
+  new_post: 0,
+};
+
+export interface NotificationInput {
+  recipientUserId: string | null;
+  actorUserId: string;
+  actorName: string;
+  kind: CommunityNotificationKind;
+  itemId?: string | null;
+  commentId?: string | null;
+}
+
+/**
+ * Collapse candidate notifications for a single comment down to one row per
+ * person. Without this, mentioning the owner of the post you are replying to
+ * would ping them three times for the same text.
+ */
+export function collapseByRecipient(inputs: NotificationInput[]): NotificationInput[] {
+  const best = new Map<string, NotificationInput>();
+
+  for (const input of inputs) {
+    if (!input.recipientUserId) continue;
+    // Never notify someone about their own action.
+    if (input.recipientUserId === input.actorUserId) continue;
+
+    const current = best.get(input.recipientUserId);
+    if (!current || KIND_PRIORITY[input.kind] > KIND_PRIORITY[current.kind]) {
+      best.set(input.recipientUserId, input);
+    }
+  }
+
+  return Array.from(best.values());
+}
+
+/**
+ * Persist notifications. NEVER throws.
+ *
+ * A notification is a side effect of an action the user already got a success
+ * response for, so a failure here must never turn a posted comment or a
+ * registered like into a 500. Failures are logged and swallowed; the partial
+ * unique indexes additionally make a duplicate insert a harmless 23505.
+ */
+export async function insertNotifications(inputs: NotificationInput[]): Promise<void> {
+  if (!inputs.length) return;
+
+  const rows = inputs.map((input) => ({
+    recipient_user_id: input.recipientUserId,
+    actor_user_id: input.actorUserId,
+    actor_name: input.actorName,
+    kind: input.kind,
+    item_id: input.itemId ?? null,
+    comment_id: input.commentId ?? null,
+  }));
+
+  try {
+    const { error } = await admin()
+      .from('community_notifications')
+      .insert(rows);
+
+    // 23505 is the dedupe index doing its job on a retried write.
+    if (error && error.code !== '23505') {
+      console.error('Failed to record community notifications:', error);
+    }
+  } catch (err) {
+    console.error('Failed to record community notifications:', err);
+  }
+}
+
+/**
+ * Announce a post that just entered the community. One broadcast row, not one
+ * row per member.
+ */
+export async function notifyNewPost(params: {
+  actorUserId: string;
+  actorName: string;
+  itemId: string;
+}): Promise<void> {
+  await insertNotifications([
+    {
+      recipientUserId: null,
+      actorUserId: params.actorUserId,
+      actorName: params.actorName,
+      kind: 'new_post',
+      itemId: params.itemId,
+      commentId: null,
+    },
+  ]);
+}
+
+/**
+ * The like is a toggle, so unlike has to take the notification back. Only the
+ * 'like' rows for that exact (actor, item) pair are removed — a comment or
+ * mention on the same post is unrelated and must survive.
+ */
+export async function removeLikeNotification(params: {
+  actorUserId: string;
+  itemId: string;
+}): Promise<void> {
+  try {
+    const { error } = await admin()
+      .from('community_notifications')
+      .delete()
+      .eq('actor_user_id', params.actorUserId)
+      .eq('item_id', params.itemId)
+      .eq('kind', 'like');
+
+    if (error) console.error('Failed to clear like notification:', error);
+  } catch (err) {
+    console.error('Failed to clear like notification:', err);
+  }
+}
+
+// ── Reading the feed ─────────────────────────────────────────────────────────
+
+/**
+ * The visibility rule, duplicated from the SELECT policy because the service
+ * role bypasses RLS. Any admin-side query that touches another member's rows has
+ * to apply this by hand.
+ */
+export function visibleToUserFilter(userId: string): string {
+  return `recipient_user_id.eq.${userId},and(recipient_user_id.is.null,actor_user_id.neq.${userId})`;
+}
+
+export function readFilterForUser(userId: string) {
+  return admin()
+    .from('community_notifications')
+    .select('*')
+    .or(visibleToUserFilter(userId));
+}
+
+/** Short excerpt of a comment body for the notification line. */
+export function commentExcerpt(body: string | null | undefined): string | null {
+  if (!body) return null;
+  const clean = body.replace(/\s+/g, ' ').trim();
+  if (!clean) return null;
+  return clean.length > 90 ? `${clean.slice(0, 90)}…` : clean;
+}

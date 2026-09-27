@@ -17,6 +17,30 @@ interface AuthorCache {
 
 const TTL_MS = 5 * 60 * 1000;
 
+/**
+ * Best available name for an auth user. Falls back to the email local-part,
+ * which is also the mentionable handle, so what a member is called in a comment
+ * and what they type after "@" are the same string.
+ */
+export function authDisplayName(user: {
+  user_metadata?: Record<string, unknown> | null;
+  email?: string | null;
+}): string {
+  const meta = (user.user_metadata || {}) as {
+    full_name?: string;
+    name?: string;
+    first_name?: string;
+    last_name?: string;
+  };
+  const joined = `${meta.first_name || ''} ${meta.last_name || ''}`.trim();
+  if (joined) return joined;
+
+  const full = (meta.full_name || meta.name || '').trim();
+  if (full) return full;
+
+  return (user.email || 'Keeva Member').split('@')[0];
+}
+
 // Kept on globalThis so the cache survives Next's dev-mode module re-evaluation;
 // without this every hot reload drops it and the first request pays full cost.
 const globalCache = globalThis as typeof globalThis & {

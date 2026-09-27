@@ -6,6 +6,7 @@ import { Search, Plus, Settings2, FolderPlus, Film, Command, LogOut, ShieldAlert
 import { VaultStats } from '@/types/vault';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCommunityUnread } from '@/hooks/useCommunityUnread';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { KeevaMark } from '@/components/KeevaMark';
 
 interface HeaderProps {
@@ -113,6 +114,10 @@ export function Header({
             <Film className="w-4 h-4 text-indigo-400" />
             <span>Reels</span>
           </button>
+
+          {/* Community activity bell. Its own count, deliberately separate from the
+              Community tab badge below, which stays unread-posts-only. */}
+          <NotificationBell />
 
           {/* Community Link - Desktop only */}
           <Link

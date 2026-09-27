@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import {
+  insertNotifications,
+  removeLikeNotification,
+} from '@/lib/communityNotifications';
+import { authDisplayName } from '@/lib/authorProfiles';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -53,7 +58,7 @@ export async function POST(request: NextRequest) {
     // vault item by guessing or leaking the id.
     const { data: item } = await admin
       .from('content_items')
-      .select('id, is_public')
+      .select('id, is_public, user_id')
       .eq('id', itemId)
       .single();
 
@@ -90,6 +95,25 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
       liked = true;
+    }
+
+    // The like is a toggle, so the notification has to be a toggle too: liking
+    // pings the post's owner, unliking takes that ping back. Both run through
+    // helpers that never throw, so this can never fail a like that already
+    // succeeded. The response below stays exactly as it was.
+    if (liked) {
+      await insertNotifications([
+        {
+          recipientUserId: item.user_id,
+          actorUserId: user.id,
+          actorName: authDisplayName(user),
+          kind: 'like',
+          itemId,
+          commentId: null,
+        },
+      ]);
+    } else {
+      await removeLikeNotification({ actorUserId: user.id, itemId });
     }
 
     // Counted through admin so a post with zero likes still returns 0 instead of

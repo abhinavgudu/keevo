@@ -72,6 +72,8 @@ export interface CommunityComment {
   body: string;
   author_name: string;
   author_email: string;
+  /** Resolved @mention targets. Only present once the notifications migration has run. */
+  mentions?: string[];
   created_at: string;
 }
 

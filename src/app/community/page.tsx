@@ -6,6 +6,7 @@ import { CommunityCard } from '@/components/cards/CommunityCard';
 import { MediaPreviewModal } from '@/components/modals/MediaPreviewModal';
 import { KeevaMark } from '@/components/KeevaMark';
 import { EditCommunityPostModal } from '@/components/modals/EditCommunityPostModal';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Loader2, Compass, LayoutList, Columns3, Check, AlertCircle, X
@@ -160,34 +161,38 @@ export default function CommunityPage() {
             <p className="text-slate-400 mt-2">Discover content shared by the community.</p>
           </div>
 
-          {items.length > 0 && (
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-900/80 border border-slate-800">
-              <button
-                onClick={() => setLayout('feed')}
-                title="Feed view"
-                aria-label="Feed view"
-                className={`p-2 rounded-lg transition-colors ${
-                  layout === 'feed'
-                    ? 'bg-cyan-500/15 text-cyan-400'
-                    : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                <LayoutList className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setLayout('masonry')}
-                title="Grid view"
-                aria-label="Grid view"
-                className={`p-2 rounded-lg transition-colors ${
-                  layout === 'masonry'
-                    ? 'bg-cyan-500/15 text-cyan-400'
-                    : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                <Columns3 className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+
+            {items.length > 0 && (
+              <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-900/80 border border-slate-800">
+                <button
+                  onClick={() => setLayout('feed')}
+                  title="Feed view"
+                  aria-label="Feed view"
+                  className={`p-2 rounded-lg transition-colors ${
+                    layout === 'feed'
+                      ? 'bg-cyan-500/15 text-cyan-400'
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  <LayoutList className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setLayout('masonry')}
+                  title="Grid view"
+                  aria-label="Grid view"
+                  className={`p-2 rounded-lg transition-colors ${
+                    layout === 'masonry'
+                      ? 'bg-cyan-500/15 text-cyan-400'
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  <Columns3 className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         {items.length === 0 ? (
