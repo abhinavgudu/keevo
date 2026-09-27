@@ -66,6 +66,8 @@ interface CommunityCardProps {
   autoFocus?: boolean;
   /** With autoFocus, also put the caret in the comment box. */
   focusComposer?: boolean;
+  /** Called once the card has actually scrolled and rung itself. */
+  onAutoFocused?: () => void;
 }
 
 export function CommunityCard({
@@ -78,6 +80,7 @@ export function CommunityCard({
   onRemove,
   autoFocus = false,
   focusComposer = false,
+  onAutoFocused,
 }: CommunityCardProps) {
   const [embedLoaded, setEmbedLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -92,33 +95,51 @@ export function CommunityCard({
   // focusSignal is the same signal the comment button uses, which both fetches
   // the thread and puts the caret in the box.
   //
-  // Everything happens inside a rAF so the measurement is taken after layout has
-  // settled, and so these are response-to-a-frame updates rather than state
-  // changes cascading out of the effect itself.
+  // Everything is deferred to a timer rather than run inline, so the effect does
+  // not itself set state, and a timer is used instead of requestAnimationFrame
+  // because frames are not delivered everywhere: a background tab, an embedded
+  // webview or a headless browser all skip them, which would strand the reader
+  // at the top of the feed with no sign the post was ever found. The timer also
+  // lands after layout, so the off-screen measurement is still accurate.
   useEffect(() => {
     if (!autoFocus) return;
 
     let pingTimer: ReturnType<typeof setTimeout> | undefined;
 
-    const raf = requestAnimationFrame(() => {
+    const focusTimer = setTimeout(() => {
       const el = articleRef.current;
       if (!el) return;
 
       const rect = el.getBoundingClientRect();
-      if (rect.top < 0 || rect.bottom > window.innerHeight) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const viewportH = window.innerHeight;
+      // A post with an image and a comment thread is often taller than the
+      // window, so it can never be fully in view. What matters is whether its
+      // start is visible, otherwise scrolling would fire on a post sitting
+      // happily at the top of the feed.
+      const startVisible = rect.top >= 0 && rect.top < viewportH;
+      if (!startVisible) {
+        // Centring a card taller than the window leaves its title above the
+        // fold, so those get aligned to the top instead. The jump is instant on
+        // purpose: a smooth scroll is driven by animation frames, which are not
+        // delivered in every environment, and a deep link that silently fails to
+        // move is worse than one that arrives without a flourish.
+        el.scrollIntoView({
+          behavior: 'auto',
+          block: rect.height > viewportH ? 'start' : 'center',
+        });
       }
 
       setPinged(true);
       if (focusComposer) setFocusSignal((n) => n + 1);
+      onAutoFocused?.();
       pingTimer = setTimeout(() => setPinged(false), 2600);
-    });
+    }, 0);
 
     return () => {
-      cancelAnimationFrame(raf);
+      clearTimeout(focusTimer);
       if (pingTimer) clearTimeout(pingTimer);
     };
-  }, [autoFocus, focusComposer]);
+  }, [autoFocus, focusComposer, onAutoFocused]);
 
   // Social like state, held locally so the heart reacts on the click rather than
   // after a refetch.

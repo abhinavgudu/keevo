@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useCommunityNotifications } from '@/hooks/useCommunityNotifications';
 import type { CommunityNotification, CommunityNotificationKind } from '@/lib/communityNotifications';
+import { buildCommunityPostHref, isConversationKind, notifyCommunityPostFocus } from '@/lib/communityDeepLink';
 
 function timeAgo(dateString: string) {
   const diffMs = Date.now() - new Date(dateString).getTime();
@@ -45,9 +46,6 @@ const KIND_LABEL: Record<CommunityNotificationKind, string> = {
   like: 'liked your post',
   post_edited: 'edited a post you engaged with',
 };
-
-/** Kinds where the obvious next move is writing something back. */
-const CONVERSATION_KINDS: CommunityNotificationKind[] = ['comment', 'reply', 'mention'];
 
 function NotificationRow({
   notification,
@@ -138,8 +136,13 @@ export function NotificationBell({ className = '' }: { className?: string }) {
       return;
     }
 
-    const reply = CONVERSATION_KINDS.includes(n.kind) ? '&reply=1' : '';
-    router.push(`/community?post=${encodeURIComponent(n.item_id)}${reply}`);
+    const wantsReply = isConversationKind(n.kind);
+    router.push(buildCommunityPostHref(n.item_id, n.kind));
+
+    // If the feed is already open, pushing only changes the query string and
+    // does not remount the page, so tell it directly. Harmless when the page is
+    // not mounted yet, because it reads the same values off the URL on mount.
+    notifyCommunityPostFocus(n.item_id, wantsReply);
   };
 
   return (
