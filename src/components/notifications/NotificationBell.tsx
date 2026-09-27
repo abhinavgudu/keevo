@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Bell,
@@ -105,7 +105,65 @@ export function NotificationBell({ className = '' }: { className?: string }) {
   const { notifications, unreadCount, loading, markRead, markAllRead } = useCommunityNotifications();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  /**
+   * The panel is placed against the viewport rather than against the button.
+   * Anchored with `right-0`, a bell sitting on the left of a phone throws most
+   * of the panel off the side of the screen, and a fixed `100vw` cap cannot
+   * help because the problem is where it lands, not how wide it is. So the
+   * button is measured and the panel is nudged to whichever side fits, then
+   * clamped to stay fully on screen.
+   *
+   * The style is written straight to the node rather than through state, so
+   * following the button on scroll does not re-render the notification list on
+   * every frame.
+   */
+  useLayoutEffect(() => {
+    if (!open) return;
+
+    const place = () => {
+      const anchor = rootRef.current?.getBoundingClientRect();
+      const panel = panelRef.current;
+      if (!anchor || !panel) return;
+
+      const margin = 8;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const width = Math.min(352, vw - margin * 2);
+
+      // Prefer lining the panel's right edge up with the button's, fall back to
+      // the button's left edge when that would run off screen, then clamp.
+      let left = anchor.right - width;
+      if (left < margin) left = anchor.left;
+      left = Math.max(margin, Math.min(left, vw - width - margin));
+
+      // A bell near the bottom of a phone has no room underneath, so the panel
+      // opens upwards, anchored by its bottom edge so it stays put whatever
+      // height the notification list ends up being.
+      const roomBelow = vh - anchor.bottom - margin;
+      const roomAbove = anchor.top - margin;
+      const openUpwards = roomBelow < 220 && roomAbove > roomBelow;
+      const maxHeight = Math.max(180, openUpwards ? roomAbove : roomBelow);
+
+      panel.style.left = `${Math.round(left)}px`;
+      panel.style.width = `${Math.round(width)}px`;
+      panel.style.bottom = openUpwards ? `${Math.round(vh - anchor.top + margin)}px` : 'auto';
+      panel.style.top = openUpwards ? 'auto' : `${Math.round(anchor.bottom + margin)}px`;
+      if (listRef.current) listRef.current.style.maxHeight = `${Math.round(maxHeight)}px`;
+      panel.style.opacity = '1';
+    };
+
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -162,7 +220,11 @@ export function NotificationBell({ className = '' }: { className?: string }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl shadow-black/50 overflow-hidden z-50">
+        <div
+          ref={panelRef}
+          style={{ opacity: 0 }}
+          className="fixed z-50 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl shadow-black/50 overflow-hidden"
+        >
           <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-800">
             <span className="text-[12.5px] font-bold text-white">Notifications</span>
             {unreadCount > 0 && (
@@ -175,7 +237,7 @@ export function NotificationBell({ className = '' }: { className?: string }) {
             )}
           </div>
 
-          <div className="max-h-[min(26rem,60vh)] overflow-y-auto">
+          <div ref={listRef} className="overflow-y-auto">
             {loading && notifications.length === 0 ? (
               <div className="flex items-center justify-center gap-2 py-8 text-[11.5px] text-slate-500">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading
