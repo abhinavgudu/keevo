@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { Suspense, useEffect, useState, useCallback, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ContentItem } from '@/types/vault';
 import { CommunityCard } from '@/components/cards/CommunityCard';
 import { MediaPreviewModal } from '@/components/modals/MediaPreviewModal';
@@ -14,8 +15,18 @@ import {
 
 type Layout = 'feed' | 'masonry';
 
-export default function CommunityPage() {
+function CommunityFeedFallback() {
+  return (
+    <div className="min-h-screen bg-[#07090E] flex items-center justify-center">
+      <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+    </div>
+  );
+}
+
+function CommunityFeed() {
   const { user, session } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<ContentItem | null>(null);
@@ -23,6 +34,23 @@ export default function CommunityPage() {
   const [layout, setLayout] = useState<Layout>('feed');
   const [editing, setEditing] = useState<ContentItem | null>(null);
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+
+  // Deep link from a notification: /community?post=<id>&reply=1
+  const focusPostId = searchParams.get('post');
+  const focusComposer = searchParams.get('reply') === '1';
+  const handedOff = useRef<string | null>(null);
+
+  // Strip the params once the card has taken them. Leaving them in place would
+  // make the deep link shareable but also mean a second tap on the same
+  // notification could not re-focus the card, since nothing would change.
+  useEffect(() => {
+    if (!focusPostId) return;
+    const key = `${focusPostId}:${focusComposer}`;
+    if (handedOff.current === key) return;
+    handedOff.current = key;
+    const t = setTimeout(() => router.replace('/community'), 1400);
+    return () => clearTimeout(t);
+  }, [focusPostId, focusComposer, router]);
 
   const showToast = useCallback((kind: 'success' | 'error', text: string) => {
     setToast({ kind, text });
@@ -142,11 +170,7 @@ export default function CommunityPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#07090E] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
-      </div>
-    );
+    return <CommunityFeedFallback />;
   }
 
   return (
@@ -221,6 +245,8 @@ export default function CommunityPage() {
                     onToggleFavorite={handleToggleLike}
                     onEdit={isOwner ? setEditing : undefined}
                     onRemove={isOwner ? handleRemove : undefined}
+                    autoFocus={!!focusPostId && item.id === focusPostId}
+                    focusComposer={focusComposer}
                   />
                 );
               })}
@@ -240,6 +266,8 @@ export default function CommunityPage() {
                     onToggleFavorite={handleToggleLike}
                     onEdit={isOwner ? setEditing : undefined}
                     onRemove={isOwner ? handleRemove : undefined}
+                    autoFocus={!!focusPostId && item.id === focusPostId}
+                    focusComposer={focusComposer}
                   />
                 </div>
               );
@@ -278,5 +306,18 @@ export default function CommunityPage() {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * The feed reads the notification deep link with useSearchParams, which opts out
+ * of static rendering, so it has to sit inside a Suspense boundary. The wrapper
+ * is the only reason the default export is not the feed itself.
+ */
+export default function CommunityPage() {
+  return (
+    <Suspense fallback={<CommunityFeedFallback />}>
+      <CommunityFeed />
+    </Suspense>
   );
 }

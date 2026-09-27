@@ -12,7 +12,13 @@ export { extractMentionHandles, handleFromEmail };
  * keeva_community_last_seen_time; nothing here should ever be wired into it.
  */
 
-export type CommunityNotificationKind = 'new_post' | 'comment' | 'reply' | 'mention' | 'like';
+export type CommunityNotificationKind =
+  | 'new_post'
+  | 'comment'
+  | 'reply'
+  | 'mention'
+  | 'like'
+  | 'post_edited';
 
 export const COMMUNITY_NOTIFICATION_KINDS: CommunityNotificationKind[] = [
   'new_post',
@@ -20,6 +26,7 @@ export const COMMUNITY_NOTIFICATION_KINDS: CommunityNotificationKind[] = [
   'reply',
   'mention',
   'like',
+  'post_edited',
 ];
 
 export interface CommunityNotificationRow {
@@ -116,6 +123,7 @@ const KIND_PRIORITY: Record<CommunityNotificationKind, number> = {
   reply: 2,
   comment: 1,
   like: 0,
+  post_edited: 0,
   new_post: 0,
 };
 
@@ -203,6 +211,58 @@ export async function notifyNewPost(params: {
       commentId: null,
     },
   ]);
+}
+
+/**
+ * Announce that a post already in the community had its caption changed.
+ *
+ * Goes to the people who actually engaged with it — everyone who commented or
+ * liked it — because a reworded post is news for exactly those people. A
+ * broadcast to the whole community for a typo fix would be noise. The editor is
+ * never notified about their own edit.
+ *
+ * Never throws, and fires only on a genuine text change, so repeatedly saving an
+ * unchanged caption is silent.
+ */
+export async function notifyPostEdited(params: {
+  actorUserId: string;
+  actorName: string;
+  itemId: string;
+}): Promise<void> {
+  try {
+    const [commentsRes, likesRes] = await Promise.all([
+      admin()
+        .from('community_comments')
+        .select('user_id')
+        .eq('item_id', params.itemId),
+      admin()
+        .from('community_likes')
+        .select('user_id')
+        .eq('item_id', params.itemId),
+    ]);
+
+    const recipients = new Set<string>();
+    for (const row of commentsRes.data || []) {
+      if (row.user_id) recipients.add(row.user_id);
+    }
+    for (const row of likesRes.data || []) {
+      if (row.user_id) recipients.add(row.user_id);
+    }
+    recipients.delete(params.actorUserId);
+
+    await insertNotifications(
+      Array.from(recipients).map((recipientUserId) => ({
+        recipientUserId,
+        actorUserId: params.actorUserId,
+        actorName: params.actorName,
+        kind: 'post_edited' as const,
+        itemId: params.itemId,
+        commentId: null,
+      }))
+    );
+  } catch (err) {
+    console.error('Failed to record post edit notification:', err);
+  }
 }
 
 /**

@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS public.community_notifications (
   actor_user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
 
   kind              TEXT NOT NULL
-                    CHECK (kind IN ('new_post', 'comment', 'reply', 'mention', 'like')),
+                    CHECK (kind IN ('new_post', 'comment', 'reply', 'mention', 'like', 'post_edited')),
 
   -- ON DELETE CASCADE is deliberate. Deleting a post or a comment must not leave
   -- a dangling notification pointing at something that no longer exists.
@@ -94,6 +94,29 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_community_notifications_like_uniq
 -- ── Row level security ───────────────────────────────────────────────────────
 ALTER TABLE public.community_notifications ENABLE ROW LEVEL SECURITY;
 
+-- Re-point the kind CHECK at the current list of kinds. Written as a drop-then-add
+-- so re-running this file also upgrades a database that already ran an earlier
+-- version of the constraint, instead of failing on "constraint already exists".
+DO $$
+DECLARE
+  kind_check TEXT;
+BEGIN
+  SELECT con.conname INTO kind_check
+  FROM pg_constraint con
+  JOIN pg_class rel ON rel.oid = con.conrelid
+  JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = ANY (con.conkey)
+  WHERE rel.relname = 'community_notifications'
+    AND con.contype = 'c'
+    AND att.attname = 'kind';
+
+  IF kind_check IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE public.community_notifications DROP CONSTRAINT %I', kind_check);
+  END IF;
+END $$;
+
+ALTER TABLE public.community_notifications
+  ADD CONSTRAINT community_notifications_kind_check
+  CHECK (kind IN ('new_post', 'comment', 'reply', 'mention', 'like', 'post_edited'));
 -- Unlike every other community table, this one is NOT publicly readable. A
 -- notification says who interacted with you, which is private information.
 DROP POLICY IF EXISTS "Users read own community notifications" ON public.community_notifications;

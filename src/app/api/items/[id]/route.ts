@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { authDisplayName } from '@/lib/authorProfiles';
-import { notifyNewPost } from '@/lib/communityNotifications';
+import { notifyNewPost, notifyPostEdited } from '@/lib/communityNotifications';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -34,13 +34,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Read the current visibility before writing, so "entered the community" can
-    // be told apart from "is already in the community". The transition is what
-    // deserves a notification; a second click on an already-shared post, or an
-    // edit to its caption, must not announce it again.
+    // Read the current visibility and caption before writing, so "entered the
+    // community" can be told apart from "is already in the community", and so an
+    // edit is only announced when the text genuinely differs. The transition is
+    // what deserves a notification; a second click on an already-shared post, or
+    // a save that changed nothing, must not announce it again.
     const { data: before } = await supabase
       .from('content_items')
-      .select('is_public')
+      .select('is_public, community_caption')
       .eq('id', id)
       .eq('user_id', user.id)
       .maybeSingle();
@@ -77,6 +78,23 @@ export async function PATCH(
     // this fails.
     if (is_public && before && before.is_public === false) {
       await notifyNewPost({
+        actorUserId: user.id,
+        actorName: authDisplayName(user),
+        itemId: id,
+      });
+    }
+
+    // A reworded post is news for the people who engaged with it, not for the
+    // whole community. Only fires on a real change to a post that was already
+    // public, so re-saving the same caption stays silent.
+    const captionChanged =
+      is_public === true &&
+      before?.is_public === true &&
+      typeof community_caption === 'string' &&
+      (before.community_caption ?? '').trim() !== community_caption.trim();
+
+    if (captionChanged) {
+      await notifyPostEdited({
         actorUserId: user.id,
         actorName: authDisplayName(user),
         itemId: id,

@@ -59,6 +59,13 @@ interface CommunityCardProps {
   isOwner?: boolean;
   onEdit?: (item: ContentItem) => void;
   onRemove?: (item: ContentItem) => void;
+  /**
+   * True on the card a notification deep-linked to. Brings the post into view
+   * and rings it briefly so the reader lands on the right thing.
+   */
+  autoFocus?: boolean;
+  /** With autoFocus, also put the caret in the comment box. */
+  focusComposer?: boolean;
 }
 
 export function CommunityCard({
@@ -69,12 +76,49 @@ export function CommunityCard({
   isOwner = false,
   onEdit,
   onRemove,
+  autoFocus = false,
+  focusComposer = false,
 }: CommunityCardProps) {
   const [embedLoaded, setEmbedLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
   const [focusSignal, setFocusSignal] = useState(0);
+  const [pinged, setPinged] = useState(false);
+  const articleRef = useRef<HTMLElement>(null);
+
+  // Land on the post from a notification. Scrolling a card that is already in
+  // view is jarring, so this only runs when the card is genuinely off-screen.
+  // focusSignal is the same signal the comment button uses, which both fetches
+  // the thread and puts the caret in the box.
+  //
+  // Everything happens inside a rAF so the measurement is taken after layout has
+  // settled, and so these are response-to-a-frame updates rather than state
+  // changes cascading out of the effect itself.
+  useEffect(() => {
+    if (!autoFocus) return;
+
+    let pingTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const raf = requestAnimationFrame(() => {
+      const el = articleRef.current;
+      if (!el) return;
+
+      const rect = el.getBoundingClientRect();
+      if (rect.top < 0 || rect.bottom > window.innerHeight) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      setPinged(true);
+      if (focusComposer) setFocusSignal((n) => n + 1);
+      pingTimer = setTimeout(() => setPinged(false), 2600);
+    });
+
+    return () => {
+      cancelAnimationFrame(raf);
+      if (pingTimer) clearTimeout(pingTimer);
+    };
+  }, [autoFocus, focusComposer]);
 
   // Social like state, held locally so the heart reacts on the click rather than
   // after a refetch.
@@ -400,7 +444,12 @@ export function CommunityCard({
   // ── FEED: post on page background, box only around shared content ──
   if (isFeed) {
     return (
-      <article className="pb-4">
+      <article
+        ref={articleRef}
+        className={`pb-4 rounded-2xl transition-all duration-300 ${
+          pinged ? 'ring-2 ring-cyan-400/70 bg-cyan-500/[0.04]' : ''
+        }`}
+      >
         {authorHeader}
 
         {hasCaption ? (
@@ -458,7 +507,14 @@ export function CommunityCard({
 
   // ── MASONRY: boxed tile ────────────────────────────────────────────
   return (
-    <article className="bg-slate-950/90 border border-slate-800/70 rounded-2xl overflow-hidden flex flex-col hover:border-slate-700/80 transition-all duration-200 group">
+    <article
+      ref={articleRef}
+      className={`bg-slate-950/90 border rounded-2xl overflow-hidden flex flex-col transition-all duration-300 group ${
+        pinged
+          ? 'border-cyan-500/50 ring-2 ring-cyan-400/70'
+          : 'border-slate-800/70 hover:border-slate-700/80'
+      }`}
+    >
       <div className="px-4 pt-4 pb-3">{authorHeader}</div>
       {hasCaption && (
         <div className="px-4 pb-3">

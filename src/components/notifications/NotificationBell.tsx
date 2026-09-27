@@ -11,6 +11,7 @@ import {
   CornerDownRight,
   Globe,
   CheckCheck,
+  PencilLine,
 } from 'lucide-react';
 import { useCommunityNotifications } from '@/hooks/useCommunityNotifications';
 import type { CommunityNotification, CommunityNotificationKind } from '@/lib/communityNotifications';
@@ -33,6 +34,7 @@ const KIND_ICON: Record<CommunityNotificationKind, React.ReactNode> = {
   reply: <CornerDownRight className="w-3.5 h-3.5 text-cyan-400" />,
   mention: <AtSign className="w-3.5 h-3.5 text-amber-400" />,
   like: <Heart className="w-3.5 h-3.5 text-rose-400" />,
+  post_edited: <PencilLine className="w-3.5 h-3.5 text-violet-400" />,
 };
 
 const KIND_LABEL: Record<CommunityNotificationKind, string> = {
@@ -41,7 +43,11 @@ const KIND_LABEL: Record<CommunityNotificationKind, string> = {
   reply: 'replied to your comment',
   mention: 'mentioned you in a comment',
   like: 'liked your post',
+  post_edited: 'edited a post you engaged with',
 };
+
+/** Kinds where the obvious next move is writing something back. */
+const CONVERSATION_KINDS: CommunityNotificationKind[] = ['comment', 'reply', 'mention'];
 
 function NotificationRow({
   notification,
@@ -123,7 +129,17 @@ export function NotificationBell({ className = '' }: { className?: string }) {
   const openNotification = (n: CommunityNotification) => {
     if (!n.read_at) markRead([n.id]);
     setOpen(false);
-    router.push('/community');
+
+    // Deep-link to the post itself, and hand the comment box focus for the kinds
+    // where a reply is almost certainly the next thing wanted. A post that has
+    // since been deleted has no item_id, so fall back to plain /community.
+    if (!n.item_id) {
+      router.push('/community');
+      return;
+    }
+
+    const reply = CONVERSATION_KINDS.includes(n.kind) ? '&reply=1' : '';
+    router.push(`/community?post=${encodeURIComponent(n.item_id)}${reply}`);
   };
 
   return (
