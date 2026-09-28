@@ -6,6 +6,7 @@ import { CommunityCard } from '@/components/cards/CommunityCard';
 import { MediaPreviewModal } from '@/components/modals/MediaPreviewModal';
 import { KeevaMark } from '@/components/KeevaMark';
 import { EditCommunityPostModal } from '@/components/modals/EditCommunityPostModal';
+import { CommunitySearch } from '@/components/community/CommunitySearch';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { FOCUS_POST_EVENT, readPostFocusFromUrl, type PostFocus } from '@/lib/communityDeepLink';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,6 +26,7 @@ function CommunityFeed() {
   const [layout, setLayout] = useState<Layout>('feed');
   const [editing, setEditing] = useState<ContentItem | null>(null);
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const [searchActive, setSearchActive] = useState(false);
 
   // Deep link from a notification: /community?post=<id>&reply=1
   //
@@ -240,7 +242,16 @@ function CommunityFeed() {
           </div>
         </header>
 
-        {items.length === 0 ? (
+        <CommunitySearch
+          active={searchActive}
+          onActiveChange={setSearchActive}
+          onOpenPreview={openPreview}
+          onToggleFavorite={handleToggleLike}
+          onEdit={setEditing}
+          onRemove={handleRemove}
+        />
+
+        {!searchActive && (items.length === 0 ? (
           <div className="w-full py-24 flex flex-col items-center justify-center text-center px-4">
             <div className="w-20 h-20 rounded-3xl bg-slate-900/80 border border-slate-800 flex items-center justify-center text-slate-500 mb-5 shadow-2xl">
               <Compass className="w-10 h-10 animate-pulse text-cyan-400" />
@@ -296,7 +307,7 @@ function CommunityFeed() {
               );
             })}
           </div>
-        )}
+        ))}
 
         <MediaPreviewModal
           item={selectedItem}
