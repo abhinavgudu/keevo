@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   Bell,
@@ -171,7 +172,11 @@ export function NotificationBell({ className = '' }: { className?: string }) {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (rootRef.current && !rootRef.current.contains(target)) setOpen(false);
+      // The panel is portaled to <body>, so "inside" now means the button or the
+      // panel itself; anything else closes the panel.
+      if (rootRef.current && rootRef.current.contains(target)) return;
+      if (panelRef.current && panelRef.current.contains(target)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
@@ -221,53 +226,55 @@ export function NotificationBell({ className = '' }: { className?: string }) {
         )}
       </button>
 
-      {open && (
-        <div
-          ref={panelRef}
-          style={{ opacity: 0 }}
-          className="fixed z-50 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl shadow-black/50 overflow-hidden"
-        >
-          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-800">
-            <span className="text-[12.5px] font-bold text-white">Notifications</span>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllRead}
-                className="flex items-center gap-1 text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors"
-              >
-                <CheckCheck className="w-3.5 h-3.5" /> Mark all read
-              </button>
-            )}
-          </div>
+      {open &&
+        createPortal(
+          <div
+            ref={panelRef}
+            style={{ opacity: 0 }}
+            className="fixed z-50 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl shadow-black/50 overflow-hidden"
+          >
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-800">
+              <span className="text-[12.5px] font-bold text-white">Notifications</span>
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllRead}
+                  className="flex items-center gap-1 text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" /> Mark all read
+                </button>
+              )}
+            </div>
 
-          <div ref={listRef} className="overflow-y-auto">
-            {loading && notifications.length === 0 ? (
-              <div className="flex items-center justify-center gap-2 py-8 text-[11.5px] text-slate-500">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading
-              </div>
-            ) : notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center">
-                <div className="w-10 h-10 rounded-xl bg-slate-800/80 flex items-center justify-center mx-auto mb-2.5">
-                  <Bell className="w-4 h-4 text-slate-600" />
+            <div ref={listRef} className="overflow-y-auto">
+              {loading && notifications.length === 0 ? (
+                <div className="flex items-center justify-center gap-2 py-8 text-[11.5px] text-slate-500">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading
                 </div>
-                <p className="text-[12px] text-slate-400 font-medium">No notifications yet</p>
-                <p className="text-[11px] text-slate-600 mt-1">
-                  Comments, replies, mentions and likes will show up here.
-                </p>
-              </div>
-            ) : (
-              notifications.map((n) => (
-                <NotificationRow key={n.id} notification={n} onOpen={openNotification} />
-              ))
-            )}
-          </div>
+              ) : notifications.length === 0 ? (
+                <div className="px-4 py-8 text-center">
+                  <div className="w-10 h-10 rounded-xl bg-slate-800/80 flex items-center justify-center mx-auto mb-2.5">
+                    <Bell className="w-4 h-4 text-slate-600" />
+                  </div>
+                  <p className="text-[12px] text-slate-400 font-medium">No notifications yet</p>
+                  <p className="text-[11px] text-slate-600 mt-1">
+                    Comments, replies, mentions and likes will show up here.
+                  </p>
+                </div>
+              ) : (
+                notifications.map((n) => (
+                  <NotificationRow key={n.id} notification={n} onOpen={openNotification} />
+                ))
+              )}
+            </div>
 
-          {/* Push toggle. The list above only exists while this page is open, so
-              this is where a user looks for "and what about when it is not?".
-              It sits in the footer, below the feed, so it never competes with the
-              notifications themselves for attention. */}
-          <PushToggle />
-        </div>
-      )}
+            {/* Push toggle. The list above only exists while this page is open, so
+                this is where a user looks for "and what about when it is not?".
+                It sits in the footer, below the feed, so it never competes with the
+                notifications themselves for attention. */}
+            <PushToggle />
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
