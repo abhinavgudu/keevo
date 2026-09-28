@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Category, ContentItem, MediaType, AspectRatioType, PriorityLevel } from '@/types/vault';
+import { Category, MediaType, AspectRatioType, PriorityLevel, SaveItemInput } from '@/types/vault';
 import { LEGACY_CATEGORY_ALIASES } from '@/lib/categories';
 import { X, Sparkles, Link as LinkIcon, FileText, Upload, Check, AlertCircle, Clipboard, ChevronDown, ChevronUp } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -11,7 +11,7 @@ interface AddItemModalProps {
   isOpen: boolean;
   onClose: () => void;
   categories: Category[];
-  onSave: (item: Partial<ContentItem> & { title: string; source_url: string }) => Promise<void>;
+  onSave: (item: SaveItemInput) => Promise<void>;
 }
 
 export function AddItemModal({ isOpen, onClose, categories, onSave }: AddItemModalProps) {
@@ -156,6 +156,8 @@ export function AddItemModal({ isOpen, onClose, categories, onSave }: AddItemMod
         priority,
         description,
         tags,
+        auto_category_name: detection?.name ?? undefined,
+        auto_category_confidence: detection?.confidence ?? undefined,
       });
 
       confetti({ particleCount: 50, spread: 60, origin: { y: 0.75 } });

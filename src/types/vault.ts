@@ -64,6 +64,16 @@ export interface ContentItem {
   };
 }
 
+/**
+ * What every "save this link" surface hands to the vault. Detected category
+ * fields ride along so `VaultStorage.saveItem` can resolve the name to a real
+ * category (creating it on the fly when missing) instead of saving unfiled.
+ */
+export type SaveItemInput = Partial<ContentItem> & { title: string; source_url: string } & {
+  auto_category_name?: string;
+  auto_category_confidence?: 'high' | 'medium' | 'low';
+};
+
 export interface CommunityComment {
   id: string;
   item_id: string;

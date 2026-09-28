@@ -4,10 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { Upload, FileText, Film, Sparkles, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { LoadingCircle } from '@/components/LoadingCircle';
-import { ContentItem } from '@/types/vault';
+import { SaveItemInput } from '@/types/vault';
 
 interface GlobalDropzoneProps {
-  onSaveItem: (item: Partial<ContentItem> & { title: string; source_url: string }) => Promise<void>;
+  onSaveItem: (item: SaveItemInput) => Promise<void>;
   showToast: (msg: string) => void;
 }
 

@@ -19,10 +19,10 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { LoadingCircle } from '@/components/LoadingCircle';
-import { ContentItem } from '@/types/vault';
+import { SaveItemInput } from '@/types/vault';
 
 interface QuickAddBarProps {
-  onSaveItem: (item: Partial<ContentItem> & { title: string; source_url: string }) => Promise<void>;
+  onSaveItem: (item: SaveItemInput) => Promise<void>;
   onOpenPdfModal: () => void;
 }
 
@@ -37,6 +37,7 @@ interface ScrapedPreview {
   autoPriority: string;
   autoTags: string[];
   autoCategoryName?: string;
+  autoCategoryConfidence?: 'high' | 'medium' | 'low';
 }
 
 function getPlatformBadge(platform: string) {
@@ -156,6 +157,8 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal }: QuickAddBarProps) {
         priority: preview.autoPriority as any || 'MUST_LEARN',
         description: preview.description || '',
         tags: preview.autoTags || [],
+        auto_category_name: preview.autoCategoryName,
+        auto_category_confidence: preview.autoCategoryConfidence,
       });
       confetti({ particleCount: 60, spread: 70, origin: { y: 0.75 }, colors: ['#00E5FF', '#6366F1', '#D946EF'] });
       setUrl('');
@@ -197,6 +200,8 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal }: QuickAddBarProps) {
         priority: meta.autoPriority || 'MUST_LEARN',
         description: meta.description || '',
         tags: meta.autoTags || [],
+        auto_category_name: meta.autoCategoryName,
+        auto_category_confidence: meta.autoCategoryConfidence,
       });
       confetti({ particleCount: 60, spread: 70, origin: { y: 0.75 }, colors: ['#00E5FF', '#6366F1', '#D946EF'] });
       setUrl('');

@@ -156,6 +156,8 @@ function ShareTargetContent() {
         priority: 'HIGH', // Mobile shares default to HIGH priority for quick capture
         description: pending.description,
         category_id: categoryId || null,
+        auto_category_name: pending.detected?.name,
+        auto_category_confidence: pending.detected?.confidence,
       });
 
       setSavedTitle(savedItem.title);

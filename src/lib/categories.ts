@@ -215,6 +215,34 @@ export const DEFAULT_CATEGORY_NAME = 'Uncategorised';
 export const GLOBAL_CATEGORY_NAMES = CATEGORY_TAXONOMY.map((c) => c.name);
 
 /**
+ * Canonical taxonomy name for a detected label. Maps legacy classifier names
+ * onto the current taxonomy; anything else passes through untouched.
+ */
+export function resolveCategoryName(detected: string): string {
+  return LEGACY_CATEGORY_ALIASES[detected.toLowerCase()] ?? detected;
+}
+
+/** The taxonomy's colour and icon for a name, when it is a known category. */
+export function taxonomyVisual(
+  name: string
+): { color_hex: string; icon: string } | null {
+  const wanted = resolveCategoryName(name).toLowerCase();
+  const def = CATEGORY_TAXONOMY.find((c) => c.name.toLowerCase() === wanted);
+  return def ? { color_hex: def.color_hex, icon: def.icon } : null;
+}
+
+/** Deterministic chip colour for a category with no taxonomy entry. */
+export function autoCategoryColor(name: string): string {
+  const palette = [
+    '#0EA5E9', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#F43F5E',
+    '#22C55E', '#A855F7', '#FB923C', '#3B82F6', '#6366F1', '#14B8A6',
+  ];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return palette[h % palette.length];
+}
+
+/**
  * Legacy names the old classifier could emit, mapped onto the current taxonomy
  * so anything already stored or in flight still resolves to a real category.
  */

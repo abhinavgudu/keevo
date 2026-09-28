@@ -1,4 +1,4 @@
-import { Category, ContentItem, VaultStats, calculatePriorityScore } from '@/types/vault';
+import { Category, ContentItem, VaultStats, calculatePriorityScore, SaveItemInput } from '@/types/vault';
 import { getSupabaseClient } from './supabase';
 import {
   buildVaultFilter,
@@ -6,6 +6,7 @@ import {
   type CategoryCounts,
   type ItemQueryOptions,
 } from './vaultFilters';
+import { autoCategoryColor, resolveCategoryName, taxonomyVisual } from './categories';
 
 export {
   buildVaultFilter,
@@ -335,9 +336,42 @@ export class VaultStorage {
     return Array.from(uniqueMap.values()).sort((a: ContentItem, b: ContentItem) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 
-  static async saveItem(item: Partial<ContentItem> & { title: string; source_url: string }): Promise<ContentItem> {
+static async saveItem(item: SaveItemInput): Promise<ContentItem> {
     const supabase = getSupabaseClient();
     if (!supabase) throw new Error('Supabase client not initialized');
+
+    // Resolve the detected category to a real row so every link lands filed. An
+    // explicit category_id (the user picked one) always wins over the detection;
+    // a low-confidence guess is never applied. If the detected name is missing
+    // from the DB — a fresh account, a deleted category, or a name the seeder
+    // has not run for — the category is created on the spot with the taxonomy's
+    // colour, which is the whole "Keeva files it for you" promise.
+    let categoryId: string | null | undefined = item.category_id;
+    if (
+      !categoryId &&
+      item.auto_category_name &&
+      item.auto_category_confidence !== 'low'
+    ) {
+      const wanted = resolveCategoryName(item.auto_category_name);
+      const all = await this.getCategories();
+      const existing = all.find(
+        (c) => c.name.toLowerCase() === wanted.toLowerCase()
+      );
+      if (existing) {
+        categoryId = existing.id;
+      } else {
+        const visual = taxonomyVisual(wanted) ?? {
+          color_hex: autoCategoryColor(wanted),
+          icon: 'Folder',
+        };
+        const created = await this.saveCategory({
+          name: wanted,
+          color_hex: visual.color_hex,
+          icon: visual.icon,
+        });
+        categoryId = created.id;
+      }
+    }
 
     // Deduplication check: if no item.id provided, check if URL is already saved
     let targetId = item.id;
@@ -359,7 +393,7 @@ export class VaultStorage {
 
 const fullItem: ContentItem = {
       id: targetId || `item-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      category_id: item.category_id || null,
+      category_id: categoryId ?? null,
       title: item.title,
       source_url: item.source_url,
       platform: item.platform || 'Web',

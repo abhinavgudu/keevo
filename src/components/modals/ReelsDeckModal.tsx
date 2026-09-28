@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ContentItem, PriorityLevel } from '@/types/vault';
+import { ContentItem, PriorityLevel, SaveItemInput } from '@/types/vault';
 import {
   X, Heart, ExternalLink, MessageSquare, Sparkles,
   Play, Flame, Check, Film, Layers, Volume2, VolumeX,
@@ -16,7 +16,7 @@ interface ReelsDeckModalProps {
   initialIndex?: number;
   onToggleFavorite: (id: string) => void;
   onUpdateNotes: (id: string, notes: string) => void;
-  onSaveItem: (item: Partial<ContentItem> & { title: string; source_url: string }) => Promise<void>;
+  onSaveItem: (item: SaveItemInput) => Promise<void>;
   onIncrementAccess: (id: string) => void;
 }
 
