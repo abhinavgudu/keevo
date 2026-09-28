@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keeva — User Manual · Video Guide</title>
+<meta name="description" content="A to Z guide to Keeva — your personal media intelligence vault. Save. Understand. Share.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#06070B;
+  --panel:#0B0E16;
+  --panel2:#10141F;
+  --line:rgba(148,163,184,.14);
+  --txt:#E9EEF7;
+  --mut:#8C94A8;
+  --cy:#22D3EE;
+  --in:#6366F1;
+  --fu:#C026D3;
+  --grad:linear-gradient(135deg,#22D3EE 0%,#6366F1 50%,#C026D3 100%);
+  --grad-soft:linear-gradient(135deg,rgba(34,211,238,.16),rgba(99,102,241,.16),rgba(192,38,211,.16));
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--txt);
+  font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  overflow-x:hidden;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:rgba(99,102,241,.45);color:#fff}
+a{color:inherit;text-decoration:none}
+h1,h2,h3{font-family:'Space Grotesk',sans-serif;font-weight:700;letter-spacing:-.02em}
+
+/* ── ambient backdrop ─────────────────────────── */
+.aura{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aura::before,.aura::after{content:"";position:absolute;width:70vmax;height:70vmax;border-radius:50%;filter:blur(90px);opacity:.5;mix-blend-mode:screen}
+.aura::before{background:radial-gradient(circle at center,#1e40af55,#22d3ee22,transparent 65%);top:-20vmax;left:-15vmax;animation:drift1 26s ease-in-out infinite}
+.aura::after{background:radial-gradient(circle at center,#86198f50,#c026d322,transparent 65%);bottom:-24vmax;right:-18vmax;animation:drift2 32s ease-in-out infinite}
+@keyframes drift1{50%{transform:translate(14vw,10vh) scale(1.15)}}
+@keyframes drift2{50%{transform:translate(-12vw,-12vh) scale(1.2)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.05;pointer-events:none;
+  background-image:radial-gradient(rgba(255,255,255,.6) 0.5px,transparent 1px);background-size:5px 5px}
+
+/* scroll progress (video scrubber) */
+#bar{position:fixed;top:0;left:0;height:3px;width:0;z-index:99;background:var(--grad);box-shadow:0 0 12px rgba(192,38,211,.8)}
+
+/* scene dot nav */
+#dots{position:fixed;right:14px;top:50%;transform:translateY(-50%);z-index:98;display:flex;flex-direction:column;gap:14px}
+#dots a{position:relative;width:10px;height:10px;border-radius:50%;border:1px solid rgba(148,163,184,.5);background:transparent;display:block;transition:.3s}
+#dots a::after{content:attr(data-tip);position:absolute;right:24px;top:50%;transform:translateY(-50%) translateX(6px);white-space:nowrap;font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--mut);background:var(--panel2);border:1px solid var(--line);padding:4px 10px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none}
+#dots a:hover::after{opacity:1;transform:translateY(-50%) translateX(0)}
+#dots a.on{background:var(--grad);border-color:transparent;box-shadow:0 0 10px rgba(99,102,241,.7)}
+
+section{position:relative;min-height:100svh;display:flex;align-items:center;justify-content:center;padding:90px 22px}
+.wrap{max-width:1150px;width:100%;margin:0 auto}
+
+/* scene reveal */
+.scene{opacity:0;transform:translateY(46px);transition:opacity .8s ease,transform .8s cubic-bezier(.2,.75,.25,1)}
+.scene.in{opacity:1;transform:none}
+
+.kicker{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--cy);
+  background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.25);padding:7px 14px;border-radius:999px;margin-bottom:22px}
+.kicker i{width:7px;height:7px;border-radius:50%;background:var(--cy);box-shadow:0 0 12px var(--cy);animation:blink 1.6s infinite}
+@keyframes blink{50%{opacity:.25}}
+h2.head{font-size:clamp(34px,5.6vw,64px);line-height:1.03;margin-bottom:16px}
+h2.head .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--mut);font-size:clamp(15px,1.8vw,19px);max-width:640px}
+.hi{display:block;margin-top:10px;font-size:clamp(13px,1.5vw,16px);color:#aab2c6;opacity:.85;font-weight:500}
+.grid2{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;margin-top:46px}
+.grid2.rt{grid-template-columns:.95fr 1.05fr}
+@media(max-width:940px){.grid2,.grid2.rt{grid-template-columns:1fr;gap:40px;margin-top:34px}}
+
+.cta{display:inline-flex;align-items:center;gap:10px;margin-top:28px;padding:14px 26px;border-radius:14px;font-weight:700;font-size:15px;color:#fff;
+  background:var(--grad);box-shadow:0 8px 34px rgba(99,102,241,.45);transition:.25s;cursor:pointer;border:none}
+.cta:hover{transform:translateY(-3px);box-shadow:0 14px 44px rgba(192,38,211,.5)}
+.cta.ghost{background:transparent;border:1px solid var(--line);box-shadow:none;color:var(--txt)}
+.cta.ghost:hover{border-color:rgba(34,211,238,.5)}
+
+/* ── logo mark (css recreation) ─────────────── */
+.mark{width:88px;height:88px;border-radius:50%;padding:2px;background:conic-gradient(from 210deg,#22D3EE,#6366F1,#C026D3,#22D3EE);box-shadow:0 0 44px rgba(99,102,241,.55);position:relative;animation:markpulse 3s ease-in-out infinite}
+@keyframes markpulse{50%{box-shadow:0 0 70px rgba(192,38,211,.65)}}
+.mark .inner{width:100%;height:100%;border-radius:50%;background:var(--bg);display:grid;place-items:center}
+.mark .diamond{width:38px;height:38px;transform:rotate(45deg);border-radius:9px;background:var(--grad);box-shadow:0 0 26px rgba(34,211,238,.8);animation:dspin 14s linear infinite}
+@keyframes dspin{to{transform:rotate(405deg)}}
+.mark.big{width:120px;height:120px}
+.mark.big .diamond{width:52px;height:52px}
+.mark.big .inner{box-shadow:inset 0 0 40px rgba(6,7,11,.9)}
+
+/* ── hero mock vault (behind the scenes) ─────── */
+.mockvault{position:relative;height:520px;perspective:1200px}
+.mockvault .col{position:absolute;width:230px;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#0a0d15);box-shadow:0 24px 60px rgba(0,0,0,.55);padding:10px}
+.mockcard{height:96px;border-radius:12px;margin-bottom:10px;background:var(--grad-soft);border:1px solid var(--line);position:relative;overflow:hidden;animation:cardin .9s both}
+.mockcard::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.14) 50%,transparent 70%);transform:translateX(-120%);animation:sheen 3.6s 1s infinite}
+@keyframes sheen{40%{transform:translateX(120%)}}
+.mockcard .t{position:absolute;left:10px;top:14px;right:10px;height:8px;border-radius:4px;background:rgba(148,163,184,.25)}
+.mockcard .t2{top:30px;width:70%}
+.mockcard .t3{top:66px;width:45%;height:6px;background:rgba(34,211,238,.35)}
+@keyframes cardin{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1}}
+/* trust check: staggered delays */
+.cv1{left:0;top:120px;transform:rotate(-8deg);animation:floaty 9s ease-in-out infinite}
+.cv2{left:180px;top:-10px;transform:rotate(5deg);animation:floaty 11s 1s ease-in-out infinite}
+.cv3{left:150px;bottom:0;transform:rotate(3deg);animation:floaty 10s .5s ease-in-out infinite}
+.cv4{right:0;top:90px;transform:rotate(-4deg);animation:floaty 12s 1.5s ease-in-out infinite}
+@media(max-width:640px){.mockvault{height:430px}.mockvault .col{width:180px}.cv2{left:120px}.cv3{left:100px}}
+@keyframes floaty{50%{transform:translateY(-16px) rotate(0deg)}}
+.mockcard .chip{position:absolute;right:8px;top:8px;width:10px;height:10px;border-radius:50%;background:var(--grad)}
+
+/* ── hero ──────────────────────────────────── */
+#hero{flex-direction:column;text-align:center}
+.logo-line{display:flex;gap:18px;align-items:center;justify-content:center;animation:rise 1s .1s both}
+.wordmark{text-align:left}
+.wordmark h1{font-size:clamp(30px,4.6vw,52px);line-height:1;color:#fff}
+.wordmark h1 b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.wordmark p{font-size:12px;letter-spacing:.34em;color:var(--mut);text-transform:uppercase;margin-top:6px}
+.tagline{margin-top:26px;font-size:clamp(21px,3.4vw,40px);font-weight:700;font-family:'Space Grotesk';letter-spacing:-.02em;animation:rise 1s .35s both}
+.tagline .g{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--mut);margin-top:18px;max-width:590px;font-size:clamp(15px,1.7vw,19px);animation:rise 1s .55s both}
+.herocta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;animation:rise 1s .75s both}
+@keyframes rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+.marquee{margin-top:52px;width:100%;overflow:hidden;position:relative;mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.marquee ul{display:flex;gap:16px;width:max-content;animation:scroll 26s linear infinite;padding:16px 0}
+.marquee li{display:flex;gap:9px;align-items:center;padding:9px 18px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:#c9d0e0;font-size:13px;font-weight:600;white-space:nowrap}
+.marquee svg{width:16px;height:16px;stroke:var(--cy)}
+@keyframes scroll{to{transform:translateX(-50%)}}
+.flow{display:flex;gap:8px;align-items:center;margin-top:38px;justify-content:center;flex-wrap:wrap;font-size:12px;color:var(--mut);letter-spacing:.1em;text-transform:uppercase;animation:rise 1s .9s both}
+.flow b{color:var(--cy)}
+
+/* ── mock: quick add bar ──────────────────── */
+.mquick{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;box-shadow:0 30px 70px rgba(0,0,0,.5);position:relative}
+.mquick .field{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.mquick .field .caret{width:10px;height:20px;background:var(--cy);animation:blink .8s infinite}
+.mquick .field .url{color:var(--mut);font-size:15px;text-wrap:nowrap;overflow:hidden;font-family:'JetBrains Mono'}
+.detect{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.detect .pl{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600;color:#c9d0e0;background:var(--panel2);border:1px solid var(--line);padding:8px 12px;border-radius:10px;opacity:0;transform:translateY(8px);animation:pop .5s forwards}
+.mquick .detect .pl:nth-child(1){animation-delay:1.2s}
+.mquick .detect .pl:nth-child(2){animation-delay:1.9s}
+.mquick .detect .pl:nth-child(3){animation-delay:2.5s}
+.mquick .detect .pl:nth-child(4){animation-delay:3.1s}
+.mquick .detect .chip-auto{background:var(--grad);color:#fff;border-radius:999px;padding:4px 7px;font-size:10px;font-weight:800;letter-spacing:.06em}
+@keyframes pop{to{opacity:1;transform:none}}
+.status{font-size:12.5px;color:var(--mut);margin-top:12px;font-family:'JetBrains Mono'}
+.status b{color:var(--cy);font-weight:600}
+
+/* ── mock: category chip → create ─────────── */
+.catstage{display:flex;flex-direction:column;gap:16px}
+.catrow{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;opacity:.72;transition:.3s}
+.catrow.on{opacity:1;border-color:rgba(34,211,238,.4);box-shadow:0 0 0 1px rgba(34,211,238,.15)}
+.catrow .dot{width:12px;height:12px;border-radius:4px;flex-shrink:0}
+.catrow .nm{flex:1;font-weight:600;font-size:15px}
+.catrow .n{font-size:11px;color:var(--mut);background:var(--panel2);border:1px solid var(--line);padding:3px 9px;border-radius:999px}
+.catrow.new{border-style:dashed;border-color:rgba(192,38,211,.5);opacity:0;animation:catbirth 1s 2.2s forwards}
+@keyframes catbirth{to{opacity:1;box-shadow:0 0 26px rgba(192,38,211,.35)}}
+.catrow.new .nm b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.flowline{margin:6px 0 2px;font-size:12px;color:var(--mut);font-family:'JetBrains Mono'}
+.flowline b{color:var(--cy);font-weight:600}
+.badges{display:flex;gap:8px;flex-wrap:wrap}
+.badges span{font-size:11px;font-weight:700;letter-spacing:.05em;padding:5px 11px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);color:#c9d0e0;animation:pop .5s both}
+.badges span:nth-child(1){animation-delay:.4s}.badges span:nth-child(2){animation-delay:.8s}
+.badges span:nth-child(3){animation-delay:1.2s}.badges span:nth-child(4){animation-delay:1.6s}
+
+/* ── mock: vault grid ─────────────────────── */
+.vgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:680px){.vgrid{grid-template-columns:repeat(2,1fr)}}
+.vcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;opacity:0;transform:translateY(30px);animation:vard 1s forwards}
+.vcard:nth-child(1){animation-delay:.15s}.vcard:nth-child(2){animation-delay:.3s}
+.vcard:nth-child(3){animation-delay:.45s}.vcard:nth-child(4){animation-delay:.6s}
+.vcard:nth-child(5){animation-delay:.75s}.vcard:nth-child(6){animation-delay:.9s}
+@keyframes vard{to{opacity:1;transform:none}}
+.vcard .th{height:86px;background:var(--grad-soft);position:relative;overflow:hidden}
+.vcard .th::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.16) 50%,transparent 70%);animation:sheen 4s infinite}
+.vcard .bd{padding:11px 12px}
+.vcard .bd .t{height:8px;border-radius:4px;background:rgba(148,163,184,.28);margin-bottom:7px}
+.vcard .bd .t.w60{width:60%}.vcard .bd .t.w80{width:80%}
+.vcard .bd .row{display:flex;justify-content:space-between;margin-top:9px;align-items:center}
+.vcard .bd .tagc{display:flex;gap:5px;flex-wrap:wrap}
+.vcard .bd .tg{font-size:9px;font-weight:700;color:var(--cy);background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.2);padding:2px 7px;border-radius:999px}
+.vtoolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;align-items:center}
+.vsearch{flex:1;min-width:200px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;color:var(--mut);font-size:14px;display:flex;gap:9px;align-items:center}
+.vsearch svg{width:15px;height:15px;stroke:var(--cy)}
+.vpill{font-size:12.5px;font-weight:600;color:#c9d0e0;background:var(--panel);border:1px solid var(--line);padding:10px 16px;border-radius:999px;cursor:default}
+.vpill.on{background:var(--grad);color:#fff;border-color:transparent}
+
+/* ── mock: deck ───────────────────────────── */
+.deck{position:relative;width:min(340px,88vw);aspect-ratio:9/16;border-radius:26px;margin:0 auto;overflow:hidden;border:1px solid var(--line);background:linear-gradient(180deg,#0c0f1a,#07080e);box-shadow:0 40px 90px rgba(0,0,0,.6)}
+.deck .slide{position:absolute;inset:0;animation:deckloop 10s ease-in-out infinite}
+@keyframes deckloop{0%,18%{transform:translateY(0) scale(1);opacity:1}24%,42%{transform:translateY(-6%) scale(.9);opacity:0}44%,62%{transform:translateY(6%) scale(.9);opacity:0}66%,100%{transform:translateY(0) scale(1);opacity:1}}
+.deck .slide:nth-child(1){animation-delay:0s}.deck .slide:nth-child(2){animation-delay:3.4s}
+.deck .slide .bg{position:absolute;inset:0;opacity:.9}
+.deck .sn{position:absolute;top:16px;left:16px;font-size:22px;font-weight:800;color:rgba(255,255,255,.95);z-index:2;font-family:'Space Grotesk'}
+.deck .cap{position:absolute;bottom:18px;left:16px;right:16px;z-index:2;background:rgba(6,7,11,.72);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:13px;padding:12px 14px;font-size:13px;color:#e7ecf4}
+.deck .nav{position:absolute;right:12px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:9px;z-index:3}
+.deck .nav span{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);display:grid;place-items:center}
+.deck .nav svg{width:15px;height:15px;stroke:#fff}
+
+/* ── mock: pdf + transcript ───────────────── */
+.pdfrow{display:flex;gap:14px;align-items:stretch;flex-wrap:wrap}
+.pdf{flex:1.2;min-width:260px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;gap:16px;align-items:flex-start}
+.pdf .pg{width:74px;height:96px;border-radius:6px;background:linear-gradient(180deg,#10141f,#0a0d15);border:1px solid rgba(148,163,184,.22);position:relative;flex-shrink:0;background-image:linear-gradient(180deg,rgba(148,163,184,.14) 1px,transparent 1px);background-size:100% 12px}
+.pdf .pg::after{content:"";position:absolute;inset:0;background:var(--grad);opacity:.9;mix-blend-mode:multiply;border-radius:6px}
+.pdf .meta .t{font-weight:700;font-size:15px;margin-bottom:6px}
+.pdf .meta .d{font-size:12.5px;color:var(--mut);display:flex;gap:8px;flex-wrap:wrap}
+.pdf .tools{display:flex;gap:8px;margin-top:12px}
+.pdf .tools span{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:var(--panel2);border:1px solid var(--line)}
+.pdf .tools svg{width:14px;height:14px;stroke:var(--cy)}
+.trans{flex:1;min-width:260px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.trans .bar{display:flex;gap:9px;margin-bottom:14px}
+.trans .bar span{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:12px;color:var(--mut)}
+.trans .line{height:7px;border-radius:4px;background:rgba(148,163,184,.22);margin-bottom:9px}
+.trans .line.w90{width:90%}.trans .line.w70{width:70%}.trans .line.w80{width:80%}
+.tsgen{font-size:11px;color:var(--cy);font-family:'JetBrains Mono';margin-bottom:2px}
+.hl{background:rgba(34,211,238,.16);border-radius:4px;box-shadow:inset 0 0 0 1px rgba(34,211,238,.3)}
+
+/* ── mock: community ──────────────────────── */
+.comfeed{display:grid;gap:16px}
+.compost{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:8px;opacity:0;transform:translateY(26px);animation:pop .7s forwards}
+.compost:nth-child(2){animation-delay:.5s}.compost:nth-child(3){animation-delay:1s}
+.compost .h{display:flex;gap:10px;align-items:center;padding:8px 10px 4px}
+.compost .av{width:30px;height:30px;border-radius:50%;background:var(--grad);display:grid;place-items:center;font-weight:800;font-size:12px;color:#fff;flex-shrink:0}
+.compost .nm{font-size:13.5px;font-weight:700}
+.compost .tm{font-size:11px;color:var(--mut)}
+.compost .body{padding:8px 12px 12px;font-size:13.5px;color:#d7ddea}
+.compost .act{display:flex;gap:18px;padding:2px 12px 12px;color:var(--mut)}
+.compost .act svg{width:15px;height:15px;stroke:currentColor;vertical-align:-3px;margin-right:5px}
+.like-active{color:#f472b6}
+.like-heart{display:inline-block;transform-origin:center;animation:thump 2.4s infinite}
+@keyframes thump{0%,100%{transform:scale(1)}10%{transform:scale(1.35)}20%{transform:scale(1)}30%{transform:scale(1.25)}40%{transform:scale(1)}}
+.comment{margin:0 12px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:12.5px;color:#c9d0e0}
+.comment b{color:#7dd6ec}
+.pubchip{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.05em;color:#5eead4;background:rgba(45,212,191,.1);border:1px solid rgba(45,212,191,.3);padding:5px 12px;border-radius:999px;margin:0 12px}
+.pubchip::before{content:"";width:7px;height:7px;border-radius:50%;background:#2dd4bf;box-shadow:0 0 10px #2dd4bf;animation:blink 1.8s infinite}
+
+/* ── mock: notifications ──────────────────── */
+.bellwrap{display:flex;align-items:center;gap:26px;justify-content:center;flex-wrap:wrap}
+.bellcen{position:relative;width:78px;height:78px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--line);background:var(--panel)}
+.bellcen svg{width:34px;height:34px;stroke:var(--cy)}
+.bellcen .badge{position:absolute;top:-4px;right:-4px;min-width:26px;height:26px;padding:0 7px;border-radius:999px;background:var(--grad);color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center;animation:ringbadge 4s infinite}
+@keyframes ringbadge{0%,70%{transform:scale(1)}75%{transform:scale(1.25)}80%,100%{transform:scale(1)}}
+.ring{animation:ringwob 4s infinite;transform-origin:top center}
+@keyframes ringwob{0%,70%,100%{transform:rotate(0)}74%{transform:rotate(-12deg)}78%{transform:rotate(11deg)}82%{transform:rotate(-7deg)}86%{transform:rotate(0)}}
+.toast{background:var(--panel);border:1px solid rgba(34,211,238,.3);border-radius:15px;padding:13px 16px;min-width:280px;max-width:320px;box-shadow:0 24px 60px rgba(0,0,0,.55);display:flex;gap:12px;align-items:center;opacity:0;animation:toastloop 7s ease-in-out infinite;position:relative}
+.toast::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--grad);border-radius:15px 15px 0 0}
+@keyframes toastloop{0%,58%{opacity:0;transform:translateY(22px)}66%,88%{opacity:1;transform:none}96%,100%{opacity:0;transform:translateY(-8px)}}
+.toast .ic{width:38px;height:38px;border-radius:50%;background:var(--grad);display:grid;place-items:center;flex-shrink:0}
+.toast .ic svg{width:18px;height:18px;stroke:#fff}
+.toast .tx{border-radius:10px;padding:3px 0}
+.toast .t1{font-size:12px;color:var(--mut)}.toast .t2{font-size:13.5px;font-weight:700}
+
+/* ── mock: extension + share sheet ────────── */
+.extrig{display:flex;gap:22px;align-items:center;justify-content:center;flex-wrap:wrap}
+.extcard{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px;text-align:center;width:200px;animation:floaty 7s infinite}
+.extcard .eico{width:64px;height:64px;margin:0 auto 14px;border-radius:18px;background:var(--grad);display:grid;place-items:center;box-shadow:0 10px 30px rgba(99,102,241,.45)}
+.extcard .eico svg{width:30px;height:30px;stroke:#fff}
+.extcard .t{font-weight:700;font-size:15px}
+.extcard .d{font-size:12px;color:var(--mut);margin-top:6px}
+.sharesheet{width:min(340px,86vw);background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 40px 90px rgba(0,0,0,.6)}
+.sharesheet .approw{display:flex;align-items:center;gap:12px;padding:12px;border-radius:13px;background:var(--panel2);border:1px solid var(--line);cursor:default;animation:pop .5s both}
+.sharesheet .approw:nth-child(2){animation-delay:.4s}.sharesheet .approw:nth-child(3){animation-delay:.8s}
+.sharesheet .approw .ico{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;flex-shrink:0;background:var(--grad)}
+.sharesheet .approw .ico svg{width:20px;height:20px;stroke:#fff}
+.sharesheet .approw .m{flex:1;font-weight:700;font-size:14px}
+.sharesheet .approw .s{font-size:11.5px;color:var(--mut);font-weight:500}
+.sharesheet .approw .ar{margin-left:auto}
+.sharesheet .approw .ar svg{width:15px;height:15px;stroke:var(--mut)}
+
+/* ── mock: install ────────────────────────── */
+.phn{width:min(300px,84vw);border-radius:34px;padding:10px;background:linear-gradient(180deg,#141828,#090b12);border:1px solid var(--line);box-shadow:0 40px 90px rgba(0,0,0,.6);position:relative}
+.phn .scr{border-radius:26px;overflow:hidden;background:var(--bg);border:1px solid var(--line);position:relative}
+.phn .appbar{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:16px 16px 14px}
+.phn .appbar .dot{width:30px;height:30px;border-radius:50%;background:var(--grad)}
+.phn .appbar .barlines{display:flex;flex-direction:column;gap:5px}
+.phn .appbar .barlines i{height:7px;border-radius:4px;background:rgba(148,163,184,.3);width:70px}
+.phn .appbar .barlines i:nth-child(2){width:46px}
+.dockrow{display:flex;justify-content:center;gap:9px;padding:8px 10px}
+.dockrow i{width:54px;height:54px;border-radius:16px;background:var(--grad-soft);border:1px solid var(--line)}
+.pwabtn{margin:6px 14px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--grad);color:#fff;border-radius:13px;padding:12px 14px;font-weight:700;font-size:13px;box-shadow:0 10px 28px rgba(192,38,211,.45);animation:floaty 3.4s infinite}
+.pwabtn svg{width:18px;height:18px;stroke:#fff}
+.steps{display:flex;flex-direction:column;gap:12px;counter-reset:s;margin-top:8px}
+.steps li{list-style:none;display:flex;gap:13px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:13px 14px;font-size:13.5px;color:#d7ddea}
+.steps li::before{counter-increment:s;content:counter(s);flex:0 0 28px;height:28px;border-radius:50%;background:var(--grad);color:#fff;font-weight:800;display:grid;place-items:center;font-size:13px}
+
+/* ── mock: command palette ────────────────── */
+.pal{max-width:540px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 40px 90px rgba(0,0,0,.6);overflow:hidden}
+.pal .q{display:flex;gap:11px;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line)}
+.pal .q svg{width:17px;height:17px;stroke:var(--cy)}
+.pal .q input{background:none;border:none;outline:none;color:var(--txt);font-size:15px;width:100%;font-family:'Inter'}
+.pal .res{padding:8px;max-height:250px;overflow:hidden}
+.pal .r{display:flex;gap:11px;align-items:center;padding:11px 12px;border-radius:11px;font-size:14px;color:#c9d0e0;animation:pop .4s both}
+.pal .r.hl{background:var(--grad-soft);border:1px solid rgba(99,102,241,.35);color:#fff;animation-delay:.35s}
+.pal .r svg{width:16px;height:16px;stroke:var(--cy)}
+.pal .r .rn{margin-left:auto;font-size:10px;letter-spacing:.06em;color:var(--mut);border:1px solid var(--line);padding:3px 8px;border-radius:6px}
+.kbd-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+kbd{font-family:'JetBrains Mono';background:var(--panel);border:1px solid var(--line);border-bottom-width:3px;padding:8px 14px;border-radius:9px;font-size:13px;color:var(--cy)}
+
+/* ── footer ───────────────────────────────── */
+#outro{flex-direction:column;text-align:center;min-height:86svh}
+.fin{font-size:clamp(30px,5vw,58px);font-family:'Space Grotesk';font-weight:700;letter-spacing:-.02em;animation:rise 1s .2s both}
+.fin .g{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.finsub{color:var(--mut);max-width:560px;margin:20px auto 0;font-size:clamp(15px,1.7vw,18px);animation:rise 1s .5s both}
+.feats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:44px;width:100%;animation:rise 1s .7s both}
+@media(max-width:760px){.feats{grid-template-columns:repeat(2,1fr)}}
+.feats div{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:16px;text-align:left}
+.feats b{display:block;font-size:14px;margin-bottom:4px;font-family:'Space Grotesk'}
+.feats span{font-size:12px;color:var(--mut)}
+.small{font-size:11.5px;color:#5f687c;margin-top:40px;letter-spacing:.04em}
+</style>
+</head>
+<body>
+
+<div class="aura"></div>
+<div class="grain"></div>
+<div id="bar"></div>
+<nav id="dots" aria-label="Scenes"></nav>
+
+<!-- ══════════ HERO ══════════ -->
+<section id="hero">
+  <div class="wrap">
+    <div class="logo-line">
+      <div class="mark big"><div class="inner"><div class="diamond"></div></div></div>
+      <div class="wordmark">
+        <h1>Ke<b>e</b>va</h1>
+        <p>Personal Media Intelligence</p>
+      </div>
+    </div>
+    <div class="tagline">Save. Understand. <span class="g">Share.</span></div>
+    <p class="lead">Keeva turns the links you scroll past into a living knowledge vault — automatically filed, always findable, and one tap from the community.</p>
+    <div class="herocta">
+      <a class="cta" href="/">Open Keeva&nbsp;→</a>
+      <a class="cta ghost" href="#save">Watch the tour ▾</a>
+    </div>
+    <div class="flow"><span>One link in</span><b>✦</b><span>Auto-titled</span><b>✦</b><span>Auto-filed</span><b>✦</b><span>Ready anytime</span></div>
+  </div>
+  <div class="marquee" aria-hidden="true">
+    <ul>
+      <li>Instagram</li><li>YouTube</li><li>LinkedIn</li><li>X / Twitter</li><li>WhatsApp</li><li>Reels</li><li>Shorts</li><li>PDF &amp; Articles</li><li>Web pages</li>
+      <li>Instagram</li><li>YouTube</li><li>LinkedIn</li><li>X / Twitter</li><li>WhatsApp</li><li>Reels</li><li>Shorts</li><li>PDF &amp; Articles</li><li>Web pages</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ══════════ 1 · PROBLEM ══════════ -->
+<section id="lost">
+  <div class="wrap scene">
+    <div class="kicker"><i></i> The Problem — 01</div>
+    <h2 class="head">Infinite tabs. <span class="grad">Zero memory.</span></h2>
+    <p class="sub">Every reel, thread and PDF crosses your screen once — and is gone. Chats eat them, bookmarks bury them, and your "for later" list is 400 tabs deep.
+    <span class="hi">जो लिंक आप scroll करते हुए देखते हैं — वो खो जाते हैं। Keeva उन्हें पकड़ती है, लेबल करती है, और कभी भी वापस दिलाती है।</span></p>
+    <div class="grid2">
+      <div class="mockvault">
+        <div class="col cv1"><div class="mockcard" style="animation-delay:.1s"><div class="t"></div><div class="t t2"></div><div class="t3"></div><div class="chip"></div></div>
+          <div class="mockcard" style="animation-delay:.25s;height:120px"><div class="t"></div><div class="t t2"></div><div class="t3"></div><div class="chip"></div></div>
+          <div class="mockcard" style="animation-delay:.4s;height:74px"><div class="t"></div><div class="t t2"></div><div class="t3"></div></div>
+          <div class="mockcard" style="animation-delay:.55s"><div class="t"></div><div class="t t2"></div></div>
+        </div>
+        <div class="col cv2"><div class="mockcard" style="height:134px;animation-delay:.15s"><div class="t"></div><div class="t t2"></div><div class="t3"></div></div>
+          <div class="mockcard" style="height:88px;animation-delay:.3s"><div class="t"></div><div class="t t2"></div><div class="t3"></div></div>
+          <div class="mockcard" style="height:104px;animation-delay:.45s"><div class="t"></div><div class="t t2"></div></div>
+        </div>
+        <div class="col cv3"><div class="mockcard" style="height:92px;animation-delay:.2s"><div class="t"></div><div class="t t2"></div><div class="t3"></div></div>
+          <div class="mockcard" style="height:120px;animation-delay:.35s"><div class="t"></div><div class="t t2"></div></div>
+        </div>
+        <div class="col cv4"><div class="mockcard" style="height:112px;animation-delay:.18s"><div class="t"></div><div class="t t2"></div></div>
+          <div class="mockcard" style="height:82px;animation-delay:.33s"><div class="t"></div><div class="t t2"></div><div class="t3"></div></div>
+          <div class="mockcard" style="height:96px;animation-delay:.48s"><div class="t"></div><div class="t t2"></div></div>
+        </div>
+      </div>
+      <div class="scroll-vs mob-padding">
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+          <div class="vpill">Bookmarks ???</div>
+          <div class="vpill">Screenshots?</div>
+          <div class="vpill">Forwarded to self?</div>
+        </div>
+        <p style="margin-top:22px;font-size:14px;color:var(--mut)">Sound familiar? That's exactly the drawer where good ideas go to die. Keeva is the system that drawer always wanted to be.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 2 · SAVE ══════════ -->
+<section id="save">
+  <div class="wrap scene">
+    <div class="kicker"><i></i> Save — 02</div>
+    <h2 class="head">Paste once. <span class="grad">Everything happens.</span></h2>
+    <p class="sub">Drop any Instagram reel, YouTube video, LinkedIn post, article or PDF. Keeva reads the link and builds the card for you — title, platform, thumbnail, smart tags, a priority grade, and the right category.
+    <span class="hi">कॉपी करो → paste करो। बाकी सब Keeva खुद कर लेती है — title, सार, tags, category सब अपने-आप।</span></p>
+    <div class="grid2 rt">
+      <div class="mquick">
+        <div style="display:flex;gap:9px;align-items:center;margin-bottom:12px">
+          <span style="font-size:13px;font-weight:700">Quick Add</span>
+          <span class="chip-auto">AUTO</span>
+        </div>
+        <div class="field">
+          <span class="caret"></span>
+          <span class="url">https://www.instagram.com/reel/CxY2kbzLxTz/</span>
+        </div>
+        <div class="detect">
+          <span class="pl">◆ Instagram</span>
+          <span class="pl">REEL</span>
+          <span class="pl">#systemdesign #distributedsystems</span>
+          <span class="pl">MUST-LEARN</span>
+        </div>
+        <div class="status">detected title → <b>“Building a Load Balancer that survives Slash”</b><br>ai filing → <b style="color:#f0abfc">System Design &amp; Cloud</b> ✓</div>
+      </div>
+      <div>
+        <h3 style="font-size:24px;margin-bottom:10px;font-family:'Space Grotesk'">Every platform, one box</h3>
+        <p style="color:var(--mut);font-size:15px">Instagram, YouTube, LinkedIn, Twitter, WhatsApp-forwarded links, web pages, and PDF uploads — the same effortless save. No extension needed, no form to fill. A clipboard button is there if you've already copied elsewhere.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 3 · AUTO-FILING ══════════ -->
+<section id="ai">
+  <div class="wrap scene">
+    <div class="kicker"><i></i> Intelligence — 03</div>
+    <h2 class="head">AI files it <span class="grad">before you blink.</span></h2>
+    <p class="sub">Keeva's built-in classifier reads the content and picks the right category. If the perfect category doesn't exist yet — Keeva creates it for you, colour-coded and ready.
+    <span class="hi">कैटेगरी खुद बन जाती है — बनाने की ज़रूरत नहीं। आप चाहें तो बदल भी सकते हैं।</span></p>
+    <div class="grid2">
+      <div class="catstage">
+        <div class="flowline">AI detected → <b>“System Design &amp; Cloud”</b></div>
+        <div class="catrow on"><span class="dot" style="background:#8b5cf6"></span><span class="nm">System Design &amp; Cloud</span><span class="n">18 saved</span></div>
+        <div class="catrow"><span class="dot" style="background:#22d3ee"></span><span class="nm">AI &amp; ML</span><span class="n">32 saved</span></div>
+        <div class="catrow"><span class="dot" style="background:#f472b6"></span><span class="nm">Programming &amp; DSA</span><span class="n">57 saved</span></div>
+        <div class="flowline">category missing → <b style="color:#f0abfc">auto-creates it</b></div>
+        <div class="catrow new"><span class="dot" style="background:#c026d3"></span><span class="nm"><b>AI Prompt Engineering</b></span><span class="n">NEW</span></div>
+        <div class="badges"><span>HIGH CONFIDENCE = AUTO-FILE</span><span>MANUAL PICK ALWAYS WINS</span><span>ZERO SETUP</span></div>
+      </div>
+      <div>
+        <h3 style="font-size:24px;margin-bottom:10px;font-family:'Space Grotesk'">Your photo albums, minus the effort</h3>
+        <p style="color:var(--mut);font-size:15px">Ten ready-made categories cover everyday learning. Your own folders live alongside them. Detection is conservative on purpose — your manual choice always overrides the AI, so nothing ever lands in the wrong drawer.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 4 · VAULT ══════════ -->
+<section id="vault">
+  <div class="wrap scene">
+    <div class="kicker"><i></i> Your Library — 04</div>
+    <h2 class="head">Every great link, <span class="grad">one vault.</span></h2>
+    <p class="sub">A clean, searchable library of everything you've saved. Filter by category, tag, priority or favourites — jump straight to what matters right now.
+    <span class="hi">सारी सेव्ड चीज़ें एक ही जगह — खोजो, छाँटो, जरूरत के हिसाब से निकालो।</span></p>
+    <div class="grid2 rt">
+      <div class="vtoolbar">
+        <div class="vsearch"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search reels, articles, PDFs, tags…</div>
+        <span class="vpill on">All</span><span class="vpill">AI &amp; ML</span><span class="vpill">MUST-LEARN</span><span class="vpill">♥ Favourites</span>
+      </div>
+      <div class="vgrid">
+        <div class="vcard"><div class="th"></div><div class="bd"><div class="t w80"></div><div class="t w60"></div><div class="row"><div class="tagc"><span class="tg">AI/ML</span><span class="tg">★HIGH</span></div></div></div></div>
+        <div class="vcard"><div class="th"></div><div class="bd"><div class="t w80"></div><div class="t w60"></div><div class="row"><div class="tagc"><span class="tg">SYS-DESIGN</span></div></div></div></div>
+        <div class="vcard"><div class="th"></div><div class="bd"><div class="t w80"></div><div class="t w60"></div><div class="row"><div class="tagc"><span class="tg">PDF</span></div></div></div></div>
+        <div class="vcard"><div class="th"></div><div class="bd"><div class="t w80"></div><div class="t w60"></div><div class="row"><div class="tagc"><span class="tg">DSA</span></div></div></div></div>
+        <div class="vcard"><div class="th"></div><div class="bd"><div class="t w80"></div><div class="t w60"></div><div class="row"><div class="tagc"><span class="tg">DSA</span></div></div></div></div>
+        <div class="vcard"><div class="th"></div><div class="bd"><div class="t w80"></div><div class="t w60"></div><div class="row"><div class="tagc"><span class="tg">FINANCE</span></div></div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 5 · PREVIEW / LEARN ══════════ -->
+<section id="learn">
+  <div class="wrap scene">
+    <div class="kicker"><i></i> Learn — 05</div>
+    <h2 class="head">Watch, read and <span class="grad">take notes — without leaving.</span></h2>
+    <p class="sub">Open anything in Keeva: play the reel, flip the PDF, browse the transcript. Jot takeaways while you watch — notes, tags and snippets stick to the card forever.
+    <span class="hi">अंदर ही अंदर देखो, पढ़ो, नोट बनाओ — tab बदलने की ज़रूरत नहीं।</span></p>
+    <div class="grid2">
+      <div class="deck">
+        <div class="slide"><div class="bg" style="background:linear-gradient(160deg,#312e81,#0e7490)"></div><div class="sn">Reel #12</div><div class="cap">Distributed systems, explained in 60 seconds</div></div>
+        <div class="slide"><div class="bg" style="background:linear-gradient(160deg,#701a75,#4c1d95)"></div><div class="sn">Reel #13</div><div class="cap">The one SQL index trick that fixes slow queries</div></div>
+        <div class="nav"><span><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="m6 14 6-6 6 6"/></svg></span><span><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="m6 10 6 6 6-6"/></svg></span></div>
+      </div>
+      <div>
+        <h3 style="font-size:24px;margin-bottom:10px;font-family:'Space Grotesk'">A focus mode for your feed</h3>
+        <p style="color:var(--mut);font-size:15px">The <b style="color:#e9eef7">Reels Deck</b> stacks your portfolio like a story reel — swipe up and down between saves, jot key notes mid-watch, and star the ones worth a second look. The preview panel holds your takeaways right next to the video.</p>
+        <div class="badges" style="margin-top:16px"><span>♥ FAVOURITE</span><span>✎ NOTES</span><span># TAGS</span><span>▲ PRIORITY</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 6 · PDF + TRANSCRIPT ══════════ -->
+<section id="pdf">
+  <div class="wrap scene">
+    <div class="kicker"><i></i> Deep reading — 06</div>
+    <h2 class="head">PDFs that come <span class="grad">with a transcript.</span></h2>
+    <p class="sub">Upload a PDF, or save a video with a transcript. Zoom, download, favourite — and read the transcript with full search, copy, and segment-by-segment navigation.
+    <span class="hi">PDF भी, voiced content की transcript भी — search करो, copy करो, हिस्सा-हिस्सा पढ़ो।</span></p>
+    <div class="grid2 rt">
+      <div class="pdfrow">
+        <div class="pdf">
+          <div class="pg"></div>
+          <div class="meta">
+            <div class="t">System Design Primer — Ch. 4</div>
+            <div class="d"><span>128 pages</span><span>· PDF</span></div>
+            <div class="tools"><span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span><span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 4h9l7 7v9a2 2 0 0 1-2 2H4z"/><path d="M14 4v7h7M12 14h4M12 17h4"/></svg></span></div>
+          </div>
+        </div>
+        <div class="trans">
+          <div class="tsgen">[00:14:32]</div>
+          <div class="line w90"></div><div class="line w80"></div>
+          <div class="line w90"><span class="hl"></span></div><div class="line w70"></div>
+          <div class="tsgen">[00:14:47]</div>
+          <div class="line w80"></div><div class="line w90"></div>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:24px;margin-bottom:10px;font-family:'Space Grotesk'">Never re-watch a whole video again</h3>
+        <p style="color:var(--mut);font-size:15px">Search the transcript for the exact moment someone said it. Copy the segment to your notes. Jump straight there. It's a book after the fact — for anything you would have scrolled past.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 7 · COMMUNITY ══════════ -->
+<section id="community">
+  <div class="wrap scene">
+    <div class="kicker"><i></i> Learn together — 07</div>
+    <h2 class="head">Share it with the <span class="grad">people who'd love it.</span></h2>
+    <p class="sub">Publish any saved item to the Keeva community with your own note. Browse what others found valuable, comment, mention, and show some love.
+    <span class="hi">अपनी saved चीज़ें community से share करो — note के साथ। दूसरों के valuable finds भी देखो।</span></p>
+    <div class="grid2">
+      <div class="comfeed">
+        <div class="compost">
+          <div class="h"><div class="av">L</div><div><div class="nm">Lekhni Bhatna</div><div class="tm">2 h ago · AI &amp; ML</div></div></div>
+          <span class="pubchip">PUBLIC</span>
+          <div class="body">“Microservices and the pitfalls nobody warns you about — 59 questions that sorted my interviews.”</div>
+          <div class="act"><span class="like-active"><span class="like-heart"><svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 21S4 14.5 4 9a4 4 0 0 1 7-2.6A4 4 0 0 1 18 9c0 5.5-6 12-6 12z"/></svg></span> 24</span><span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a9 9 0 1 1 15-5z"/></svg>7</span></div>
+        </div>
+        <div class="compost">
+          <div class="h"><div class="av">A</div><div><div class="nm">Arjun Verma</div><div class="tm">5 h ago · System Design</div></div></div>
+          <span class="pubchip">PUBLIC</span>
+          <div class="body">“A load balancer that survived a real slash — the design decisions are gold.”</div>
+          <div class="act"><span class="like-active"><span class="like-heart"><svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 21S4 14.5 4 9a4 4 0 0 1 7-2.6A4 4 0 0 1 18 9c0 5.5-6 12-6 12z"/></svg></span> 58</span><span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a9 9 0 1 1 15-5z"/></svg>12</span></div>
+          <div class="comment"><b>@abhinav</b> this is the exact one we discussed — worth the 6 minutes</div>
+        </div>
+        <div class="compost">
+          <div class="h"><div class="av">P</div><div><div class="nm">Priya Sharma</div><div class="tm">1 d ago · Finance</div></div></div>
+          <span class="pubchip">PUBLIC</span>
+          <div class="body">“The 2-minute rule that fixed my savings habits. Shorter than I expected, better than investing tips.”</div>
+          <div class="act"><span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 21S4 14.5 4 9a4 4 0 0 1 7-2.6A4 4 0 0 1 18 9c0 5.5-6 12-6 12z"/></svg>9</span><span><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a9 9 0 1 1 15-5z"/></svg>3</span></div>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:24px;margin-bottom:10px;font-family:'Space Grotesk'">A feed that’s actually worth scrolling</h3>
+        <p style="color:var(--mut);font-size:15px">Every post here originated in someone's vault — so the noise is already filtered. Publish with <b style="color:#e9eef7">@mentions</b>, reply in threads, and unhide or edit your posts anytime.</p>
+        <div class="badges" style="margin-top:16px"><span>@ MENTIONS</span><span>EDIT POST</span><span>♥ LIKE</span><span>OPEN ORIGINAL</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 8 · NOTIFICATIONS ══════════ -->
+<section id="notif">
+  <div class="wrap scene">
+    <div class="kicker"><i></i> Never miss — 08</div>
+    <h2 class="head">The app buzzes when <span class="grad">someone replies.</span></h2>
+    <p class="sub">Turn on community notifications from the bell. The next time your post gets a comment or your insight is mentioned — Keeva rings your phone, even when the app is closed.
+    <span class="hi">जब भी आपकी post पर कोई reply या mention आए — phone पर notification आ जाएगा।</span></p>
+    <div class="grid2 rt">
+      <div class="bellwrap">
+        <div class="bellcen">
+          <svg class="ring" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <span class="badge">3</span>
+        </div>
+        <div class="toast">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a9 9 0 1 1 15-5z"/></svg></span>
+          <div class="tx"><div class="t1">Keeva · now</div><div class="t2">Lekhni mentioned you in a comment</div></div>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:24px;margin-bottom:10px;font-family:'Space Grotesk'">Your vault talks back</h3>
+        <p style="color:var(--mut);font-size:15px">One switch under the bell subscribes you. Tapping a notification deep-links straight to the post — no hunting. On iOS, add Keeva to your home screen and it behaves like a real app.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 9 · EXTENSION + SHARE ══════════ -->
+<section id="share">
+  <div class="wrap scene">
+    <div class="kicker"><i></i> Capture anywhere — 09</div>
+    <h2 class="head">Save from <span class="grad">anywhere you browse.</span></h2>
+    <p class="sub">On desktop, grab the Chrome extension to clip pages in one click. On mobile, share any link straight into Keeva from whatever app you're reading in — it files itself.
+    <span class="hi">कहीं भी हो — एक click में Keeva में। Mobile पर share button से, desktop पर extension से।</span></p>
+    <div class="grid2">
+      <div class="extrig">
+        <div class="extcard">
+          <div class="eico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg></div>
+          <div class="t">Chrome Extension</div>
+          <div class="d">One click while you read</div>
+        </div>
+        <div class="sharesheet">
+          <div class="approw"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m3 17 5-4 3 2 4-3 6 5"/></svg></span><div><div class="m">Instagram reel</div><div class="s">Share → Keeva</div></div><span class="ar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg></span></div>
+          <div class="approw"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M2.5 12S7 4 15 4c5 0 6.5 8 6.5 8s-1.5 8-6.5 8C7 20 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg></span><div><div class="m">YouTube video</div><div class="s">Share → Keeva</div></div><span class="ar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg></span></div>
+          <div class="approw"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></span><div><div class="m">PDF / article</div><div class="s">Share → Keeva</div></div><span class="ar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg></span></div>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:24px;margin-bottom:10px;font-family:'Space Grotesk'">One click → fully filed</h3>
+        <p style="color:var(--mut);font-size:15px">The share sheet is the mobile superpower: no copy-paste, no app switching. Choose Keeva from your phone's share sheet and the item lands titled, tagged and categorized.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 10 · INSTALL ══════════ -->
+<section id="install">
+  <div class="wrap scene">
+    <div class="kicker"><i></i> Install — 10</div>
+    <h2 class="head">Make Keeva feel <span class="grad">native.</span></h2>
+    <p class="sub">Install it like any app — an icon on your home screen, saved offline, full-screen experience. No store, no updates to chase.
+    <span class="hi">Keeva को home screen पर लगाओ — जैसे कोई real app, बिना store के।</span></p>
+    <div class="grid2 rt">
+      <div class="phn">
+        <div class="scr">
+          <div class="appbar"><span class="dot"></span><span class="barlines"><i></i><i></i></span><span class="dot" style="background:transparent;border:1px solid var(--line);display:grid;place-items:center"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" width="14" height="14" style="stroke:#8c94a8"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span></div>
+          <div class="dockrow"><i></i><i></i><i></i><i></i></div>
+          <div class="pwabtn"><span>Install Keeva</span><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
+        </div>
+      </div>
+      <div>
+        <ol class="steps">
+          <li>Open keeva0.vercel.app on your phone</li>
+          <li>Tap <b>Install Keeva</b> (or browser menu → Add to Home Screen)</li>
+          <li>Open it from your home screen — it's an app now</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 11 · POWER USER ══════════ -->
+<section id="power">
+  <div class="wrap scene">
+    <div class="kicker"><i></i> Power user — 11</div>
+    <h2 class="head"><kbd style="font-size:16px;padding:6px 12px;vertical-align:2px">⌘K</kbd> and <span class="grad">instantly anywhere.</span></h2>
+    <p class="sub">Command palette is your shortcut to everything: jump to a reel, open a PDF, filter by tag, switch category — all from the keyboard.
+    <span class="hi">⌘K दबाओ और कहीं भी पहुँचो — बिना click किए।</span></p>
+    <div class="grid2">
+      <div class="pal">
+        <div class="q"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="Type a command, search reels, PDFs, or jump to filters…" value="sql index" readonly></div>
+        <div class="res">
+          <div class="r"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>The one SQL index trick… <span class="rn">REEL</span></div>
+          <div class="r"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m3 17 5-4 3 2 4-3 6 5"/></svg>Postgres indexes, deep dive <span class="rn">VIDEO</span></div>
+          <div class="r hl"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 20h16M6 16l3-3 3 3 6-6"/><path d="M18 8h-3v-3"/></svg>Jump to tag: #databases <span class="rn">ENTER</span></div>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:24px;margin-bottom:10px;font-family:'Space Grotesk'">Keyboard-first by design</h3>
+        <p style="color:var(--mut);font-size:15px">Meant for screen-ready humans and power users alike. Everything reachable in one or two keystrokes — search, filters, priorities, PDFs, and the community feed.</p>
+        <div class="kbd-row"><kbd>⌘K</kbd><kbd>⌘⌥F</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>↵</kbd></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ OUTRO ══════════ -->
+<section id="outro">
+  <div class="wrap">
+    <div class="mark" style="margin:0 auto 26px;width:72px;height:72px"><div class="inner"><div class="diamond" style="width:30px;height:30px"></div></div></div>
+    <div class="fin">Everything you scroll past, <span class="g">finally counts.</span></div>
+    <p class="finsub">That's Keeva — save in a second, find it in one, and turn your feed into the most organised brain in the room.</p>
+    <div class="feats">
+      <div><b>Save</b><span>Any link, any app, one tap</span></div>
+      <div><b>Auto-file</b><span>AI categories, auto-created</span></div>
+      <div><b>Learn</b><span>Deck, PDFs &amp; transcripts</span></div>
+      <div><b>Share</b><span>Community + notifications</span></div>
+    </div>
+    <div class="herocta" style="margin-top:36px">
+      <a class="cta" href="/">Start with a single link&nbsp;→</a>
+    </div>
+    <div class="small">Keeva · Personal Media Intelligence Vault · keeva0.vercel.app</div>
+  </div>
+</section>
+
+<script>
+// scroll progress
+const bar=document.getElementById('bar');
+const onScroll=()=>{const h=document.documentElement;bar.style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100).toFixed(1)+'%';};
+addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+// scene reveal + dot nav
+const scenes=[['hero','Intro'],['lost','The problem'],['save','Save'],['ai','Auto-filing'],['vault','Library'],['learn','Reels Deck'],['pdf','PDF & Transcript'],['community','Community'],['notif','Notifications'],['share','Extension & Share'],['install','Install PWA'],['power','Cmd+K'],['outro','You’re ready']];
+const dots=document.getElementById('dots');
+scenes.forEach(([id,label])=>{const a=document.createElement('a');a.href='#'+id;a.dataset.tip=label;dots.appendChild(a);});
+const dotsEl=[...dots.querySelectorAll('a')];
+const io=new IntersectionObserver((es)=>{
+  es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in');});
+},{threshold:.18});
+document.querySelectorAll('.scene').forEach(s=>io.observe(s));
+const nav=new IntersectionObserver((es)=>{
+  es.forEach(e=>{const i=scenes.findIndex(([id])=>id===e.target.id);
+    if(e.isIntersecting&&i>-1){dotsEl.forEach(d=>d.classList.remove('on'));dotsEl[i]&&dotsEl[i].classList.add('on');}});
+},{rootMargin:'-40% 0px -55% 0px'});
+document.querySelectorAll('section').forEach(s=>nav.observe(s));
+</script>
+</body>
+</html>
