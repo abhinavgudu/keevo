@@ -19,11 +19,18 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { LoadingCircle } from '@/components/LoadingCircle';
-import { SaveItemInput } from '@/types/vault';
+import { Category, SaveItemInput } from '@/types/vault';
+import { LEGACY_CATEGORY_ALIASES } from '@/lib/categories';
 
 interface QuickAddBarProps {
   onSaveItem: (item: SaveItemInput) => Promise<void>;
   onOpenPdfModal: () => void;
+  categories: Category[];
+}
+
+function matchCategoryByName(name: string, cats: Category[]): Category | undefined {
+  const wanted = LEGACY_CATEGORY_ALIASES[name.toLowerCase()] ?? name;
+  return cats.find((c) => c.name.toLowerCase() === wanted.toLowerCase());
 }
 
 interface ScrapedPreview {
@@ -52,13 +59,14 @@ function getPlatformBadge(platform: string) {
   return map[key] || { label: platform, color: 'from-cyan-500 to-blue-600', textColor: 'text-white' };
 }
 
-export function QuickAddBar({ onSaveItem, onOpenPdfModal }: QuickAddBarProps) {
+export function QuickAddBar({ onSaveItem, onOpenPdfModal, categories }: QuickAddBarProps) {
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isClipboardSuccess, setIsClipboardSuccess] = useState(false);
   const [preview, setPreview] = useState<ScrapedPreview | null>(null);
   const [scrapeError, setScrapeError] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrapeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -98,6 +106,7 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal }: QuickAddBarProps) {
     setUrl(val);
     setPreview(null);
     setScrapeError('');
+    setCategoryId('');
     detectPlatformFromUrl(val);
 
     if (scrapeTimeoutRef.current) clearTimeout(scrapeTimeoutRef.current);
@@ -115,7 +124,16 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal }: QuickAddBarProps) {
         });
         const data = await res.json();
         if (data.metadata) {
-          setPreview(data.metadata);
+          const m = data.metadata as ScrapedPreview;
+          setPreview(m);
+          // A confident detection pre-selects its category so the chip row
+          // below shows where this will land; anything else leaves the row
+          // empty for the user to file in one tap (Instagram, e.g., serves a
+          // login wall to us, so its captions never reach the classifier).
+          const found = m.autoCategoryName && m.autoCategoryConfidence !== 'low'
+            ? matchCategoryByName(m.autoCategoryName, categories)
+            : undefined;
+          setCategoryId(found ? found.id : '');
         } else {
           setScrapeError('Could not fetch metadata. You can still save directly.');
         }
@@ -125,7 +143,7 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal }: QuickAddBarProps) {
         setIsLoading(false);
       }
     }, 800);
-  }, []);
+  }, [categories]);
 
   const handlePasteClipboard = async () => {
     try {
@@ -157,6 +175,7 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal }: QuickAddBarProps) {
         priority: preview.autoPriority as any || 'MUST_LEARN',
         description: preview.description || '',
         tags: preview.autoTags || [],
+        category_id: categoryId || undefined,
         auto_category_name: preview.autoCategoryName,
         auto_category_confidence: preview.autoCategoryConfidence,
       });
@@ -164,6 +183,7 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal }: QuickAddBarProps) {
       setUrl('');
       setPreview(null);
       setDetectedPlatform(null);
+      setCategoryId('');
     } finally {
       setIsSaving(false);
     }
@@ -200,6 +220,7 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal }: QuickAddBarProps) {
         priority: meta.autoPriority || 'MUST_LEARN',
         description: meta.description || '',
         tags: meta.autoTags || [],
+        category_id: categoryId || undefined,
         auto_category_name: meta.autoCategoryName,
         auto_category_confidence: meta.autoCategoryConfidence,
       });
@@ -207,6 +228,7 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal }: QuickAddBarProps) {
       setUrl('');
       setPreview(null);
       setDetectedPlatform(null);
+      setCategoryId('');
     } catch (err) {
       console.error('Quick ingestion error:', err);
     } finally {
@@ -365,11 +387,53 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal }: QuickAddBarProps) {
                   ))}
                 </div>
               )}
+
+              {/* File into — always visible so every save lands somewhere the
+                  user can see, even when the platform blocked our scrape. */}
+              <div className="mt-2">
+                <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                  <span className="text-[9px] uppercase tracking-wide text-slate-500 font-mono">File into</span>
+                  {!preview.autoCategoryName && ['Instagram', 'TikTok', 'YouTube'].includes(preview.platform) && (
+                    <span className="text-[9px] text-amber-400/90">
+                      {preview.platform} hides its captions from servers — tap one below or save uncategorised.
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCategoryId('')}
+                    className={`text-[10px] font-semibold px-2 py-1 rounded-full border transition-colors cursor-pointer ${
+                      !categoryId
+                        ? 'bg-slate-700 border-slate-500 text-white'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'
+                    }`}
+                  >
+                    {preview.autoCategoryName && !categoryId ? `Detected: ${preview.autoCategoryName}` : 'None'}
+                  </button>
+                  {categories.map((c) => (
+                    <button
+                      type="button"
+                      key={c.id}
+                      onClick={() => setCategoryId(categoryId === c.id ? '' : c.id)}
+                      className={`text-[10px] font-semibold px-2 py-1 rounded-full border transition-colors cursor-pointer flex items-center gap-1 ${
+                        categoryId === c.id
+                          ? 'bg-indigo-500/20 border-indigo-400 text-indigo-200'
+                          : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'
+                      }`}
+                    >
+                      {categoryId === c.id && <Check className="w-2.5 h-2.5" />}
+                      <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{ backgroundColor: c.color_hex }} />
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Dismiss */}
             <button
-              onClick={() => { setPreview(null); setUrl(''); setDetectedPlatform(null); setScrapeError(''); }}
+              onClick={() => { setPreview(null); setUrl(''); setDetectedPlatform(null); setScrapeError(''); setCategoryId(''); }}
               className="shrink-0 p-1 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
               title="Clear"
             >

@@ -409,6 +409,7 @@ export default function KeevaDashboard() {
         <QuickAddBar
           onSaveItem={handleSaveItem}
           onOpenPdfModal={() => setIsAddModalOpen(true)}
+          categories={categories}
         />
 
         {/* Metric Stats Banner */}
