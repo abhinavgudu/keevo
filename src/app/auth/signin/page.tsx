@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { KeevaMark } from '@/components/KeevaMark';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { LoadingCircle } from '@/components/LoadingCircle';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
 
 export default function SignInPage() {
   const { signInWithEmail } = useAuth();
@@ -120,7 +121,7 @@ export default function SignInPage() {
               className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-70 border border-white/10 mt-2"
             >
               {isSubmitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <LoadingCircle className="w-4 h-4" />
               ) : (
                 <>
                   <span>Sign In</span>

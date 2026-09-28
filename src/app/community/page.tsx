@@ -9,8 +9,9 @@ import { EditCommunityPostModal } from '@/components/modals/EditCommunityPostMod
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { FOCUS_POST_EVENT, readPostFocusFromUrl, type PostFocus } from '@/lib/communityDeepLink';
 import { useAuth } from '@/contexts/AuthContext';
+import { LoadingCircle } from '@/components/LoadingCircle';
 import {
-  Loader2, Compass, LayoutList, Columns3, Check, AlertCircle, X
+  Compass, LayoutList, Columns3, Check, AlertCircle, X
 } from 'lucide-react';
 
 type Layout = 'feed' | 'masonry';
@@ -188,7 +189,7 @@ function CommunityFeed() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#07090E] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+        <LoadingCircle className="w-8 h-8" />
       </div>
     );
   }

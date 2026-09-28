@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   Bell,
-  Loader2,
   MessageSquare,
   Heart,
   AtSign,
@@ -15,6 +14,7 @@ import {
   PencilLine,
   BellRing,
 } from 'lucide-react';
+import { LoadingCircle } from '@/components/LoadingCircle';
 import { useCommunityNotifications } from '@/hooks/useCommunityNotifications';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import type { CommunityNotification, CommunityNotificationKind } from '@/lib/communityNotifications';
@@ -248,7 +248,7 @@ export function NotificationBell({ className = '' }: { className?: string }) {
             <div ref={listRef} className="overflow-y-auto">
               {loading && notifications.length === 0 ? (
                 <div className="flex items-center justify-center gap-2 py-8 text-[11.5px] text-slate-500">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading
+                  <LoadingCircle className="w-3.5 h-3.5" /> Loading
                 </div>
               ) : notifications.length === 0 ? (
                 <div className="px-4 py-8 text-center">

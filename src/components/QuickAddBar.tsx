@@ -5,7 +5,6 @@ import {
   Sparkles,
   Link as LinkIcon,
   Upload,
-  Loader2,
   ArrowRight,
   Clipboard,
   Camera,
@@ -19,6 +18,7 @@ import {
   BookmarkPlus,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { LoadingCircle } from '@/components/LoadingCircle';
 import { ContentItem } from '@/types/vault';
 
 interface QuickAddBarProps {
@@ -283,7 +283,7 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal }: QuickAddBarProps) {
           <form onSubmit={handleQuickSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <div className="relative flex-1 w-full">
               {isLoading ? (
-                <Loader2 className="w-4 h-4 text-cyan-400 animate-spin absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <LoadingCircle className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               ) : (
                 <LinkIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               )}
@@ -308,7 +308,7 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal }: QuickAddBarProps) {
               className="w-full sm:w-auto px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all shrink-0 cursor-pointer active:scale-95"
             >
               {isLoading || isSaving ? (
-                <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span>{isLoading ? 'Fetching...' : 'Saving...'}</span></>
+                <><LoadingCircle className="w-3.5 h-3.5" /><span>{isLoading ? 'Fetching...' : 'Saving...'}</span></>
               ) : preview ? (
                 <><BookmarkPlus className="w-3.5 h-3.5" /><span>Save to Vault</span></>
               ) : (

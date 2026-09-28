@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { KeevaMark } from '@/components/KeevaMark';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2, CheckCircle2, AlertCircle, User } from 'lucide-react';
+import { LoadingCircle } from '@/components/LoadingCircle';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, CheckCircle2, AlertCircle, User } from 'lucide-react';
 
 export default function SignUpPage() {
   const { signUpWithEmail } = useAuth();
@@ -163,7 +164,7 @@ export default function SignUpPage() {
               className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-70 border border-white/10 mt-2"
             >
               {isSubmitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <LoadingCircle className="w-4 h-4" />
               ) : (
                 <>
                   <span>Create Account</span>

@@ -3,8 +3,9 @@
 import React, { useState } from 'react';
 import { Category, ContentItem, MediaType, AspectRatioType, PriorityLevel } from '@/types/vault';
 import { LEGACY_CATEGORY_ALIASES } from '@/lib/categories';
-import { X, Sparkles, Link as LinkIcon, FileText, Upload, Check, AlertCircle, Loader2, Clipboard, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Sparkles, Link as LinkIcon, FileText, Upload, Check, AlertCircle, Clipboard, ChevronDown, ChevronUp } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { LoadingCircle } from '@/components/LoadingCircle';
 
 interface AddItemModalProps {
   isOpen: boolean;
@@ -224,7 +225,7 @@ export function AddItemModal({ isOpen, onClose, categories, onSave }: AddItemMod
             />
             <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-300">
               {isUploading ? (
-                <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+                <LoadingCircle className="w-4 h-4" />
               ) : (
                 <Upload className="w-4 h-4 text-cyan-400" />
               )}
@@ -255,7 +256,7 @@ export function AddItemModal({ isOpen, onClose, categories, onSave }: AddItemMod
 
             {isScraping ? (
               <div className="flex items-center gap-2 py-2 text-xs text-slate-400 font-mono">
-                <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                <LoadingCircle className="w-4 h-4" />
                 <span>Extracting title, thumbnail, and aspect ratio...</span>
               </div>
             ) : (
@@ -411,7 +412,7 @@ export function AddItemModal({ isOpen, onClose, categories, onSave }: AddItemMod
         >
           {isSaving ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <LoadingCircle className="w-4 h-4" />
               <span>Saving to Vault...</span>
             </>
           ) : (

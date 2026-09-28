@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import { ContentItem } from '@/types/vault';
-import { X, Globe, Camera, Video, Play, Loader2, Check, Sparkles, Users, AlertCircle } from 'lucide-react';
+import { X, Globe, Camera, Video, Play, Check, Sparkles, Users, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { LoadingCircle } from '@/components/LoadingCircle';
 
 interface ShareToCommunityModalProps {
   item: ContentItem | null;
@@ -210,7 +211,7 @@ export function ShareToCommunityModal({
                 disabled={loading || done}
                 className="px-5 py-2 rounded-xl text-sm font-bold transition-all shadow-lg flex items-center gap-2 bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 disabled:opacity-70"
               >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : done ? <><Check className="w-4 h-4" /> Removed</> : 'Remove from Community'}
+                {loading ? <LoadingCircle className="w-4 h-4" /> : done ? <><Check className="w-4 h-4" /> Removed</> : 'Remove from Community'}
               </button>
             ) : (
               <button
@@ -220,7 +221,7 @@ export function ShareToCommunityModal({
                   done ? 'bg-emerald-500 text-white shadow-emerald-500/30' : 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 shadow-emerald-500/25 active:scale-95'
                 } disabled:opacity-70`}
               >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : done ? <><Check className="w-4 h-4" /> Posted!</> : <><Sparkles className="w-3.5 h-3.5" /> Post to Community</>}
+                {loading ? <LoadingCircle className="w-4 h-4" /> : done ? <><Check className="w-4 h-4" /> Posted!</> : <><Sparkles className="w-3.5 h-3.5" /> Post to Community</>}
               </button>
             )}
           </div>

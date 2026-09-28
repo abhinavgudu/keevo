@@ -5,9 +5,10 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { VaultStorage } from '@/lib/storage';
 import { LEGACY_CATEGORY_ALIASES } from '@/lib/categories';
 import { Category, MediaType, AspectRatioType } from '@/types/vault';
-import { CheckCircle, AlertTriangle, Loader2, ArrowLeft, Sparkles, Check } from 'lucide-react';
+import { CheckCircle, AlertTriangle, ArrowLeft, Sparkles, Check } from 'lucide-react';
 import Link from 'next/link';
 import { KeevaMark } from '@/components/KeevaMark';
+import { LoadingCircle } from '@/components/LoadingCircle';
 
 type Status = 'extracting' | 'review' | 'saving' | 'success' | 'error';
 
@@ -190,10 +191,7 @@ function ShareTargetContent() {
         {status !== 'review' && (
           <div className="my-8 flex flex-col items-center justify-center">
             {status === 'extracting' || status === 'saving' ? (
-              <div className="relative">
-                <div className="w-20 h-20 rounded-full border-4 border-cyan-500/20 border-t-cyan-400 animate-spin" />
-                <Loader2 className="w-8 h-8 text-cyan-400 absolute inset-0 m-auto animate-pulse" />
-              </div>
+              <LoadingCircle className="w-20 h-20" />
             ) : status === 'success' ? (
               <div className="w-20 h-20 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-lg shadow-emerald-500/20 animate-bounce">
                 <CheckCircle className="w-10 h-10" />
@@ -304,7 +302,7 @@ export default function ShareTargetPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#07090E] flex items-center justify-center text-slate-400">
-          <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+          <LoadingCircle className="w-8 h-8" />
         </div>
       }
     >

@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import { ContentItem } from '@/types/vault';
-import { X, Pencil, Loader2, Check, Camera, Video, Play } from 'lucide-react';
+import { X, Pencil, Check, Camera, Video, Play } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { LoadingCircle } from '@/components/LoadingCircle';
 
 interface EditCommunityPostModalProps {
   item: ContentItem | null;
@@ -138,7 +139,7 @@ export function EditCommunityPostModal({ item, onClose, onSaved, onError }: Edit
             } disabled:opacity-70`}
           >
             {saving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <LoadingCircle className="w-4 h-4" />
             ) : done ? (
               <><Check className="w-4 h-4" /> Saved!</>
             ) : (

@@ -26,7 +26,8 @@ import { Footer } from '@/components/Footer';
 import { ExitConfirmPopup } from '@/components/ExitConfirmPopup';
 import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
 import { useMobileBackHandler } from '@/hooks/useMobileBackHandler';
-import { Plus, Loader2, BookmarkCheck, Compass } from 'lucide-react';
+import { LoadingCircle } from '@/components/LoadingCircle';
+import { Plus, BookmarkCheck, Compass } from 'lucide-react';
 
 export default function KeevaDashboard() {
   const { user, isLoading: authLoading } = useAuth();
@@ -428,8 +429,8 @@ export default function KeevaDashboard() {
 
         {/* Loading Spinner */}
         {isLoading ? (
-          <div className="w-full py-32 flex flex-col items-center jukeevacenter">
-            <Loader2 className="w-10 h-10 text-cyan-400 animate-spin mb-4" />
+          <div className="w-full py-32 flex flex-col items-center justify-center">
+            <LoadingCircle className="w-10 h-10 mb-4" />
             <p className="text-xs text-slate-400 font-mono">Loading Keeva OS...</p>
           </div>
         ) : categoryCounts.total === 0 ? (

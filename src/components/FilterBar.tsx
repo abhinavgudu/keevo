@@ -4,7 +4,8 @@ import React from 'react';
 import { Category } from '@/types/vault';
 import { UNCATEGORIZED_ID } from '@/lib/storage';
 import type { CategoryCounts } from '@/lib/storage';
-import { Sparkles, Film, FileText, LayoutGrid, Heart, Flame, ArrowUpDown, RotateCcw, Loader2, Inbox } from 'lucide-react';
+import { Sparkles, Film, FileText, LayoutGrid, Heart, Flame, ArrowUpDown, RotateCcw, Inbox } from 'lucide-react';
+import { LoadingCircle } from '@/components/LoadingCircle';
 
 export type FilterMediaType = 'ALL' | 'REEL' | 'LANDSCAPE' | 'PDF' | 'MUST_LEARN' | 'FAVORITES';
 export type SortOption = 'PRIORITY_DESC' | 'NEWEST' | 'ACCESS_COUNT' | 'TITLE_ASC';
@@ -95,7 +96,7 @@ export function FilterBar({
           <div className="flex items-center gap-1.5 text-slate-400 font-mono">
             {isLoading ? (
               <span className="flex items-center gap-1 text-cyan-400">
-                <Loader2 className="w-3 h-3 animate-spin" /> Loading
+                <LoadingCircle className="w-3 h-3" /> Loading
               </span>
             ) : (
               <span>

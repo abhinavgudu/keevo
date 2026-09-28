@@ -10,7 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCommunityMembers } from '@/hooks/useCommunityMembers';
 import { applyMention, detectMentionQuery } from '@/lib/mentions';
 import { CommentBody } from '@/components/comments/CommentBody';
-import { MessageSquare, Smile, Send, Loader2, Trash2, CornerDownRight } from 'lucide-react';
+import { LoadingCircle } from '@/components/LoadingCircle';
+import { MessageSquare, Smile, Send, Trash2, CornerDownRight } from 'lucide-react';
 
 // The picker ships a large emoji dataset. Keep it out of the initial bundle —
 // it only downloads the first time someone actually opens it.
@@ -332,7 +333,7 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
     <div className="mt-3">
       {threadLoading ? (
         <div className="flex items-center gap-2 text-[11px] text-slate-600 py-2">
-          <Loader2 className="w-3 h-3 animate-spin" /> Loading comments
+          <LoadingCircle className="w-3 h-3" /> Loading comments
         </div>
       ) : (
         <>
@@ -453,7 +454,7 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
                       disabled={busy || !replyDraft.trim()}
                       className="px-3 py-1 rounded-lg bg-cyan-500 text-slate-950 text-[11.5px] font-bold hover:bg-cyan-400 disabled:opacity-40 transition-colors flex items-center gap-1"
                     >
-                      {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                      {busy ? <LoadingCircle className="w-3 h-3" /> : <Send className="w-3 h-3" />}
                       Reply
                     </button>
                   </div>
@@ -545,7 +546,7 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
                     disabled={busy || !draft.trim()}
                     className="px-3 py-1 rounded-lg bg-cyan-500 text-slate-950 text-[11.5px] font-bold hover:bg-cyan-400 disabled:opacity-40 transition-colors flex items-center gap-1"
                   >
-                    {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                    {busy ? <LoadingCircle className="w-3 h-3" /> : <Send className="w-3 h-3" />}
                     Post
                   </button>
                 </div>

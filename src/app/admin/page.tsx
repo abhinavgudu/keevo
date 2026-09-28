@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import {
-  Users, Database, ShieldAlert, Loader2, ArrowLeft, Trash2,
+  Users, Database, ShieldAlert, ArrowLeft, Trash2,
   BarChart3, Settings, Eye, Globe, ToggleLeft, ToggleRight,
   TrendingUp, Activity, Crown, Zap, Star, Film, FileText,
   BookOpen, Heart, Search, Bell, Palette, Layout, Layers,
@@ -13,6 +13,7 @@ import {
   XCircle, Clock, Hash, Cpu, Signal, Lock, Unlock, Ban,
   MessageSquare, PieChart, Target, Award, Filter
 } from 'lucide-react';
+import { LoadingCircle } from '@/components/LoadingCircle';
 
 interface AdminUser {
   id: string;
@@ -777,7 +778,7 @@ export default function AdminDashboard() {
                                 title={item.is_public ? 'Remove from Community' : 'Add to Community'}
                               >
                                 {togglingId === item.id ? (
-                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  <LoadingCircle className="w-3 h-3" />
                                 ) : item.is_public ? (
                                   <><Globe className="w-3 h-3" /> Public</>
                                 ) : (

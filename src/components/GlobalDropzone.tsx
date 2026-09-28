@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Upload, FileText, Film, Sparkles, Loader2, Check } from 'lucide-react';
+import { Upload, FileText, Film, Sparkles, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { LoadingCircle } from '@/components/LoadingCircle';
 import { ContentItem } from '@/types/vault';
 
 interface GlobalDropzoneProps {
@@ -168,9 +169,7 @@ export function GlobalDropzone({ onSaveItem, showToast }: GlobalDropzoneProps) {
       <div className="flex flex-col items-center justify-center text-center p-8 bg-slate-900/90 rounded-3xl border border-cyan-500/50 shadow-2xl max-w-lg">
         {isProcessing ? (
           <>
-            <div className="w-20 h-20 rounded-full bg-cyan-500/20 border border-cyan-500/50 flex items-center justify-center text-cyan-400 mb-4 animate-spin">
-              <Loader2 className="w-10 h-10" />
-            </div>
+            <LoadingCircle className="w-20 h-20 mb-4" />
             <h3 className="text-xl font-bold text-white mb-1">Processing Dropped Content...</h3>
             <p className="text-xs text-slate-400 font-mono">
               Extracting metadata, aspect ratio, and calculating priority...
