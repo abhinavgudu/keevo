@@ -4,9 +4,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ContentItem } from '@/types/vault';
 import { CommunityComments } from '@/components/comments/CommunityComments';
 import {
-  ExternalLink, Heart, Eye, Sparkles, Clock, Camera, Video, Play,
+ExternalLink, Heart, Eye, Sparkles, Clock, Camera, Video, Play,
   Globe, FileText, Expand, MoreHorizontal, BookOpen, Share2,
-  Pencil, EyeOff, MessageSquare
+  Pencil, EyeOff, MessageSquare, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 function formatDate(dateString: string) {
@@ -222,10 +222,14 @@ export function CommunityCard({
   let domain = '';
   try { domain = new URL(item.source_url).hostname.replace('www.', ''); } catch { domain = item.platform; }
 
-  const caption = item.community_caption || '';
+const caption = item.community_caption || '';
   const hasCaption = caption.length > 0;
   const isFeed = variant === 'feed';
   const clampable = hasCaption && caption.length > LONG_CAPTION;
+  const description = item.description || '';
+  // A post without a caption falls back to the scraped body line; that clip
+  // deserves the same progressive disclosure as a long caption.
+  const descriptionClampable = !hasCaption && description.length > LONG_CAPTION;
 
   // ── Media ──────────────────────────────────────────────────────────
   // The card is full width, but the media is not. `aspect-*` combined with a
@@ -323,8 +327,21 @@ export function CommunityCard({
           </h3>
         )}
 
-        {item.description && !hasCaption && (
-          <p className="text-xs text-slate-400 leading-relaxed line-clamp-2 mt-1">{item.description}</p>
+{item.description && !hasCaption && (
+          <>
+            <p className={`text-xs text-slate-400 leading-relaxed mt-1 ${descriptionClampable && !expanded ? 'line-clamp-4' : ''}`}>
+              {item.description}
+            </p>
+            {descriptionClampable && (
+              <button
+                onClick={() => setExpanded((p) => !p)}
+                className="mt-1 inline-flex items-center gap-0.5 text-[11px] font-semibold text-cyan-400/90 hover:text-cyan-300 transition-colors"
+                aria-expanded={expanded}
+              >
+                {expanded ? <><ChevronUp className="w-3 h-3" /> see less</> : <><ChevronDown className="w-3 h-3" /> see more</>}
+              </button>
+            )}
+          </>
         )}
 
         <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
@@ -473,22 +490,25 @@ export function CommunityCard({
       >
         {authorHeader}
 
-        {hasCaption ? (
-          <p
-            className={`mt-3 text-[15.5px] text-slate-200 leading-[1.62] tracking-[-0.005em] whitespace-pre-wrap break-words ${
-              clampable && !expanded ? 'line-clamp-4' : ''
-            }`}
-          >
-            {caption}
+{hasCaption ? (
+          <>
+            <p
+              className={`mt-3 text-[15.5px] text-slate-200 leading-[1.62] tracking-[-0.005em] whitespace-pre-wrap break-words ${
+                clampable && !expanded ? 'line-clamp-4' : ''
+              }`}
+            >
+              {caption}
+            </p>
             {clampable && (
               <button
                 onClick={() => setExpanded((p) => !p)}
-                className="ml-1 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors"
+                className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-cyan-400 hover:text-cyan-300 transition-colors"
+                aria-expanded={expanded}
               >
-                {expanded ? 'see less' : 'see more'}
+                {expanded ? <><ChevronUp className="w-3.5 h-3.5" /> see less</> : <><ChevronDown className="w-3.5 h-3.5" /> see more</>}
               </button>
             )}
-          </p>
+          </>
         ) : (
           <div className="mt-3">
             <h3
@@ -537,7 +557,7 @@ export function CommunityCard({
       }`}
     >
       <div className="px-4 pt-4 pb-3">{authorHeader}</div>
-      {hasCaption && (
+{hasCaption && (
         <div className="px-4 pb-3">
           <p
             className={`text-[13.5px] text-slate-200 leading-relaxed whitespace-pre-wrap break-words ${
@@ -545,15 +565,16 @@ export function CommunityCard({
             }`}
           >
             {caption}
-            {clampable && (
-              <button
-                onClick={() => setExpanded((p) => !p)}
-                className="ml-1 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors"
-              >
-                {expanded ? 'see less' : 'see more'}
-              </button>
-            )}
           </p>
+          {clampable && (
+            <button
+              onClick={() => setExpanded((p) => !p)}
+              className="mt-1 inline-flex items-center gap-0.5 text-[11px] font-semibold text-cyan-400/90 hover:text-cyan-300 transition-colors"
+              aria-expanded={expanded}
+            >
+              {expanded ? <><ChevronUp className="w-3 h-3" /> see less</> : <><ChevronDown className="w-3 h-3" /> see more</>}
+            </button>
+          )}
         </div>
       )}
       {preview}
