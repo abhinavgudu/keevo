@@ -46,6 +46,16 @@ function isStandaloneMode(): boolean {
   );
 }
 
+/** Whether this profile ever installed the app (both event-based and manual). */
+function lsInstalled(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(LS_INSTALLED) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 type Platform = 'ios' | 'android' | 'safari' | 'desktop' | 'firefox';
 
 function detectPlatform(): Platform {
@@ -98,7 +108,7 @@ export function PwaInstallPrompt() {
   // Lazy initialisers keep the first detection out of an effect, so nothing
   // sets state synchronously on mount.
   const [platform] = useState<Platform>(() => detectPlatform());
-  const [installed, setInstalled] = useState<boolean>(() => isStandaloneMode());
+  const [installed, setInstalled] = useState<boolean>(() => isStandaloneMode() || lsInstalled());
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -133,8 +143,9 @@ export function PwaInstallPrompt() {
       setIsOpen(false);
       return;
     }
+    if (installed) return;
     setIsOpen(true);
-  }, []);
+  }, [installed]);
 
   const scheduleReask = useCallback(() => {
     clearReask();
@@ -156,9 +167,11 @@ export function PwaInstallPrompt() {
   useEffect(() => {
     mounted.current = true;
 
-    // A stale flag from a previous visit must not silence the prompt: the app
-    // can have been uninstalled, so isStandaloneMode is the only source of
-    // truth. `installed` already reflects it via the lazy initialiser.
+    // Chrome fires beforeinstallprompt only while the app is *not* installed on
+    // this profile, so it is the one reliable "installed" signal. A stale flag
+    // from a previous visit is honoured (the app stays installed between tabs)
+    // and is cleared the moment the browser offers installation again, which is
+    // exactly the moment it has been uninstalled.
     if (isStandaloneMode()) {
       return () => { mounted.current = false; };
     }
@@ -176,6 +189,9 @@ export function PwaInstallPrompt() {
 
     const onBeforeInstall = (e: Event) => {
       e.preventDefault();
+      // The browser only offers installation to profiles that do not have the
+      // app, so a stored "installed" flag is stale — the app was uninstalled.
+      try { localStorage.removeItem(LS_INSTALLED); } catch {}
       setDeferred(e as BeforeInstallPromptEvent);
       setPromptSpent(false);
       // If we were waiting out a dismissal, ask now that we can act.
@@ -249,6 +265,7 @@ export function PwaInstallPrompt() {
       if (choice.outcome === 'accepted') {
         setInstalled(true);
         setIsOpen(false);
+        clearReask();
         try { localStorage.setItem(LS_INSTALLED, 'true'); localStorage.removeItem(LS_MANUAL_UNTIL); } catch {}
         confetti({ particleCount: 100, spread: 80, origin: { y: 0.6 } });
       } else {
@@ -258,7 +275,7 @@ export function PwaInstallPrompt() {
       console.error('PWA install error:', err);
       scheduleReask();
     }
-  }, [deferred, scheduleReask]);
+  }, [deferred, scheduleReask, clearReask]);
 
   /** Dismiss: come back shortly, do not hide for days. */
   const handleDismiss = useCallback(() => {
