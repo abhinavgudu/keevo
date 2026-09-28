@@ -12,8 +12,10 @@ import {
   Globe,
   CheckCheck,
   PencilLine,
+  BellRing,
 } from 'lucide-react';
 import { useCommunityNotifications } from '@/hooks/useCommunityNotifications';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import type { CommunityNotification, CommunityNotificationKind } from '@/lib/communityNotifications';
 import { buildCommunityPostHref, isConversationKind, notifyCommunityPostFocus } from '@/lib/communityDeepLink';
 
@@ -258,8 +260,55 @@ export function NotificationBell({ className = '' }: { className?: string }) {
               ))
             )}
           </div>
+
+          {/* Push toggle. The list above only exists while this page is open, so
+              this is where a user looks for "and what about when it is not?".
+              It sits in the footer, below the feed, so it never competes with the
+              notifications themselves for attention. */}
+          <PushToggle />
         </div>
       )}
+    </div>
+  );
+}
+
+function PushToggle() {
+  const { state, busy, enabled, reason, canEnable, enable, disable } = usePushNotifications();
+
+  // Nothing to offer where the platform cannot do it, and no reason to show a
+  // dead control to a signed-out visitor.
+  if (state === 'unsupported' || state === 'insecure') return null;
+
+  return (
+    <div className="border-t border-slate-800 px-3.5 py-2.5">
+      <div className="flex items-center gap-2">
+        <BellRing
+          className={`w-3.5 h-3.5 shrink-0 ${enabled ? 'text-cyan-400' : 'text-slate-500'}`}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-[11.5px] font-semibold text-slate-200">
+            {enabled ? 'Alerts on for this device' : 'Get notified on this device'}
+          </p>
+          {reason && <p className="text-[10.5px] text-slate-500 leading-snug mt-0.5">{reason}</p>}
+        </div>
+        {enabled ? (
+          <button
+            onClick={disable}
+            disabled={busy}
+            className="shrink-0 text-[11px] font-semibold text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
+          >
+            Turn off
+          </button>
+        ) : (
+          <button
+            onClick={enable}
+            disabled={!canEnable || busy}
+            className="shrink-0 text-[11px] font-bold text-cyan-400 hover:text-cyan-300 px-2 py-1 rounded-lg hover:bg-cyan-500/10 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+          >
+            {busy ? '…' : 'Turn on'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

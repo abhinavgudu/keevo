@@ -83,3 +83,85 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+
+// ── Web Push ─────────────────────────────────────────────────────────────────
+//
+// Everything above only helps while the app is open. These two handlers are the
+// reason a phone buzzes when the app is closed, which is the whole point of the
+// push_subscriptions table.
+//
+// The payload is built server-side (src/lib/pushSender.ts) and already carries
+// the deep link, so the service worker stays a dumb display surface and never has
+// to know how a notification maps to a screen.
+
+self.addEventListener('push', (event) => {
+  // A push with no body, or with a non-JSON body, is legal — fall back to a
+  // generic notification rather than dropping the event and showing nothing.
+  let data = {};
+  try {
+    if (event.data) data = event.data.json();
+  } catch (err) {
+    try {
+      data = { title: event.data ? event.data.text() : '', body: '' };
+    } catch {
+      data = {};
+    }
+  }
+
+  const title = (data && data.title) || 'Keeva';
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: (data && data.body) || 'You have new activity in the community.',
+      icon: (data && data.icon) || '/keeva-icon.png',
+      badge: (data && data.badge) || '/keeva-icon.png',
+      // Scoped per post by the sender, so several comments on one post replace
+      // each other in the tray instead of stacking up.
+      tag: (data && data.tag) || undefined,
+      // Android only; ignored elsewhere.
+      vibrate: [60, 40, 60],
+      data: { url: (data && data.url) || '/community' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  // Resolve against our own origin so a malformed or absolute payload from a
+  // stale client cannot turn this into a redirect off-site.
+  let target;
+  try {
+    target = new URL((event.notification.data && event.notification.data.url) || '/community', self.location.origin);
+  } catch (err) {
+    target = new URL('/community', self.location.origin);
+  }
+  if (target.origin !== self.location.origin) {
+    target = new URL('/community', self.location.origin);
+  }
+
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      });
+
+      // Prefer an existing window: it keeps the app's session and scroll state,
+      // which is why this does not unconditionally open a new tab.
+      for (const client of windows) {
+        if (new URL(client.url).origin !== self.location.origin) continue;
+        if ('focus' in client) await client.focus();
+        // The page reads its target from the URL, so navigating is what actually
+        // carries the deep link across. Skipped when it is already the same URL
+        // to avoid pointless reloads.
+        if (client.url !== target.href && 'navigate' in client) {
+          await client.navigate(target.href);
+        }
+        return;
+      }
+
+      await self.clients.openWindow(target.href);
+    })()
+  );
+});

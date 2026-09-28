@@ -85,8 +85,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     if (!supabase) return;
+    // Drop this device's push subscription BEFORE the session goes away.
+    //
+    // A push subscription is bound to a browser, not to a login, so leaving it
+    // behind would keep delivering the previous account's notifications to
+    // whoever signs in on this device next. The session is still valid at this
+    // point, which is the only moment the server will accept the unsubscribe.
+    // Failures are swallowed: signing out must never be blocked by this.
+    const token = session?.access_token;
+    if (token && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      try {
+        const reg = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+        ]);
+        const sub = await reg?.pushManager.getSubscription().catch(() => null);
+        if (sub) {
+          await fetch('/api/push/unsubscribe', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ endpoint: sub.endpoint }),
+          }).catch(() => undefined);
+          await sub.unsubscribe().catch(() => undefined);
+        }
+      } catch {
+        // Ignored on purpose — see above.
+      }
+    }
     await supabase.auth.signOut();
-  }, [supabase]);
+  }, [supabase, session?.access_token]);
 
   return (
     <AuthContext.Provider value={{ user, session, supabase, isLoading, signInWithEmail, signUpWithEmail, signInWithGoogle, signOut }}>

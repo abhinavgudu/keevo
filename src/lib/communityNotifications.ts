@@ -1,6 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { CommunityAuthor } from './authorProfiles';
 import { extractMentionHandles, handleFromEmail } from './mentions';
+import { buildCommunityPostHref } from './communityDeepLink';
+import { buildPushPayload, sendPush } from './pushSender';
 
 export { extractMentionHandles, handleFromEmail };
 
@@ -178,6 +180,7 @@ export async function insertNotifications(inputs: NotificationInput[]): Promise<
     comment_id: input.commentId ?? null,
   }));
 
+  let persisted = false;
   try {
     const { error } = await admin()
       .from('community_notifications')
@@ -186,9 +189,71 @@ export async function insertNotifications(inputs: NotificationInput[]): Promise<
     // 23505 is the dedupe index doing its job on a retried write.
     if (error && error.code !== '23505') {
       console.error('Failed to record community notifications:', error);
+    } else {
+      persisted = true;
     }
   } catch (err) {
     console.error('Failed to record community notifications:', err);
+  }
+
+  // Push only once the row is actually in the feed. Pushing on a failed write
+  // would alert someone to something they cannot then open, and a 23505 counts
+  // as persisted because the row the event belongs to is already there.
+  if (persisted) {
+    await pushForNotifications(inputs);
+  }
+}
+
+/**
+ * Deliver the same events to devices, for when the app is not open.
+ *
+ * The row written above is the source of truth; this only mirrors it onto
+ * phones. Titles and comment text are read here rather than threaded through
+ * the callers because the two callers have different information — one knows the
+ * caption being edited, the other has just written a comment body — and neither
+ * of those is a good notification line on its own.
+ */
+async function pushForNotifications(inputs: NotificationInput[]): Promise<void> {
+  try {
+    const itemIds = Array.from(
+      new Set(inputs.map((i) => i.itemId).filter((id): id is string => Boolean(id)))
+    );
+    const commentIds = Array.from(
+      new Set(inputs.map((i) => i.commentId).filter((id): id is string => Boolean(id)))
+    );
+
+    const [itemsRes, commentsRes] = await Promise.all([
+      itemIds.length
+        ? admin().from('content_items').select('id, title').in('id', itemIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; title: string | null }> }),
+      commentIds.length
+        ? admin().from('community_comments').select('id, body').in('id', commentIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; body: string | null }> }),
+    ]);
+
+    const titles = new Map(
+      (itemsRes.data || []).map((row) => [row.id as string, row.title as string | null])
+    );
+    const bodies = new Map(
+      (commentsRes.data || []).map((row) => [row.id as string, row.body as string | null])
+    );
+
+    await sendPush(inputs, (input) => {
+      const href = buildCommunityPostHref(input.itemId ?? null, input.kind);
+      // For a mention or a reply the comment text is the useful part; for the
+      // rest the post title is, and a comment body would be noise.
+      const detail = input.commentId
+        ? commentExcerpt(bodies.get(input.commentId) ?? null)
+        : null;
+      return buildPushPayload({
+        kind: input.kind,
+        actorName: input.actorName,
+        itemTitle: detail ?? titles.get(input.itemId ?? '') ?? null,
+        href,
+      });
+    });
+  } catch (err) {
+    console.error('Failed to send push notifications:', err);
   }
 }
 
