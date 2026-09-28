@@ -13,6 +13,7 @@ interface MediaPreviewModalProps {
   onClose: () => void;
   onToggleFavorite: (id: string) => void;
   onUpdateNotes: (id: string, notes: string) => void;
+  onItemUpdated?: (item: ContentItem) => void;
 }
 
 function getEmbedUrl(url: string): string | null {
@@ -53,6 +54,7 @@ export function MediaPreviewModal({
   onClose,
   onToggleFavorite,
   onUpdateNotes,
+  onItemUpdated,
 }: MediaPreviewModalProps) {
   const { session, user } = useAuth();
   const [notesText, setNotesText] = useState(item?.notes || '');
@@ -296,6 +298,7 @@ return (
         onClose={() => setShowShareModal(false)}
         onShared={(updatedItem) => {
           setIsPublic(updatedItem.is_public ?? false);
+          onItemUpdated?.(updatedItem);
           setShowShareModal(false);
         }}
       />

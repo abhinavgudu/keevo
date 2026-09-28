@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Category, ContentItem, VaultStats } from '@/types/vault';
+import { Category, ContentItem, VaultStats, SaveItemInput } from '@/types/vault';
 import { VaultStorage } from '@/lib/storage';
 import type { CategoryCounts } from '@/lib/storage';
 import { isSupabaseConfigured } from '@/lib/supabase';
@@ -252,7 +252,7 @@ export default function KeevaDashboard() {
     showToast('Item deleted from Vault');
   };
 
-  const handleSaveItem = async (itemPayload: Partial<ContentItem> & { title: string; source_url: string }) => {
+  const handleSaveItem = async (itemPayload: SaveItemInput) => {
     const saved = await VaultStorage.saveItem(itemPayload);
     // A save can create a category (and therefore a new pill) and can land
     // outside the active filter, so both the list and the meta are refreshed.
@@ -265,6 +265,16 @@ export default function KeevaDashboard() {
     if (!current) return;
     const saved = await VaultStorage.saveItem({ ...current, notes });
     setItems((prev) => prev.map((i) => (i.id === id ? saved : i)));
+  };
+
+  const handleItemUpdated = (updated: ContentItem) => {
+    // A share/remove inside the preview writes straight to Supabase. Mirror it
+    // into the vault list so reopening the post shows "Public in Community"
+    // instead of stale "Share to Community".
+    setItems((prev) => prev.map((i) => (i.id === updated.id ? { ...i, ...updated } : i)));
+    if (activeMediaItem && activeMediaItem.id === updated.id) {
+      setActiveMediaItem(updated);
+    }
   };
 
   const handleSaveCategory = async (cat: { name: string; color_hex: string }) => {
@@ -511,6 +521,7 @@ export default function KeevaDashboard() {
         onClose={() => setActiveMediaItem(null)}
         onToggleFavorite={handleToggleFavorite}
         onUpdateNotes={handleUpdateNotes}
+        onItemUpdated={handleItemUpdated}
       />
 
       <ReelsDeckModal

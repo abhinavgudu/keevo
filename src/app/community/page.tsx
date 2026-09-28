@@ -304,6 +304,17 @@ function CommunityFeed() {
           onClose={() => setIsPreviewOpen(false)}
           onToggleFavorite={handleToggleLike}
           onUpdateNotes={() => {}}
+          onItemUpdated={(updated) => {
+            if (!updated.is_public) {
+              setItems((prev) => prev.filter((i) => i.id !== updated.id));
+              if (selectedItem?.id === updated.id) {
+                setIsPreviewOpen(false);
+                setSelectedItem(null);
+              }
+            } else {
+              setItems((prev) => prev.map((i) => (i.id === updated.id ? { ...i, ...updated } : i)));
+            }
+          }}
         />
 
         <EditCommunityPostModal
