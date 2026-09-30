@@ -109,7 +109,6 @@ export function NotificationBell({ className = '' }: { className?: string }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   /**
@@ -155,7 +154,14 @@ export function NotificationBell({ className = '' }: { className?: string }) {
       panel.style.width = `${Math.round(width)}px`;
       panel.style.bottom = openUpwards ? `${Math.round(vh - anchor.top + margin)}px` : 'auto';
       panel.style.top = openUpwards ? 'auto' : `${Math.round(anchor.bottom + margin)}px`;
-      if (listRef.current) listRef.current.style.maxHeight = `${Math.round(maxHeight)}px`;
+      // The cap belongs on the panel, not on the list. Capping the list let it
+      // grow to the full available height, so the panel became header + list +
+      // footer tall, which pushed the push toggle past the viewport — and the
+      // panel's own overflow-hidden then clipped it, so on a phone the toggle
+      // was rendered but unreachable. Capping the panel instead lets the list
+      // take the leftover space and scroll, which keeps the footer on screen
+      // however long the feed gets.
+      panel.style.maxHeight = `${Math.round(maxHeight)}px`;
       panel.style.opacity = '1';
     };
 
@@ -231,7 +237,7 @@ export function NotificationBell({ className = '' }: { className?: string }) {
           <div
             ref={panelRef}
             style={{ opacity: 0 }}
-            className="fixed z-50 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl shadow-black/50 overflow-hidden"
+            className="fixed z-50 flex flex-col rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl shadow-black/50 overflow-hidden"
           >
             <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-800">
               <span className="text-[12.5px] font-bold text-white">Notifications</span>
@@ -245,7 +251,7 @@ export function NotificationBell({ className = '' }: { className?: string }) {
               )}
             </div>
 
-            <div ref={listRef} className="overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto">
               {loading && notifications.length === 0 ? (
                 <div className="flex items-center justify-center gap-2 py-8 text-[11.5px] text-slate-500">
                   <LoadingCircle className="w-3.5 h-3.5" /> Loading
