@@ -11,6 +11,18 @@ import { disablePush, enablePush, getPushState, type PushState } from '@/lib/pus
  * on is a separate subscription row and is not represented here, which is why
  * the UI phrases the control as "this device" rather than "notifications".
  */
+const PUSH_STATE_EVENT = 'keeva:push-state';
+
+/** Keep every mounted push control in sync after one of them changes state. */
+function emitPushState(next: PushState) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent<PushState>(PUSH_STATE_EVENT, { detail: next }));
+  } catch {
+    // A failed broadcast must never break the control that just succeeded.
+  }
+}
+
 export function usePushNotifications() {
   const { user, session } = useAuth();
   const token = session?.access_token;
@@ -41,7 +53,9 @@ export function usePushNotifications() {
     if (!token || busy) return;
     setBusy(true);
     try {
-      setResolved(await enablePush(token));
+      const next = await enablePush(token);
+      setResolved(next);
+      emitPushState(next);
     } finally {
       setBusy(false);
     }
@@ -51,11 +65,32 @@ export function usePushNotifications() {
     if (!token || busy) return;
     setBusy(true);
     try {
-      setResolved(await disablePush(token));
+      const next = await disablePush(token);
+      setResolved(next);
+      emitPushState(next);
     } finally {
       setBusy(false);
     }
   }, [token, busy]);
+
+  const refresh = useCallback(async () => {
+    try {
+      const next = await getPushState();
+      setResolved(next);
+      emitPushState(next);
+    } catch {
+      // Keep the last known state; a failed read is not a state change.
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleExternalPushState = (event: Event) => {
+      const next = (event as CustomEvent<PushState>).detail;
+      if (next) setResolved(next);
+    };
+    window.addEventListener(PUSH_STATE_EVENT, handleExternalPushState);
+    return () => window.removeEventListener(PUSH_STATE_EVENT, handleExternalPushState);
+  }, []);
 
   return {
     state,
@@ -66,6 +101,7 @@ export function usePushNotifications() {
     canEnable: state === 'default' || state === 'granted-unsubscribed' || state === 'denied',
     enable,
     disable,
+    refresh,
   };
 }
 

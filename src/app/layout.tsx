@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { PushPermissionNudge } from '@/components/PushPermissionNudge';
 
 export const metadata: Metadata = {
   title: 'Keeva — Personal Media Intelligence Vault',
@@ -65,6 +66,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-[#06070B] text-slate-100 antialiased selection:bg-cyan-500 selection:text-slate-950 font-sans">
         <AuthProvider>
           {children}
+          <PushPermissionNudge />
         </AuthProvider>
       </body>
     </html>

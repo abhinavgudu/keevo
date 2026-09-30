@@ -113,6 +113,18 @@ export interface PushPayload {
   kind: CommunityNotificationKind;
 }
 
+/**
+ * Every payload sent through `deliverPushPayload` must carry a real icon.
+ *
+ * Android masks the icon with its alpha channel, so this has to stay a real
+ * PNG with genuine transparency. `/keeva-icon.png` is a JPEG wearing a `.png`
+ * name — no alpha, so Android drew a solid white block — and the manifest
+ * icons are full-bleed squares, which mask to the same white block.
+ */
+export const PUSH_ICON = '/notification-icon.png';
+/** iOS-only status-bar badge, which wants the same monochrome silhouette. */
+export const PUSH_BADGE = '/notification-icon.png';
+
 export function buildPushPayload(params: {
   kind: CommunityNotificationKind;
   actorName: string;
@@ -204,6 +216,72 @@ async function subscriptionsFor(inputs: NotificationInput[]): Promise<PushSubscr
   return rows;
 }
 
+export interface PushDeliveryResult {
+  succeeded: string[];
+  dead: string[];
+}
+
+/**
+ * Deliver one already-formed push message to a set of devices.
+ *
+ * The payload must already contain display fields such as `icon` and `badge`.
+ * Like every other push path, this never throws: a delivery failure must not
+ * turn the scheduled job that called it into an ambiguous partial failure.
+ */
+export async function deliverPushPayload(
+  subscriptions: PushSubscriptionRow[],
+  payload: Record<string, unknown>
+): Promise<PushDeliveryResult> {
+  const empty: PushDeliveryResult = { succeeded: [], dead: [] };
+  if (!subscriptions.length) return empty;
+  if (!configureVapid()) return empty;
+
+  try {
+    const succeeded: string[] = [];
+    const dead: string[] = [];
+
+    await Promise.all(
+      subscriptions.map(async (sub) => {
+        try {
+          await webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            JSON.stringify(payload),
+            { TTL: 60 * 60 * 12, urgency: 'normal' }
+          );
+          succeeded.push(sub.id);
+        } catch (err: unknown) {
+          if (isGone(statusCodeOf(err))) {
+            dead.push(sub.id);
+          } else {
+            // A transient failure. Keep the row: a 500 from the push service or a
+            // flaky network must not be mistaken for an uninstalled browser.
+            console.warn('Push: send failed, subscription kept:', describe(err));
+          }
+        }
+      })
+    );
+
+    if (succeeded.length) {
+      await admin()
+        .from('push_subscriptions')
+        .update({ last_success_at: new Date().toISOString() })
+        .in('id', succeeded);
+    }
+
+    if (dead.length) {
+      // Prune so the table cannot grow without bound as browsers come and go.
+      const { error } = await admin().from('push_subscriptions').delete().in('id', dead);
+      if (error) console.error('Push: failed to prune dead subscriptions:', error);
+      else console.log(`Push: pruned ${dead.length} dead subscription(s)`);
+    }
+
+    return { succeeded, dead };
+  } catch (err) {
+    console.error('Push: delivery failed:', err);
+    return empty;
+  }
+}
+
 /**
  * Push one notification to every device that should see it.
  *
@@ -239,60 +317,26 @@ export async function sendPush(
     const subscriptions = await subscriptionsFor(inputs);
     if (!subscriptions.length) return;
 
-    const dead: string[] = [];
-    const succeeded: string[] = [];
+    // Devices with the same fully-formed message share one batched delivery.
+    // A direct notification is still addressed per user; the batching key is
+    // only the bytes that will actually be sent to the push service.
+    const grouped = new Map<string, { payload: Record<string, unknown>; subs: PushSubscriptionRow[] }>();
+    for (const sub of subscriptions) {
+      const payload =
+        direct.get(sub.user_id) ??
+        broadcasts.find((b) => b.actorUserId !== sub.user_id)?.payload;
+      if (!payload) continue;
+
+      const fullPayload = { ...payload, icon: PUSH_ICON, badge: PUSH_BADGE };
+      const key = JSON.stringify(fullPayload);
+      const group = grouped.get(key);
+      if (group) group.subs.push(sub);
+      else grouped.set(key, { payload: fullPayload, subs: [sub] });
+    }
 
     await Promise.all(
-      subscriptions.map(async (sub) => {
-        const payload =
-          direct.get(sub.user_id) ??
-          broadcasts.find((b) => b.actorUserId !== sub.user_id)?.payload;
-        if (!payload) return;
-
-        try {
-          await webpush.sendNotification(
-            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-            JSON.stringify({
-              ...payload,
-              // Android renders a Web Push icon as a white silhouette taken from
-              // its alpha channel, so this has to be a real PNG with genuine
-              // transparency. /keeva-icon.png is a JPEG wearing a .png name —
-              // no alpha, so Android drew a solid white block — and the manifest
-              // icons are full-bleed squares, which mask to the same white block.
-              icon: '/notification-icon.png',
-              // iOS-only, and wants a monochrome glyph for the status bar. The
-              // same silhouette is already white-on-transparent, which is what
-              // this field wants anyway.
-              badge: '/notification-icon.png',
-            }),
-            { TTL: 60 * 60 * 12, urgency: 'normal' }
-          );
-          succeeded.push(sub.id);
-        } catch (err: unknown) {
-          if (isGone(statusCodeOf(err))) {
-            dead.push(sub.id);
-          } else {
-            // A transient failure. Keep the row: a 500 from the push service or a
-            // flaky network must not be mistaken for an uninstalled browser.
-            console.warn('Push: send failed, subscription kept:', describe(err));
-          }
-        }
-      })
+      Array.from(grouped.values()).map((group) => deliverPushPayload(group.subs, group.payload))
     );
-
-    if (succeeded.length) {
-      await admin()
-        .from('push_subscriptions')
-        .update({ last_success_at: new Date().toISOString() })
-        .in('id', succeeded);
-    }
-
-    if (dead.length) {
-      // Prune so the table cannot grow without bound as browsers come and go.
-      const { error } = await admin().from('push_subscriptions').delete().in('id', dead);
-      if (error) console.error('Push: failed to prune dead subscriptions:', error);
-      else console.log(`Push: pruned ${dead.length} dead subscription(s)`);
-    }
   } catch (err) {
     console.error('Push: delivery failed:', err);
   }
