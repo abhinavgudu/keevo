@@ -72,12 +72,30 @@ function configureVapid(): boolean {
  * site so the wording for a kind cannot drift between "new_post" and "like".
  */
 const KIND_COPY: Record<CommunityNotificationKind, { verb: string; fallback: string }> = {
-  new_post: { verb: 'shared a new post', fallback: 'Open Keeva to see what is new in the community.' },
-  comment: { verb: 'commented on a post', fallback: 'Open Keeva to read the comment.' },
-  reply: { verb: 'replied to you', fallback: 'Open Keeva to read the reply.' },
-  mention: { verb: 'mentioned you', fallback: 'Open Keeva to see the mention.' },
-  like: { verb: 'liked a post', fallback: 'Open Keeva to see the post.' },
-  post_edited: { verb: 'edited a post you engaged with', fallback: 'Open Keeva to see the update.' },
+  new_post: {
+    verb: 'shared a new post with the community',
+    fallback: 'Tap to see what is new on Keeva.',
+  },
+  comment: {
+    verb: 'left a comment on your post',
+    fallback: 'Tap to read the comment on Keeva.',
+  },
+  reply: {
+    verb: 'replied to your comment',
+    fallback: 'Tap to read the reply on Keeva.',
+  },
+  mention: {
+    verb: 'mentioned you in a comment',
+    fallback: 'Tap to see the mention on Keeva.',
+  },
+  like: {
+    verb: 'liked your post',
+    fallback: 'Tap to see your post on Keeva.',
+  },
+  post_edited: {
+    verb: 'edited a post you interacted with',
+    fallback: 'Tap to see the latest version on Keeva.',
+  },
 };
 
 function truncate(text: string, max: number): string {
@@ -236,8 +254,16 @@ export async function sendPush(
             { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
             JSON.stringify({
               ...payload,
-              icon: '/keeva-icon.png',
-              badge: '/keeva-icon.png',
+              // Android renders a Web Push icon as a white silhouette taken from
+              // its alpha channel, so this has to be a real PNG with genuine
+              // transparency. /keeva-icon.png is a JPEG wearing a .png name —
+              // no alpha, so Android drew a solid white block — and the manifest
+              // icons are full-bleed squares, which mask to the same white block.
+              icon: '/notification-icon.png',
+              // iOS-only, and wants a monochrome glyph for the status bar. The
+              // same silhouette is already white-on-transparent, which is what
+              // this field wants anyway.
+              badge: '/notification-icon.png',
             }),
             { TTL: 60 * 60 * 12, urgency: 'normal' }
           );

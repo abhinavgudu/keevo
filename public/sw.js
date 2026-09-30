@@ -1,13 +1,18 @@
 // Keeva PWA Service Worker v1.0
 // Provides offline capability & fulfills PWA installation requirements
 
-const CACHE_NAME = 'keeva-pwa-cache-v1';
+// Bumped when the pre-cache list or the push handler changes, so a device
+// holding the old worker purges its stale copies instead of serving them.
+const CACHE_NAME = 'keeva-pwa-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
   '/keeva-logo.png',
   '/keeva-icon.png',
   '/keeva-logo.svg',
+  // The push notification icon. Pre-cached so a notification raised while the
+  // device is offline still resolves an image instead of a blank square.
+  '/notification-icon.png',
 ];
 
 // Install: pre-cache essential assets
@@ -97,31 +102,47 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   // A push with no body, or with a non-JSON body, is legal — fall back to a
   // generic notification rather than dropping the event and showing nothing.
-  let data = {};
-  try {
-    if (event.data) data = event.data.json();
-  } catch (err) {
-    try {
-      data = { title: event.data ? event.data.text() : '', body: '' };
-    } catch {
-      data = {};
-    }
-  }
-
-  const title = (data && data.title) || 'Keeva';
-
+  //
+  // Everything is inside the waitUntil promise because PushMessageData.json()
+  // returns a Promise, not a parsed object. Assigning it to a variable from a
+  // synchronous handler left `data` holding an unresolved Promise, so every
+  // field read below came back undefined and every notification rendered with
+  // the bare defaults — title 'Keeva', no body, and a dead deep link. text() is
+  // the synchronous read, and the body can only be consumed once, so it is
+  // parsed here rather than calling json() on a second read.
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body: (data && data.body) || 'You have new activity in the community.',
-      icon: (data && data.icon) || '/keeva-icon.png',
-      badge: (data && data.badge) || '/keeva-icon.png',
-      // Scoped per post by the sender, so several comments on one post replace
-      // each other in the tray instead of stacking up.
-      tag: (data && data.tag) || undefined,
-      // Android only; ignored elsewhere.
-      vibrate: [60, 40, 60],
-      data: { url: (data && data.url) || '/community' },
-    })
+    (async () => {
+      let data = {};
+      if (event.data) {
+        try {
+          const raw = event.data.text();
+          if (raw) {
+            try {
+              data = JSON.parse(raw);
+            } catch {
+              // Plain text instead of JSON: still better than showing nothing.
+              data = { title: raw, body: '' };
+            }
+          }
+        } catch {
+          data = {};
+        }
+      }
+
+      const title = (data && data.title) || 'Keeva';
+
+      await self.registration.showNotification(title, {
+        body: (data && data.body) || 'You have new activity in the community.',
+        icon: (data && data.icon) || '/notification-icon.png',
+        badge: (data && data.badge) || '/notification-icon.png',
+        // Scoped per post by the sender, so several comments on one post replace
+        // each other in the tray instead of stacking up.
+        tag: (data && data.tag) || undefined,
+        // Android only; ignored elsewhere.
+        vibrate: [60, 40, 60],
+        data: { url: (data && data.url) || '/community' },
+      });
+    })()
   );
 });
 
@@ -133,7 +154,7 @@ self.addEventListener('notificationclick', (event) => {
   let target;
   try {
     target = new URL((event.notification.data && event.notification.data.url) || '/community', self.location.origin);
-  } catch (err) {
+  } catch {
     target = new URL('/community', self.location.origin);
   }
   if (target.origin !== self.location.origin) {
