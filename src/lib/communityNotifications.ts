@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { CommunityAuthor } from './authorProfiles';
-import { extractMentionHandles, handleFromEmail } from './mentions';
+import { getAuthorMap } from './authorProfiles';
+import { extractMentionHandles, handleFromEmail, resolveHandleDisplayNames } from './mentions';
 import { buildCommunityPostHref } from './communityDeepLink';
 import { buildPushPayload, sendPush } from './pushSender';
 
@@ -21,6 +22,7 @@ export type CommunityNotificationKind =
   | 'mention'
   | 'like'
   | 'comment_like'
+  | 'new_follower'
   | 'post_edited';
 
 export const COMMUNITY_NOTIFICATION_KINDS: CommunityNotificationKind[] = [
@@ -30,6 +32,7 @@ export const COMMUNITY_NOTIFICATION_KINDS: CommunityNotificationKind[] = [
   'mention',
   'like',
   'comment_like',
+  'new_follower',
   'post_edited',
 ];
 
@@ -128,6 +131,7 @@ const KIND_PRIORITY: Record<CommunityNotificationKind, number> = {
   comment: 1,
   comment_like: 1,
   like: 0,
+  new_follower: 0,
   post_edited: 0,
   new_post: 0,
 };
@@ -241,12 +245,30 @@ async function pushForNotifications(inputs: NotificationInput[]): Promise<void> 
       (commentsRes.data || []).map((row) => [row.id as string, row.body as string | null])
     );
 
+    // handle → actual name, so a push about "@abhinavguddu99" reads "Abhinav
+    // Guddu". Display-only: the stored @handle is still what resolved the
+    // recipient, and a failed lookup must never block the push itself.
+    let nameByHandle: Record<string, string> = {};
+    try {
+      const authorMap = await getAuthorMap();
+      for (const m of membersFromAuthorMap(authorMap)) {
+        if (m.handle && m.name) nameByHandle[m.handle.toLowerCase()] = m.name;
+      }
+    } catch {
+      nameByHandle = {};
+    }
+
     await sendPush(inputs, (input) => {
-      const href = buildCommunityPostHref(input.itemId ?? null, input.kind);
+      // A follow has no post: tapping it opens the follower's profile, which
+      // is the new person the recipient will want to check out.
+      const href =
+        input.kind === 'new_follower'
+          ? `/members/${input.actorUserId}`
+          : buildCommunityPostHref(input.itemId ?? null, input.kind);
       // For a mention or a reply the comment text is the useful part; for the
       // rest the post title is, and a comment body would be noise.
       const detail = input.commentId
-        ? commentExcerpt(bodies.get(input.commentId) ?? null)
+        ? commentExcerpt(resolveHandleDisplayNames(bodies.get(input.commentId) ?? null, nameByHandle))
         : null;
       return buildPushPayload({
         kind: input.kind,
@@ -376,6 +398,28 @@ export async function removeCommentLikeNotification(params: {
     if (error) console.error('Failed to clear comment like notification:', error);
   } catch (err) {
     console.error('Failed to clear comment like notification:', err);
+  }
+}
+
+/**
+ * Same toggle contract for follows: unfollowing takes back only the
+ * 'new_follower' row for that exact (follower, target) pair.
+ */
+export async function removeFollowNotification(params: {
+  actorUserId: string;
+  targetUserId: string;
+}): Promise<void> {
+  try {
+    const { error } = await admin()
+      .from('community_notifications')
+      .delete()
+      .eq('actor_user_id', params.actorUserId)
+      .eq('recipient_user_id', params.targetUserId)
+      .eq('kind', 'new_follower');
+
+    if (error) console.error('Failed to clear follow notification:', error);
+  } catch (err) {
+    console.error('Failed to clear follow notification:', err);
   }
 }
 

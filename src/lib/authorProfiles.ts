@@ -8,6 +8,12 @@ export interface CommunityAuthor {
   email: string;
   first_name?: string;
   last_name?: string;
+  /** Short tagline, edited by the member on their profile. */
+  headline?: string;
+  /** One-liner bio, edited by the member on their profile. */
+  bio?: string;
+  /** Public Storage URL of the profile photo, if set. */
+  avatar_url?: string;
 }
 
 interface AuthorCache {
@@ -68,16 +74,29 @@ async function fetchAllAuthors(): Promise<Record<string, CommunityAuthor>> {
         name?: string;
         first_name?: string;
         last_name?: string;
+        headline?: string;
+        bio?: string;
+        avatar_url?: string;
       };
       const fullName = meta.full_name || meta.name || '';
       const firstName = meta.first_name || (fullName ? fullName.split(' ')[0] : '');
       const lastName = meta.last_name || (fullName ? fullName.split(' ').slice(1).join(' ') : '');
+      // Profile text lives in auth metadata (see the profiles-phase plan), so
+      // it flows through this same cached map with no extra table or query.
+      // Trimmed and capped on read too, so a row written before the UI limits
+      // existed can never blow up a layout.
+      const headline = (meta.headline || '').trim().slice(0, 80);
+      const bio = (meta.bio || '').trim().slice(0, 160);
+      const avatarUrl = (meta.avatar_url || '').trim();
 
       map[u.id] = {
         id: u.id,
         email: u.email ?? '',
         first_name: firstName || undefined,
         last_name: lastName || undefined,
+        headline: headline || undefined,
+        bio: bio || undefined,
+        avatar_url: avatarUrl || undefined,
       };
     }
 

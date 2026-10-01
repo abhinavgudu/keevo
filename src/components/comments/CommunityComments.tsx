@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
+import Link from 'next/link';
 import dynamic from 'next/dynamic';
 // Type-only: these are string enums, so casting the literals is safe and keeps
 // the picker itself out of the initial bundle.
@@ -142,6 +143,17 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
   // The member list is only needed once somebody actually tries to mention
   // someone, so it is not fetched for a thread that is merely opened.
   const { members, handles: knownHandles } = useCommunityMembers(!!user);
+
+  // handle → actual name, so a stored @handle renders as "Abhinav Guddu".
+  // Built from the same member list as the autocomplete, so the composer and
+  // the rendered thread can never disagree about who somebody is.
+  const nameByHandle = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const m of members) {
+      if (m.handle && m.name) map[m.handle.toLowerCase()] = m.name;
+    }
+    return map;
+  }, [members]);
 
   // Which composer, if any, currently has the caret inside an unfinished
   // @handle, and what has been typed after the "@" so far.
@@ -483,7 +495,12 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-1.5 flex-wrap">
-            <span className="text-[12.5px] font-semibold text-white">{c.author_name || 'Keeva Member'}</span>
+            <Link
+              href={`/members/${c.user_id}`}
+              className="text-[12.5px] font-semibold text-white hover:text-cyan-300 transition-colors"
+            >
+              {c.author_name || 'Keeva Member'}
+            </Link>
             <span className="text-[10.5px] text-slate-500 font-mono">{timeAgo(c.created_at)}</span>
             {c.edited_at && (
               <span className="text-[10.5px] text-slate-600 italic" title={new Date(c.edited_at).toLocaleString()}>
@@ -531,7 +548,7 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
               </div>
             </div>
           ) : (
-            <CommentBody body={c.body} knownHandles={knownHandles} />
+            <CommentBody body={c.body} knownHandles={knownHandles} nameByHandle={nameByHandle} />
           )}
           <div className="flex items-center gap-3 mt-1">
             {!nested && user && (

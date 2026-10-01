@@ -3,8 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import {
   CommunityNotification,
   commentExcerpt,
+  membersFromAuthorMap,
   visibleToUserFilter,
 } from '@/lib/communityNotifications';
+import { getAuthorMap } from '@/lib/authorProfiles';
+import { resolveHandleDisplayNames } from '@/lib/mentions';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -78,11 +81,24 @@ export async function GET(request: NextRequest) {
     const titleByItem = new Map((itemsRes.data || []).map((i) => [i.id, i.title]));
     const bodyByComment = new Map((commentsRes.data || []).map((c) => [c.id, c.body]));
 
+    // handle → actual name, so a bell line about "@abhinavguddu99" reads
+    // "Abhinav Guddu". Display-only: the stored @handle is still what resolved
+    // the recipient, and a failed lookup must never break the feed itself.
+    let nameByHandle: Record<string, string> = {};
+    try {
+      const authorMap = await getAuthorMap();
+      for (const m of membersFromAuthorMap(authorMap)) {
+        if (m.handle && m.name) nameByHandle[m.handle.toLowerCase()] = m.name;
+      }
+    } catch {
+      nameByHandle = {};
+    }
+
     const notifications: CommunityNotification[] = rows.map((row) => ({
       ...row,
       item_title: row.item_id ? titleByItem.get(row.item_id) ?? null : null,
       comment_excerpt: row.comment_id
-        ? commentExcerpt(bodyByComment.get(row.comment_id))
+        ? commentExcerpt(resolveHandleDisplayNames(bodyByComment.get(row.comment_id), nameByHandle))
         : null,
     }));
 

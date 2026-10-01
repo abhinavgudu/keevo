@@ -41,7 +41,38 @@ export function extractMentionHandles(text: string): string[] {
 
 export interface MentionSegment {
   text: string;
+  /** What to show for a mention: the member's actual name, not the @handle. */
+  display?: string;
   isMention: boolean;
+}
+
+/** Normalise a handle → display-name map once, so every lookup is lowercase. */
+function lookupMap(nameByHandle: Record<string, string>): Map<string, string> {
+  const lookup = new Map<string, string>();
+  for (const [handle, name] of Object.entries(nameByHandle || {})) {
+    if (handle && name) lookup.set(handle.toLowerCase(), name);
+  }
+  return lookup;
+}
+
+/**
+ * Render stored `@handle` tokens as actual names ("Abhinav Guddu", not
+ * "@abhinavguddu99"). The stored text keeps the @handle — that is what the
+ * server resolves to a user id — so this is display-only, for bell excerpts
+ * and push bodies. Unknown handles are left untouched.
+ */
+export function resolveHandleDisplayNames(
+  text: string | null | undefined,
+  nameByHandle: Record<string, string>
+): string {
+  if (!text) return '';
+  const lookup = lookupMap(nameByHandle);
+  if (!lookup.size) return text;
+
+  return text.replace(new RegExp(MENTION_PATTERN.source, 'g'), (match: string, raw: string) => {
+    const handle = (raw || '').replace(/[._-]+$/, '').toLowerCase();
+    return lookup.get(handle) || match;
+  });
 }
 
 /**
@@ -49,11 +80,16 @@ export interface MentionSegment {
  * without ever calling dangerouslySetInnerHTML — comment bodies are user input
  * and are only ever rendered as React text nodes.
  */
-export function splitMentions(body: string, knownHandles: string[] = []): MentionSegment[] {
+export function splitMentions(
+  body: string,
+  knownHandles: string[] = [],
+  nameByHandle: Record<string, string> = {}
+): MentionSegment[] {
   const text = body || '';
   if (!text) return [];
 
   const known = new Set(knownHandles.map((h) => h.toLowerCase()));
+  const names = lookupMap(nameByHandle);
   const segments: MentionSegment[] = [];
   let lastIndex = 0;
 
@@ -73,7 +109,9 @@ export function splitMentions(body: string, knownHandles: string[] = []): Mentio
     if (at > lastIndex) {
       segments.push({ text: text.slice(lastIndex, at), isMention: false });
     }
-    segments.push({ text: match[0], isMention: true });
+    // Show the member's actual name; fall back to the raw token when the name
+    // is unknown (deleted account, or the list has not loaded yet).
+    segments.push({ text: match[0], display: names.get(handle) || match[0], isMention: true });
     lastIndex = at + match[0].length;
   }
 

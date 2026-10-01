@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { ContentItem } from '@/types/vault';
 import { CommunityComments } from '@/components/comments/CommunityComments';
 import {
@@ -454,14 +455,38 @@ const caption = item.community_caption || '';
   );
 
   // ── Author meta line (name + time + globe) ──────────────────────────
+  // The avatar and name link to the member's profile page (T2), so any post
+  // is one tap away from its author's posts and Follow button.
+  const profileId = item.user_id || sharedBy?.id || null;
   const authorHeader = (
     <div className="flex items-start gap-3">
-      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 text-slate-950 flex items-center justify-center font-black text-sm shadow-md shrink-0">
-        {authorInitial}
-      </div>
+      {profileId ? (
+        <Link
+          href={`/members/${profileId}`}
+          onClick={(e) => e.stopPropagation()}
+          className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 text-slate-950 flex items-center justify-center font-black text-sm shadow-md shrink-0 hover:scale-105 transition-transform"
+          title={`View ${authorName}'s profile`}
+        >
+          {authorInitial}
+        </Link>
+      ) : (
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 text-slate-950 flex items-center justify-center font-black text-sm shadow-md shrink-0">
+          {authorInitial}
+        </div>
+      )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-sm font-bold text-white">{authorName}</span>
+          {profileId ? (
+            <Link
+              href={`/members/${profileId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-sm font-bold text-white hover:text-cyan-300 transition-colors"
+            >
+              {authorName}
+            </Link>
+          ) : (
+            <span className="text-sm font-bold text-white">{authorName}</span>
+          )}
           {isOwner && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 font-bold uppercase shrink-0">
               You

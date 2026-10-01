@@ -13,6 +13,7 @@ import {
   CheckCheck,
   PencilLine,
   BellRing,
+  UserPlus,
 } from 'lucide-react';
 import { LoadingCircle } from '@/components/LoadingCircle';
 import { useCommunityNotifications } from '@/hooks/useCommunityNotifications';
@@ -39,6 +40,7 @@ const KIND_ICON: Record<CommunityNotificationKind, React.ReactNode> = {
   mention: <AtSign className="w-3.5 h-3.5 text-amber-400" />,
   like: <Heart className="w-3.5 h-3.5 text-rose-400" />,
   comment_like: <Heart className="w-3.5 h-3.5 text-rose-400" />,
+  new_follower: <UserPlus className="w-3.5 h-3.5 text-emerald-400" />,
   post_edited: <PencilLine className="w-3.5 h-3.5 text-violet-400" />,
 };
 
@@ -49,6 +51,7 @@ const KIND_LABEL: Record<CommunityNotificationKind, string> = {
   mention: 'mentioned you in a comment',
   like: 'liked your post',
   comment_like: 'liked your comment',
+  new_follower: 'started following you',
   post_edited: 'edited a post you engaged with',
 };
 
@@ -200,6 +203,13 @@ export function NotificationBell({ className = '' }: { className?: string }) {
   const openNotification = (n: CommunityNotification) => {
     if (!n.read_at) markRead([n.id]);
     setOpen(false);
+
+    // A follow has no post: tapping it opens the follower's profile. The page
+    // itself lands in T2; until then this falls through to /community.
+    if (n.kind === 'new_follower') {
+      router.push(`/members/${n.actor_user_id}`);
+      return;
+    }
 
     // Deep-link to the post itself, and hand the comment box focus for the kinds
     // where a reply is almost certainly the next thing wanted. A post that has
