@@ -116,19 +116,21 @@ export async function POST(
     // The toggle has to be a toggle on the notification side too: liking pings
     // the comment's author, unliking takes that ping back. Both run through
     // helpers that never throw, so this can never fail a like that already
-    // succeeded. insertNotifications drops self-notifications on its own, so
-    // liking your own comment stays silent without a special case here.
+    // succeeded. Liking your own comment writes no row at all — a bell entry
+    // saying you liked your own comment is noise.
     if (liked) {
-      await insertNotifications([
-        {
-          recipientUserId: comment.user_id,
-          actorUserId: user.id,
-          actorName: authDisplayName(user),
-          kind: 'comment_like',
-          itemId: comment.item_id,
-          commentId,
-        },
-      ]);
+      if (comment.user_id !== user.id) {
+        await insertNotifications([
+          {
+            recipientUserId: comment.user_id,
+            actorUserId: user.id,
+            actorName: authDisplayName(user),
+            kind: 'comment_like',
+            itemId: comment.item_id,
+            commentId,
+          },
+        ]);
+      }
     } else {
       await removeCommentLikeNotification({ actorUserId: user.id, commentId });
     }

@@ -128,18 +128,22 @@ export async function POST(request: NextRequest) {
     // The like is a toggle, so the notification has to be a toggle too: liking
     // pings the post's owner, unliking takes that ping back. Both run through
     // helpers that never throw, so this can never fail a like that already
-    // succeeded. The response below stays exactly as it was.
+    // succeeded. The response below stays exactly as it was. Liking your own
+    // post writes no row at all — a bell entry saying you liked your own post
+    // is noise, and the push layer would drop it anyway.
     if (liked) {
-      await insertNotifications([
-        {
-          recipientUserId: item.user_id,
-          actorUserId: user.id,
-          actorName: authDisplayName(user),
-          kind: 'like',
-          itemId,
-          commentId: null,
-        },
-      ]);
+      if (item.user_id !== user.id) {
+        await insertNotifications([
+          {
+            recipientUserId: item.user_id,
+            actorUserId: user.id,
+            actorName: authDisplayName(user),
+            kind: 'like',
+            itemId,
+            commentId: null,
+          },
+        ]);
+      }
     } else {
       await removeLikeNotification({ actorUserId: user.id, itemId });
     }

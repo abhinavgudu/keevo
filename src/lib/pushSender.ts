@@ -250,7 +250,15 @@ export async function deliverPushPayload(
           await webpush.sendNotification(
             { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
             JSON.stringify(payload),
-            { TTL: 60 * 60 * 12, urgency: 'normal' }
+            // urgency 'high' is the whole fix for slow delivery on a sleeping
+            // phone. It maps to FCM high priority: the push wakes the device
+            // immediately instead of waiting for a Doze maintenance window,
+            // which is where 'normal' goes to sit for minutes to hours when
+            // the screen is off. This is legitimate here because every push we
+            // send renders a visible notification (the userVisibleOnly
+            // subscription contract requires it) — 'high' is meant exactly
+            // for user-facing alerts, not silent background work.
+            { TTL: 60 * 60 * 12, urgency: 'high' }
           );
           succeeded.push(sub.id);
         } catch (err: unknown) {
