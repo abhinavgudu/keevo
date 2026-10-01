@@ -298,6 +298,10 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
       setDraft('');
       setPickerOpen(false);
       setMentionState(null);
+      // The thread shows only the first two comments until expanded, so a new
+      // comment appended at the end would sit hidden behind "View all" and look
+      // like it never posted. Expand on success so the author sees their own words.
+      setExpanded(true);
     }
   };
 
@@ -307,6 +311,7 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
       setReplyTo(null);
       setReplyPickerOpen(false);
       setMentionState(null);
+      setExpanded(true);
     }
   };
 

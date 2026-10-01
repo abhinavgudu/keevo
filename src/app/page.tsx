@@ -27,6 +27,7 @@ import { ExitConfirmPopup } from '@/components/ExitConfirmPopup';
 import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
 import { useMobileBackHandler } from '@/hooks/useMobileBackHandler';
 import { LoadingCircle } from '@/components/LoadingCircle';
+import { KeevaMark } from '@/components/KeevaMark';
 import { Plus, BookmarkCheck, Compass } from 'lucide-react';
 
 export default function KeevaDashboard() {
@@ -358,22 +359,8 @@ export default function KeevaDashboard() {
     return (
       <div className="min-h-screen bg-[#06070B] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-600 p-[1.5px] shadow-2xl shadow-cyan-500/30 animate-pulse">
-            <div className="w-full h-full bg-[#06070B] rounded-[14px] flex items-center justify-center">
-              <svg viewBox="0 0 100 100" className="w-7 h-7" fill="none">
-                <defs>
-                  <linearGradient id="lkg1" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#00E5FF" />
-                    <stop offset="50%" stopColor="#6366F1" />
-                    <stop offset="100%" stopColor="#D946EF" />
-                  </linearGradient>
-                </defs>
-                <rect x="26" y="22" width="11" height="56" rx="3" fill="url(#lkg1)" />
-                <path d="M37 50 L68 22 L78 22 L47 50Z" fill="url(#lkg1)" opacity="0.95" />
-                <path d="M37 50 L68 78 L78 78 L47 50Z" fill="url(#lkg1)" opacity="0.95" />
-                <circle cx="44" cy="50" r="4" fill="#00E5FF" opacity="0.9" />
-              </svg>
-            </div>
+          <div className="animate-pulse">
+            <KeevaMark className="w-12 h-12" alt="Keeva" />
           </div>
           <p className="text-xs text-slate-500 font-mono">Loading Keeva...</p>
         </div>

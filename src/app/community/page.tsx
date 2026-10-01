@@ -207,7 +207,10 @@ function CommunityFeed() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#07090E] flex items-center justify-center">
-        <LoadingCircle className="w-8 h-8" />
+        <div className="flex flex-col items-center gap-4">
+          <LoadingCircle className="w-16 h-16" label="Loading community" />
+          <p className="text-xs text-slate-500 font-mono">Loading community…</p>
+        </div>
       </div>
     );
   }
