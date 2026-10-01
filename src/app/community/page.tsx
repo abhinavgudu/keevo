@@ -206,10 +206,12 @@ function CommunityFeed() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#07090E] flex items-center justify-center px-6">
-        <div className="flex flex-col items-center gap-5">
-          <LoadingCircle className="w-80 h-80 max-w-[80vw] max-h-[80vw]" label="Loading community" />
-          <p className="text-sm text-slate-400 font-mono">Loading community…</p>
+      <div className="min-h-screen bg-[#07090E] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-pulse">
+            <KeevaMark className="w-12 h-12" alt="Keeva" />
+          </div>
+          <p className="text-xs text-slate-500 font-mono">Loading community…</p>
         </div>
       </div>
     );

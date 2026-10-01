@@ -11,6 +11,7 @@ import { FollowButton } from '@/components/members/FollowButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { getSupabaseClient } from '@/lib/supabase';
 import { LoadingCircle } from '@/components/LoadingCircle';
+import { KeevaMark } from '@/components/KeevaMark';
 import type { PostReaction } from '@/lib/reactions';
 
 interface MemberProfile {
@@ -167,8 +168,13 @@ export default function MemberProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#06070B] flex items-center justify-center gap-2 text-sm text-slate-500">
-        <LoadingCircle className="w-4 h-4" /> Loading profile
+      <div className="min-h-screen bg-[#06070B] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-pulse">
+            <KeevaMark className="w-12 h-12" alt="Keeva" />
+          </div>
+          <p className="text-xs text-slate-500 font-mono">Loading profile…</p>
+        </div>
       </div>
     );
   }
