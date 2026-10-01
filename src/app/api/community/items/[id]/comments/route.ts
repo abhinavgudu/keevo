@@ -66,7 +66,7 @@ export async function GET(
     const { data, error } = await admin
       .from('community_comments')
       .select('*')
-      .eq('id', id)
+      .eq('item_id', id)
       .order('created_at', { ascending: true });
 
     if (error) throw error;
