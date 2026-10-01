@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import dynamic from 'next/dynamic';
 // Type-only: these are string enums, so casting the literals is safe and keeps
 // the picker itself out of the initial bundle.
@@ -11,7 +11,7 @@ import { useCommunityMembers } from '@/hooks/useCommunityMembers';
 import { applyMention, detectMentionQuery } from '@/lib/mentions';
 import { CommentBody } from '@/components/comments/CommentBody';
 import { LoadingCircle } from '@/components/LoadingCircle';
-import { MessageSquare, Smile, Send, Trash2, CornerDownRight } from 'lucide-react';
+import { MessageSquare, Smile, Send, Trash2, CornerDownRight, Pencil, ThumbsUp } from 'lucide-react';
 
 // The picker ships a large emoji dataset. Keep it out of the initial bundle —
 // it only downloads the first time someone actually opens it.
@@ -32,6 +32,44 @@ function timeAgo(dateString: string) {
   const days = Math.floor(hrs / 24);
   if (days < 7) return `${days}d`;
   return new Date(dateString).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+}
+
+/**
+ * Textarea that grows with its content instead of trapping it in one row.
+ *
+ * `rows={1}` plus a fixed `max-h-*` is what hid everything past the first
+ * line: the box never grew, so typed lines scrolled out of view. This resets
+ * the height and re-measures on every render, so all lines stay visible up to
+ * `maxHeight`, after which it scrolls like a normal long input.
+ */
+function AutosizeTextarea({
+  inputRef,
+  value,
+  maxHeight = 256,
+  className = '',
+  ...rest
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
+  maxHeight?: number;
+}) {
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
+  });
+
+  return (
+    <textarea
+      ref={inputRef}
+      rows={1}
+      value={value}
+      {...rest}
+      style={{ maxHeight, ...(rest.style || {}) }}
+      className={`w-full bg-transparent border-0 text-[13px] text-slate-200 placeholder-slate-600 focus:outline-none resize-none leading-relaxed ${className}`}
+    />
+  );
 }
 
 /** @mention autocomplete popup, shared by the main and reply composers. */
@@ -90,11 +128,16 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
   const [pickerOpen, setPickerOpen] = useState(false);
   const [replyPickerOpen, setReplyPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [likeBusyId, setLikeBusyId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const replyPickerRef = useRef<HTMLDivElement>(null);
   const mainInputRef = useRef<HTMLTextAreaElement>(null);
   const replyInputRef = useRef<HTMLTextAreaElement>(null);
+  const editInputRef = useRef<HTMLTextAreaElement>(null);
 
   // The member list is only needed once somebody actually tries to mention
   // someone, so it is not fetched for a thread that is merely opened.
@@ -278,6 +321,143 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
       const replyIds = new Set(prev.filter((c) => c.parent_id === comment.id).map((c) => c.id));
       return prev.filter((c) => c.id !== comment.id && !replyIds.has(c.id));
     });
+    if (editingId === comment.id) {
+      setEditingId(null);
+      setEditDraft('');
+    }
+  };
+
+  const startEdit = (comment: CommunityComment) => {
+    setEditingId(comment.id);
+    setEditDraft(comment.body);
+    setError(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditDraft('');
+  };
+
+  const saveEdit = async (comment: CommunityComment) => {
+    const text = editDraft.trim();
+    if (!text || text === comment.body) {
+      cancelEdit();
+      return;
+    }
+    if (text.length > MAX_BODY) {
+      setError(`Comment cannot exceed ${MAX_BODY} characters.`);
+      return;
+    }
+    if (!session?.access_token) {
+      setError('Please sign in to edit.');
+      return;
+    }
+    // Optimistic, so the correction lands instantly. A failed request rolls
+    // back to the server's version instead of showing text that was never saved.
+    const prevBody = comment.body;
+    const prevEditedAt = comment.edited_at;
+    setComments((prev) =>
+      prev.map((c) =>
+        c.id === comment.id ? { ...c, body: text, edited_at: new Date().toISOString() } : c
+      )
+    );
+    cancelEdit();
+    setEditBusy(true);
+    try {
+      const res = await fetch(`/api/community/comments/${comment.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ body: text }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error || 'Could not save your edit.');
+        setComments((prev) =>
+          prev.map((c) =>
+            c.id === comment.id ? { ...c, body: prevBody, edited_at: prevEditedAt } : c
+          )
+        );
+        return;
+      }
+      const { comment: updated } = await res.json();
+      if (updated) {
+        setComments((prev) => prev.map((c) => (c.id === comment.id ? { ...c, ...updated } : c)));
+      }
+    } catch {
+      setError('Network error. Please try again.');
+      setComments((prev) =>
+        prev.map((c) =>
+          c.id === comment.id ? { ...c, body: prevBody, edited_at: prevEditedAt } : c
+        )
+      );
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
+  const handleCommentLike = async (comment: CommunityComment) => {
+    if (!session?.access_token || likeBusyId) return;
+    const nextLiked = !comment.liked_by_me;
+    // Optimistic, so a tap feels instant. A failed request rolls back to the
+    // server's values instead of showing a like that was never saved.
+    setComments((prev) =>
+      prev.map((c) =>
+        c.id === comment.id
+          ? {
+              ...c,
+              liked_by_me: nextLiked,
+              like_count: Math.max(0, (c.like_count ?? 0) + (nextLiked ? 1 : -1)),
+            }
+          : c
+      )
+    );
+    setLikeBusyId(comment.id);
+    try {
+      const res = await fetch(`/api/community/comments/${comment.id}/likes`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error || 'Could not update like.');
+        setComments((prev) =>
+          prev.map((c) =>
+            c.id === comment.id
+              ? {
+                  ...c,
+                  liked_by_me: !nextLiked,
+                  like_count: Math.max(0, (c.like_count ?? 0) + (nextLiked ? -1 : 1)),
+                }
+              : c
+          )
+        );
+        return;
+      }
+      const body = await res.json();
+      setComments((prev) =>
+        prev.map((c) =>
+          c.id === comment.id ? { ...c, liked_by_me: body.liked, like_count: body.like_count } : c
+        )
+      );
+    } catch {
+      setError('Network error. Please try again.');
+      setComments((prev) =>
+        prev.map((c) =>
+          c.id === comment.id
+            ? {
+                ...c,
+                liked_by_me: !nextLiked,
+                like_count: Math.max(0, (c.like_count ?? 0) + (nextLiked ? -1 : 1)),
+              }
+            : c
+        )
+      );
+    } finally {
+      setLikeBusyId(null);
+    }
   };
 
   const pickEmoji = (emoji: string) => {
@@ -291,6 +471,7 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
   const CommentRow = ({ c, nested }: { c: CommunityComment; nested?: boolean }) => {
     const initial = (c.author_name || 'K').charAt(0).toUpperCase();
     const mine = !!user && c.user_id === user.id;
+    const isEditing = editingId === c.id;
     return (
       <div className={`flex gap-2.5 ${nested ? 'mt-2.5' : ''}`}>
         <div
@@ -304,8 +485,54 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
           <div className="flex items-baseline gap-1.5 flex-wrap">
             <span className="text-[12.5px] font-semibold text-white">{c.author_name || 'Keeva Member'}</span>
             <span className="text-[10.5px] text-slate-500 font-mono">{timeAgo(c.created_at)}</span>
+            {c.edited_at && (
+              <span className="text-[10.5px] text-slate-600 italic" title={new Date(c.edited_at).toLocaleString()}>
+                · edited
+              </span>
+            )}
           </div>
-          <CommentBody body={c.body} knownHandles={knownHandles} />
+          {isEditing ? (
+            <div className="mt-1.5 rounded-xl bg-slate-800/60 border border-cyan-500/40 px-2.5 py-1.5">
+              <AutosizeTextarea
+                inputRef={editInputRef}
+                maxHeight={192}
+                autoFocus
+                value={editDraft}
+                onChange={(e) => setEditDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    saveEdit(c);
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelEdit();
+                  }
+                }}
+                className="disabled:cursor-not-allowed"
+                maxLength={MAX_BODY}
+              />
+              <div className="flex items-center justify-end gap-1.5 mt-1">
+                <button
+                  onClick={cancelEdit}
+                  disabled={editBusy}
+                  className="px-2.5 py-1 rounded-lg text-[11.5px] text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => saveEdit(c)}
+                  disabled={editBusy || !editDraft.trim()}
+                  className="px-3 py-1 rounded-lg bg-cyan-500 text-slate-950 text-[11.5px] font-bold hover:bg-cyan-400 disabled:opacity-40 transition-colors flex items-center gap-1"
+                >
+                  {editBusy ? <LoadingCircle className="w-3 h-3" /> : null}
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : (
+            <CommentBody body={c.body} knownHandles={knownHandles} />
+          )}
           <div className="flex items-center gap-3 mt-1">
             {!nested && user && (
               <button
@@ -313,6 +540,28 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
                 className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-cyan-400 transition-colors"
               >
                 <CornerDownRight className="w-3 h-3" /> Reply
+              </button>
+            )}
+            {user && (
+              <button
+                onClick={() => handleCommentLike(c)}
+                disabled={likeBusyId === c.id}
+                aria-pressed={!!c.liked_by_me}
+                title={c.liked_by_me ? 'Unlike' : 'Like'}
+                className={`flex items-center gap-1 text-[11px] transition-colors disabled:opacity-60 ${
+                  c.liked_by_me ? 'text-rose-400' : 'text-slate-500 hover:text-rose-400'
+                }`}
+              >
+                <ThumbsUp className={`w-3 h-3 ${c.liked_by_me ? 'fill-rose-400' : ''}`} />
+                {(c.like_count ?? 0) > 0 ? c.like_count : 'Like'}
+              </button>
+            )}
+            {mine && !isEditing && (
+              <button
+                onClick={() => startEdit(c)}
+                className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-cyan-400 transition-colors"
+              >
+                <Pencil className="w-3 h-3" /> Edit
               </button>
             )}
             {mine && (
@@ -385,9 +634,9 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
             </div>
             <div className="flex-1 min-w-0 relative">
               <div className="rounded-xl bg-slate-800/60 border border-slate-700 px-2.5 py-1.5 focus-within:border-cyan-500/50 transition-colors">
-                <textarea
-                  ref={replyInputRef}
-                  rows={1}
+                <AutosizeTextarea
+                  inputRef={replyInputRef}
+                  maxHeight={192}
                   autoFocus
                   value={replyDraft}
                   onChange={(e) => {
@@ -412,7 +661,7 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
                     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReplySend(); }
                   }}
                   placeholder={`Reply to ${replyTo.author_name || 'this comment'}…`}
-                  className="w-full bg-transparent border-0 text-[13px] text-slate-200 placeholder-slate-600 focus:outline-none resize-none leading-relaxed max-h-24"
+                  className="disabled:cursor-not-allowed"
                   maxLength={MAX_BODY}
                 />
                 {showSuggestions && mentionState?.target === 'reply' && (
@@ -479,9 +728,9 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
 
         <div className="flex-1 min-w-0 relative">
           <div className="rounded-xl bg-slate-800/40 border border-slate-700/70 px-2.5 py-1.5 focus-within:border-cyan-500/50 transition-colors">
-            <textarea
-              ref={mainInputRef}
-              rows={1}
+            <AutosizeTextarea
+              inputRef={mainInputRef}
+              maxHeight={256}
               value={draft}
               onChange={(e) => {
                 setDraft(e.target.value);
@@ -506,7 +755,7 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
               }}
               disabled={!user}
               placeholder={user ? 'Add a comment… (@name to mention)' : 'Sign in to join the conversation'}
-              className="w-full bg-transparent border-0 text-[13px] text-slate-200 placeholder-slate-600 focus:outline-none resize-none leading-relaxed max-h-24 disabled:cursor-not-allowed"
+              className="disabled:cursor-not-allowed"
               maxLength={MAX_BODY}
             />
             {showSuggestions && mentionState?.target === 'main' && (

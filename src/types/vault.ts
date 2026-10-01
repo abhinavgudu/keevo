@@ -46,6 +46,10 @@ export interface ContentItem {
    */
   like_count?: number;
   liked_by_me?: boolean;
+  /** Per-reaction breakdown, e.g. { like: 3, love: 1 }. Empty when unknown. */
+  reaction_counts?: Record<string, number>;
+  /** The viewer's own reaction, or null when they have not reacted. */
+  my_reaction?: string | null;
   created_at: string;
   description?: string;
   tags?: string[];
@@ -85,6 +89,11 @@ export interface CommunityComment {
   /** Resolved @mention targets. Only present once the notifications migration has run. */
   mentions?: string[];
   created_at: string;
+  /** Set on the first edit; null means never edited. */
+  edited_at?: string | null;
+  /** Supplied by the thread fetch so a row can show its count without a request. */
+  like_count?: number;
+  liked_by_me?: boolean;
 }
 
 export interface ScrapedMetadata {

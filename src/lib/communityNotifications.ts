@@ -20,6 +20,7 @@ export type CommunityNotificationKind =
   | 'reply'
   | 'mention'
   | 'like'
+  | 'comment_like'
   | 'post_edited';
 
 export const COMMUNITY_NOTIFICATION_KINDS: CommunityNotificationKind[] = [
@@ -28,6 +29,7 @@ export const COMMUNITY_NOTIFICATION_KINDS: CommunityNotificationKind[] = [
   'reply',
   'mention',
   'like',
+  'comment_like',
   'post_edited',
 ];
 
@@ -124,6 +126,7 @@ const KIND_PRIORITY: Record<CommunityNotificationKind, number> = {
   mention: 3,
   reply: 2,
   comment: 1,
+  comment_like: 1,
   like: 0,
   post_edited: 0,
   new_post: 0,
@@ -350,6 +353,29 @@ export async function removeLikeNotification(params: {
     if (error) console.error('Failed to clear like notification:', error);
   } catch (err) {
     console.error('Failed to clear like notification:', err);
+  }
+}
+
+/**
+ * Same toggle contract for comment likes: unliking a comment takes back only
+ * the 'comment_like' row for that exact (actor, comment) pair. A reply or
+ * mention on the same comment is unrelated and must survive.
+ */
+export async function removeCommentLikeNotification(params: {
+  actorUserId: string;
+  commentId: string;
+}): Promise<void> {
+  try {
+    const { error } = await admin()
+      .from('community_notifications')
+      .delete()
+      .eq('actor_user_id', params.actorUserId)
+      .eq('comment_id', params.commentId)
+      .eq('kind', 'comment_like');
+
+    if (error) console.error('Failed to clear comment like notification:', error);
+  } catch (err) {
+    console.error('Failed to clear comment like notification:', err);
   }
 }
 

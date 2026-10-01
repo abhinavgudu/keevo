@@ -92,6 +92,10 @@ const KIND_COPY: Record<CommunityNotificationKind, { verb: string; fallback: str
     verb: 'liked your post',
     fallback: 'Tap to see your post on Keeva.',
   },
+  comment_like: {
+    verb: 'liked your comment',
+    fallback: 'Tap to see your comment on Keeva.',
+  },
   post_edited: {
     verb: 'edited a post you interacted with',
     fallback: 'Tap to see the latest version on Keeva.',

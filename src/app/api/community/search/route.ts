@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getAuthorMap, type CommunityAuthor } from '@/lib/authorProfiles';
+import { fetchCommunityLikeRows } from '@/lib/reactions';
 
 /**
  * Community search.
@@ -153,22 +154,26 @@ async function fetchEnrichedPublicItems(viewerId: string | null): Promise<Record
 
   const userProfiles = await getAuthorMap();
   const likeCounts: Record<string, number> = {};
-  const myLikes = new Set<string>();
-  const { data: likeRows } = await supabaseAdmin
-    .from('community_likes')
-    .select('item_id, user_id')
-    .in('item_id', visibleIds);
-  for (const row of likeRows || []) {
+  const reactionCounts: Record<string, Record<string, number>> = {};
+  const myReactions: Record<string, string> = {};
+  const likeRows = await fetchCommunityLikeRows(supabaseAdmin, visibleIds);
+  for (const row of likeRows) {
     const key = row.item_id as string;
+    const reaction =
+      typeof row.reaction === 'string' && row.reaction ? row.reaction : 'like';
     likeCounts[key] = (likeCounts[key] || 0) + 1;
-    if (viewerId && row.user_id === viewerId) myLikes.add(key);
+    reactionCounts[key] = reactionCounts[key] || {};
+    reactionCounts[key][reaction] = (reactionCounts[key][reaction] || 0) + 1;
+    if (viewerId && row.user_id === viewerId) myReactions[key] = reaction;
   }
 
   return itemsData.map((item) => ({
     ...item,
     comment_count: commentCounts[item.id as string] || 0,
     like_count: likeCounts[item.id as string] || 0,
-    liked_by_me: myLikes.has(item.id as string),
+    liked_by_me: (item.id as string) in myReactions,
+    reaction_counts: reactionCounts[item.id as string] || {},
+    my_reaction: myReactions[item.id as string] ?? null,
     shared_by: item.user_id && userProfiles[item.user_id]
       ? userProfiles[item.user_id]
       : {

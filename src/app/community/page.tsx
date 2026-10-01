@@ -9,6 +9,7 @@ import { EditCommunityPostModal } from '@/components/modals/EditCommunityPostMod
 import { CommunitySearch } from '@/components/community/CommunitySearch';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { FOCUS_POST_EVENT, readPostFocusFromUrl, type PostFocus } from '@/lib/communityDeepLink';
+import type { PostReaction } from '@/lib/reactions';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingCircle } from '@/components/LoadingCircle';
 import {
@@ -113,11 +114,11 @@ function CommunityFeed() {
     setIsPreviewOpen(true);
   };
 
-  // Social like. Returns the server's state so the card can settle on the truth,
-  // or null on failure so it rolls its optimistic update back.
-  const handleToggleLike = useCallback(async (id: string) => {
+  // Social reaction. Returns the server's state so the card can settle on the
+  // truth, or null on failure so it rolls its optimistic update back.
+  const handleToggleLike = useCallback(async (id: string, reaction?: PostReaction | null) => {
     if (!session?.access_token) {
-      showToast('error', 'Sign in to like posts.');
+      showToast('error', 'Sign in to react to posts.');
       return null;
     }
     try {
@@ -127,11 +128,13 @@ function CommunityFeed() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ item_id: id }),
+        body: JSON.stringify(
+          reaction === undefined ? { item_id: id } : { item_id: id, reaction }
+        ),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        showToast('error', body.error || 'Could not update like.');
+        showToast('error', body.error || 'Could not update reaction.');
         return null;
       }
       const body = await res.json();
@@ -140,11 +143,24 @@ function CommunityFeed() {
       // view, draws from the same values the card settled on.
       setItems((prev) =>
         prev.map((i) =>
-          i.id === id ? { ...i, liked_by_me: body.liked, like_count: body.like_count } : i
+          i.id === id
+            ? {
+                ...i,
+                liked_by_me: body.liked,
+                like_count: body.like_count,
+                my_reaction: body.my_reaction,
+                reaction_counts: body.reaction_counts,
+              }
+            : i
         )
       );
 
-      return { liked: body.liked, like_count: body.like_count };
+      return {
+        liked: body.liked,
+        like_count: body.like_count,
+        my_reaction: body.my_reaction ?? null,
+        reaction_counts: body.reaction_counts ?? {},
+      };
     } catch {
       showToast('error', 'Network error. Try again.');
       return null;

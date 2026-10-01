@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ContentItem } from '@/types/vault';
+import type { PostReaction } from '@/lib/reactions';
 import { CommunityCard } from '@/components/cards/CommunityCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingCircle } from '@/components/LoadingCircle';
@@ -112,7 +113,15 @@ export function CommunitySearch({
   active: boolean;
   onActiveChange: (active: boolean) => void;
   onOpenPreview: (item: ContentItem) => void;
-  onToggleFavorite: (id: string) => Promise<{ liked: boolean; like_count: number } | null>;
+  onToggleFavorite: (
+    id: string,
+    reaction?: PostReaction | null
+  ) => Promise<{
+    liked: boolean;
+    like_count: number;
+    my_reaction: PostReaction | null;
+    reaction_counts: Record<string, number>;
+  } | null>;
   onEdit: (item: ContentItem) => void;
   onRemove: (item: ContentItem) => void;
 }) {

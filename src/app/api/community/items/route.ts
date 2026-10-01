@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getAuthorMap } from '@/lib/authorProfiles';
+import { fetchCommunityLikeRows } from '@/lib/reactions';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -71,20 +72,22 @@ export async function GET(request: NextRequest) {
 
     // Like counts and "did I like this" for every visible post, in one query.
     // Same reasoning as the comment counts above: the card needs both numbers
-    // to draw its heart, and one request beats one request per card.
+    // to draw its reactions, and one request beats one request per card.
     const likeCounts: Record<string, number> = {};
-    const myLikes = new Set<string>();
+    const reactionCounts: Record<string, Record<string, number>> = {};
+    const myReactions: Record<string, string> = {};
     if (visibleIds.length > 0) {
-      const { data: likeRows } = await supabaseAdmin
-        .from('community_likes')
-        .select('item_id, user_id')
-        .in('item_id', visibleIds);
-      for (const row of likeRows || []) {
+      const likeRows = await fetchCommunityLikeRows(supabaseAdmin, visibleIds);
+      for (const row of likeRows) {
         const key = row.item_id as string;
+        const reaction =
+          typeof row.reaction === 'string' && row.reaction ? row.reaction : 'like';
         likeCounts[key] = (likeCounts[key] || 0) + 1;
+        reactionCounts[key] = reactionCounts[key] || {};
+        reactionCounts[key][reaction] = (reactionCounts[key][reaction] || 0) + 1;
         // Optional auth: the feed stays public, but a signed-in viewer also gets
-        // their own like state so the heart renders filled on first paint.
-        if (viewerId && row.user_id === viewerId) myLikes.add(key);
+        // their own reaction so the button renders correctly on first paint.
+        if (viewerId && row.user_id === viewerId) myReactions[key] = reaction;
       }
     }
 
@@ -92,7 +95,9 @@ export async function GET(request: NextRequest) {
       ...item,
       comment_count: commentCounts[item.id as string] || 0,
       like_count: likeCounts[item.id as string] || 0,
-      liked_by_me: myLikes.has(item.id as string),
+      liked_by_me: (item.id as string) in myReactions,
+      reaction_counts: reactionCounts[item.id as string] || {},
+      my_reaction: myReactions[item.id as string] ?? null,
       shared_by: item.user_id && userProfiles[item.user_id]
         ? userProfiles[item.user_id]
         : {

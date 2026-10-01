@@ -38,6 +38,7 @@ const KIND_ICON: Record<CommunityNotificationKind, React.ReactNode> = {
   reply: <CornerDownRight className="w-3.5 h-3.5 text-cyan-400" />,
   mention: <AtSign className="w-3.5 h-3.5 text-amber-400" />,
   like: <Heart className="w-3.5 h-3.5 text-rose-400" />,
+  comment_like: <Heart className="w-3.5 h-3.5 text-rose-400" />,
   post_edited: <PencilLine className="w-3.5 h-3.5 text-violet-400" />,
 };
 
@@ -47,6 +48,7 @@ const KIND_LABEL: Record<CommunityNotificationKind, string> = {
   reply: 'replied to your comment',
   mention: 'mentioned you in a comment',
   like: 'liked your post',
+  comment_like: 'liked your comment',
   post_edited: 'edited a post you engaged with',
 };
 

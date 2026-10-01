@@ -6,8 +6,17 @@ import { CommunityComments } from '@/components/comments/CommunityComments';
 import {
 ExternalLink, Heart, Eye, Sparkles, Clock, Camera, Video, Play,
   Globe, FileText, Expand, MoreHorizontal, BookOpen, Share2,
-  Pencil, EyeOff, MessageSquare, ChevronDown, ChevronUp
+  Pencil, EyeOff, MessageSquare, ChevronDown, ChevronUp,
+  ThumbsUp, PartyPopper, Handshake, Lightbulb, Laugh,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  POST_REACTIONS,
+  REACTION_LABEL,
+  REACTION_COLOR,
+  isPostReaction,
+  type PostReaction,
+} from '@/lib/reactions';
 
 function formatDate(dateString: string) {
   const date = new Date(dateString);
@@ -46,15 +55,36 @@ function getPriorityStyle(score: number, level: string) {
 
 const LONG_CAPTION = 190;
 
+/** Glyph per reaction, so the button, palette and stacked icons cannot drift. */
+const REACTION_GLYPH: Record<PostReaction, LucideIcon> = {
+  like: ThumbsUp,
+  celebrate: PartyPopper,
+  support: Handshake,
+  love: Heart,
+  insightful: Lightbulb,
+  funny: Laugh,
+};
+
 interface CommunityCardProps {
   item: ContentItem;
   onOpenPreview: (item: ContentItem) => void;
   /**
-   * Toggle this post's like. Must resolve to the server's authoritative state,
-   * or to null if the request failed, so the card can roll back its optimistic
-   * update instead of showing a like that was never saved.
+   * React to this post. `reaction` omitted means plain toggle (tap): remove
+   * the current reaction, or add a Like. A concrete reaction sets it, or
+   * removes it when it is already active. Must resolve to the server's
+   * authoritative state, or to null if the request failed, so the card can
+   * roll back its optimistic update instead of showing a reaction that was
+   * never saved.
    */
-  onToggleFavorite: (id: string) => Promise<{ liked: boolean; like_count: number } | null>;
+  onToggleFavorite: (
+    id: string,
+    reaction?: PostReaction | null
+  ) => Promise<{
+    liked: boolean;
+    like_count: number;
+    my_reaction: PostReaction | null;
+    reaction_counts: Record<string, number>;
+  } | null>;
   variant?: 'feed' | 'masonry';
   isOwner?: boolean;
   onEdit?: (item: ContentItem) => void;
@@ -141,13 +171,25 @@ export function CommunityCard({
     };
   }, [autoFocus, focusComposer, onAutoFocused]);
 
-  // Social like state, held locally so the heart reacts on the click rather than
-  // after a refetch.
-  const [liked, setLiked] = useState(!!item.liked_by_me);
+  // Social reaction state, held locally so a tap reacts on the click rather
+  // than after a refetch.
+  const initialReaction: PostReaction | null = isPostReaction(item.my_reaction)
+    ? item.my_reaction
+    : item.liked_by_me
+      ? 'like'
+      : null;
+  const [myReaction, setMyReaction] = useState<PostReaction | null>(initialReaction);
+  const [reactionCounts, setReactionCounts] = useState<Record<string, number>>(() => ({
+    ...(item.reaction_counts || {}),
+  }));
   const [likeCount, setLikeCount] = useState(item.like_count ?? 0);
   const [likePending, setLikePending] = useState(false);
-  const [lastLikeProps, setLastLikeProps] = useState({
-    liked: item.liked_by_me,
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const paletteRef = useRef<HTMLDivElement>(null);
+  const longPressTimer = useRef<number | null>(null);
+  const suppressTap = useRef(false);
+  const [lastReactionProps, setLastReactionProps] = useState({
+    reaction: item.my_reaction ?? null,
     count: item.like_count,
   });
 
@@ -157,53 +199,129 @@ export function CommunityCard({
   // which would cascade an extra render on every feed update. Guarding on the
   // previous prop values is what keeps a local optimistic update alive across
   // unrelated re-renders.
-  if (item.liked_by_me !== lastLikeProps.liked || item.like_count !== lastLikeProps.count) {
-    setLastLikeProps({ liked: item.liked_by_me, count: item.like_count });
-    setLiked(!!item.liked_by_me);
+  if (item.my_reaction !== lastReactionProps.reaction || item.like_count !== lastReactionProps.count) {
+    setLastReactionProps({ reaction: item.my_reaction ?? null, count: item.like_count });
+    setMyReaction(
+      isPostReaction(item.my_reaction) ? item.my_reaction : item.liked_by_me ? 'like' : null
+    );
+    setReactionCounts({ ...(item.reaction_counts || {}) });
     setLikeCount(item.like_count ?? 0);
   }
 
-  const handleLike = useCallback(async () => {
-    if (likePending) return;
-    const nextLiked = !liked;
-    // Optimistic, so a tap feels instant. A failed request resolves to null from
-    // the parent and both values are rolled back below.
-    setLiked(nextLiked);
-    setLikeCount((n) => Math.max(0, n + (nextLiked ? 1 : -1)));
-    setLikePending(true);
-    try {
-      const result = await onToggleFavorite(item.id);
-      if (result) {
-        setLiked(result.liked);
-        setLikeCount(result.like_count);
-      } else {
-        setLiked(!nextLiked);
-        setLikeCount((n) => Math.max(0, n + (nextLiked ? -1 : 1)));
-      }
-    } catch {
-      setLiked(!nextLiked);
-      setLikeCount((n) => Math.max(0, n + (nextLiked ? -1 : 1)));
-    } finally {
-      setLikePending(false);
+  const applyReactionUpdate = useCallback(
+    (result: {
+      liked: boolean;
+      like_count: number;
+      my_reaction: PostReaction | null;
+      reaction_counts: Record<string, number>;
+    } | null,
+    fallback: { reaction: PostReaction | null; counts: Record<string, number>; count: number }
+  ) => {
+    if (result) {
+      setMyReaction(result.my_reaction);
+      setReactionCounts({ ...result.reaction_counts });
+      setLikeCount(result.like_count);
+    } else {
+      setMyReaction(fallback.reaction);
+      setReactionCounts({ ...fallback.counts });
+      setLikeCount(fallback.count);
     }
-  }, [likePending, liked, item.id, onToggleFavorite]);
+  },
+    []
+  );
+
+  const sendReaction = useCallback(
+    async (reaction: PostReaction | null | undefined) => {
+      if (likePending) return;
+      // Optimistic, so a tap feels instant. A failed request resolves to null
+      // from the parent and everything below rolls back.
+      const prevReaction = myReaction;
+      const prevCounts = { ...reactionCounts };
+      const prevCount = likeCount;
+
+      const nextReaction =
+        reaction === undefined ? (myReaction ? null : 'like') : reaction;
+      const nextCounts = { ...reactionCounts };
+      if (prevReaction) nextCounts[prevReaction] = Math.max(0, (nextCounts[prevReaction] ?? 0) - 1);
+      if (nextReaction) nextCounts[nextReaction] = (nextCounts[nextReaction] ?? 0) + 1;
+      const nextCount = Math.max(0, likeCount + (nextReaction ? (prevReaction ? 0 : 1) : -1));
+
+      setMyReaction(nextReaction);
+      setReactionCounts(nextCounts);
+      setLikeCount(nextCount);
+      setLikePending(true);
+      try {
+        const result = await onToggleFavorite(item.id, reaction);
+        applyReactionUpdate(result, { reaction: prevReaction, counts: prevCounts, count: prevCount });
+      } catch {
+        applyReactionUpdate(null, { reaction: prevReaction, counts: prevCounts, count: prevCount });
+      } finally {
+        setLikePending(false);
+      }
+    },
+    [likePending, myReaction, reactionCounts, likeCount, item.id, onToggleFavorite, applyReactionUpdate]
+  );
+
+  // Tap the main button: plain toggle, unless the long-press palette is open,
+  // in which case the tap only dismisses it.
+  const handleMainReact = useCallback(() => {
+    if (suppressTap.current) {
+      suppressTap.current = false;
+      return;
+    }
+    if (paletteOpen) {
+      setPaletteOpen(false);
+      return;
+    }
+    sendReaction(undefined);
+  }, [paletteOpen, sendReaction]);
+
+  // Long-press (touch) opens the palette; a short tap must not then also fire
+  // the toggle, so the press marks the following click as consumed.
+  const handleTouchStart = useCallback(() => {
+    suppressTap.current = false;
+    if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
+    longPressTimer.current = window.setTimeout(() => {
+      suppressTap.current = true;
+      setPaletteOpen(true);
+    }, 450);
+  }, []);
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimer.current) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
+    };
+  }, []);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const handleCountChange = useCallback((n: number) => setCommentCount(n), []);
 
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!menuOpen && !paletteOpen) return;
     const onDocClick = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (paletteRef.current && !paletteRef.current.contains(e.target as Node)) setPaletteOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMenuOpen(false);
+        setPaletteOpen(false);
+      }
+    };
     document.addEventListener('mousedown', onDocClick);
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('mousedown', onDocClick);
       document.removeEventListener('keydown', onKey);
     };
-  }, [menuOpen]);
+  }, [menuOpen, paletteOpen]);
 
   const sharedBy = item.shared_by;
   const authorName = sharedBy
@@ -435,20 +553,96 @@ const caption = item.community_caption || '';
   );
 
   // ── Action bar ─────────────────────────────────────────────────────
+  const topReactions = POST_REACTIONS.filter((r) => (reactionCounts[r] ?? 0) > 0)
+    .sort((a, b) => (reactionCounts[b] ?? 0) - (reactionCounts[a] ?? 0))
+    .slice(0, 3);
+  const ActiveGlyph = myReaction ? REACTION_GLYPH[myReaction] : ThumbsUp;
+
   const actions = (
     <div className={`flex items-center justify-between text-[11px] text-slate-500 ${isFeed ? 'font-mono' : ''}`}>
       <div className="flex items-center gap-3">
-        <button
-          onClick={handleLike}
-          disabled={likePending}
-          aria-pressed={liked}
-          title={liked ? 'Unlike' : 'Like'}
-          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-rose-400 transition-colors group/fav disabled:opacity-60 disabled:cursor-wait"
+        <div
+          ref={paletteRef}
+          className="relative"
+          // Hover opens the palette on desktop only. On touch screens a tap
+          // synthesises mouseenter before click, which would open the palette
+          // and swallow the tap — so touch uses long-press instead (below).
+          onMouseEnter={() => {
+            if (typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches) {
+              setPaletteOpen(true);
+            }
+          }}
+          onMouseLeave={() => setPaletteOpen(false)}
         >
-          <Heart className={`w-4 h-4 transition-colors ${liked ? 'text-rose-500 fill-rose-500' : 'group-hover/fav:text-rose-400'}`} />
-          <span className="font-mono text-[11px]">{liked ? 'Liked' : 'Like'}</span>
-          {likeCount > 0 && <span className="font-mono text-[11px] text-slate-500">{likeCount}</span>}
-        </button>
+          {paletteOpen && (
+            <div className="absolute bottom-full left-0 mb-2 z-50 flex items-end gap-0.5 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl shadow-black/60 px-1.5 py-1.5">
+              {POST_REACTIONS.map((r) => {
+                const Glyph = REACTION_GLYPH[r];
+                const active = myReaction === r;
+                return (
+                  <button
+                    key={r}
+                    onClick={() => {
+                      setPaletteOpen(false);
+                      sendReaction(r);
+                    }}
+                    title={REACTION_LABEL[r]}
+                    aria-pressed={active}
+                    className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition-all hover:-translate-y-0.5 hover:bg-slate-800 ${
+                      active ? 'bg-slate-800 ring-1 ring-slate-700' : ''
+                    }`}
+                  >
+                    <Glyph
+                      className={`w-5 h-5 ${REACTION_COLOR[r]} ${active ? 'fill-current' : ''}`}
+                    />
+                    <span className="text-[9px] font-semibold text-slate-400">
+                      {REACTION_LABEL[r]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleMainReact}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={cancelLongPress}
+              onTouchMove={cancelLongPress}
+              disabled={likePending}
+              aria-pressed={!!myReaction}
+              title={myReaction ? REACTION_LABEL[myReaction] : 'Like'}
+              className={`flex items-center gap-1.5 text-xs transition-colors group/fav disabled:opacity-60 disabled:cursor-wait ${
+                myReaction ? REACTION_COLOR[myReaction] : 'text-slate-400 hover:text-sky-400'
+              }`}
+            >
+              <ActiveGlyph
+                className={`w-4 h-4 transition-colors ${myReaction ? 'fill-current' : 'group-hover/fav:text-sky-400'}`}
+              />
+              <span className="font-mono text-[11px]">
+                {myReaction ? REACTION_LABEL[myReaction] : 'Like'}
+              </span>
+            </button>
+            {likeCount > 0 && (
+              <span className="flex items-center" title={`${likeCount} reactions`}>
+                <span className="flex -space-x-1">
+                  {topReactions.map((r) => {
+                    const Glyph = REACTION_GLYPH[r];
+                    return (
+                      <span
+                        key={r}
+                        className="w-4 h-4 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center"
+                      >
+                        <Glyph className={`w-2.5 h-2.5 ${REACTION_COLOR[r]} fill-current`} />
+                      </span>
+                    );
+                  })}
+                </span>
+                <span className="font-mono text-[11px] text-slate-500 ml-1">{likeCount}</span>
+              </span>
+            )}
+          </div>
+        </div>
         <span className="flex items-center gap-1 font-mono">
           <Eye className="w-3.5 h-3.5 text-cyan-400/70" />
           {item.access_count}

@@ -57,5 +57,6 @@ CREATE POLICY "Users delete own community comments"
   TO authenticated
   USING (auth.uid() = user_id);
 
--- Comments are immutable once written — there is no UPDATE policy. Edits are
--- delete-and-repost, which keeps the audit trail honest.
+-- Edits live in community-comments-edit-migration.sql: an UPDATE policy scoped
+-- to your own rows plus an edited_at stamp. Kept separate so databases that
+-- already ran this file pick the edit up by running that one file.

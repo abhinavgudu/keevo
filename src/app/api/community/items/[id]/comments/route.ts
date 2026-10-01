@@ -66,12 +66,54 @@ export async function GET(
     const { data, error } = await admin
       .from('community_comments')
       .select('*')
-      .eq('item_id', id)
+      .eq('id', id)
       .order('created_at', { ascending: true });
 
     if (error) throw error;
 
-    return NextResponse.json({ comments: data || [] });
+    const rows = data || [];
+
+    // Like counts and "did I like this" for every comment in the thread, in
+    // two batched queries. The viewer is optional: the thread stays public,
+    // but a signed-in viewer also gets their own like state so rows render
+    // filled on first paint. A thread on a database that has not run the
+    // comment-likes migration gets zeros rather than a 500.
+    let viewerId: string | null = null;
+    const token = getBearer(request);
+    if (token) {
+      const resolved = await resolveUser(token);
+      viewerId = resolved?.user.id ?? null;
+    }
+
+    const likeCounts: Record<string, number> = {};
+    const myLikes = new Set<string>();
+    if (rows.length) {
+      try {
+        const { data: likeRows, error: likeError } = await admin
+          .from('community_comment_likes')
+          .select('comment_id, user_id')
+          .in(
+            'comment_id',
+            rows.map((row) => row.id as string)
+          );
+        if (likeError) throw likeError;
+        for (const row of likeRows || []) {
+          const key = row.comment_id as string;
+          likeCounts[key] = (likeCounts[key] || 0) + 1;
+          if (viewerId && row.user_id === viewerId) myLikes.add(key);
+        }
+      } catch (err) {
+        console.error('Comment likes unavailable, rendering zeros:', err);
+      }
+    }
+
+    return NextResponse.json({
+      comments: rows.map((row) => ({
+        ...row,
+        like_count: likeCounts[row.id as string] || 0,
+        liked_by_me: myLikes.has(row.id as string),
+      })),
+    });
   } catch (err) {
     const error = err as Error;
     console.error('Error listing comments:', error);

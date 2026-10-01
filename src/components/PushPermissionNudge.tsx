@@ -18,6 +18,9 @@ const SNOOZE_MS = 15 * 60 * 1000;
 export function PushPermissionNudge() {
   const { state, busy, enable, refresh } = usePushNotifications();
   const [snoozed, setSnoozed] = useState(false);
+  const [isAndroid] = useState(
+    () => typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
+  );
   const snoozeTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -44,6 +47,33 @@ export function PushPermissionNudge() {
       document.removeEventListener('visibilitychange', handleVisible);
       window.removeEventListener('focus', handleVisible);
       window.removeEventListener('appinstalled', handleInstalled);
+    };
+  }, [refresh]);
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('permissions' in navigator)) return;
+
+    let status: PermissionStatus | null = null;
+    let cancelled = false;
+
+    navigator.permissions
+      .query({ name: 'notifications' })
+      .then((next) => {
+        if (cancelled) return;
+        status = next;
+        // If the user fixes the block in Chrome while Keeva is open, hide this
+        // card immediately instead of waiting for them to tap Check again.
+        status.onchange = () => refresh().catch(() => undefined);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+      try {
+        if (status) status.onchange = null;
+      } catch {
+        // Listener cleanup must never break unmount.
+      }
     };
   }, [refresh]);
 
@@ -85,10 +115,12 @@ export function PushPermissionNudge() {
             </h2>
             <p className="mt-1 text-xs leading-relaxed text-slate-300">
               {blocked
-                ? 'Notifications are blocked for Keeva on this device. Open Chrome site settings, or Android Settings > Apps > Chrome > Notifications, set notifications to Allow, then tap Check again.'
+                ? isAndroid
+                  ? 'Notifications are blocked for this site, so one tap cannot reopen Chrome’s permission box. Easiest fix: open Keeva in a Chrome tab, tap the tune icon beside the address bar, choose Permissions > Notifications > Allow, then come back here. If Chrome is showing its own Keeva helper, use Open in Chrome browser first. This box will disappear by itself.'
+                  : 'Notifications are blocked for this site, so one tap cannot reopen the browser permission box. Open the site information or site settings for Keeva, set Notifications to Allow, then come back here.'
                 : state === 'granted-unsubscribed'
-                  ? 'Permission is granted. Tap once below to finish registering this device for reminders and community alerts.'
-                  : 'Keeva can remind you to post and alert you about comments, replies, mentions, and likes. This reminder stays until alerts are turned on.'}
+                  ? 'Permission is already granted. Tap Finish setup once to register this device for reminders and community alerts.'
+                  : 'Tap Turn on alerts once. Chrome will ask for Allow; after that, this popup goes away.'}
             </p>
           </div>
         </div>
@@ -107,7 +139,13 @@ export function PushPermissionNudge() {
             disabled={busy}
             className="flex-[2] rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 px-3 py-2.5 text-xs font-bold text-white shadow-lg shadow-orange-500/30 transition-all active:scale-95 disabled:opacity-60"
           >
-            {busy ? 'Working…' : blocked ? 'Check again' : 'Turn on alerts'}
+            {busy
+              ? 'Working…'
+              : blocked
+                ? 'Check again'
+                : state === 'granted-unsubscribed'
+                  ? 'Finish setup'
+                  : 'Turn on alerts'}
           </button>
         </div>
       </div>

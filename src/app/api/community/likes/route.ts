@@ -5,6 +5,7 @@ import {
   removeLikeNotification,
 } from '@/lib/communityNotifications';
 import { authDisplayName } from '@/lib/authorProfiles';
+import { emptyReactionCounts, isPostReaction, type PostReaction } from '@/lib/reactions';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -47,11 +48,13 @@ export async function POST(request: NextRequest) {
     }
     const { user, client } = resolved;
 
-    const body = (await request.json().catch(() => ({}))) as { item_id?: string };
+    const body = (await request.json().catch(() => ({}))) as { item_id?: string; reaction?: string };
     const itemId = (body.item_id || '').trim();
     if (!itemId) {
       return NextResponse.json({ error: 'item_id is required' }, { status: 400 });
     }
+    // Unknown reactions fall back to a plain Like rather than failing the tap.
+    const reaction: PostReaction = isPostReaction(body.reaction) ? body.reaction : 'like';
 
     // A post that is not in the community cannot be liked, even if its id is
     // known. Without this, any signed-in user could like someone's private
@@ -70,13 +73,18 @@ export async function POST(request: NextRequest) {
     // can only ever see a like that genuinely belongs to the caller.
     const { data: existing } = await client
       .from('community_likes')
-      .select('id')
+      .select('id, reaction')
       .eq('item_id', itemId)
       .eq('user_id', user.id)
       .maybeSingle();
 
+    // One reaction per member per post. Tapping the active reaction removes it;
+    // picking another one switches the row in place. A switch keeps the
+    // existing 'like' notification — the owner was already pinged that this
+    // person reacted, and a second ping for Love-after-Like would be noise.
     let liked: boolean;
-    if (existing) {
+    let myReaction: PostReaction | null;
+    if (existing && (existing.reaction as string) === reaction) {
       const { error } = await client
         .from('community_likes')
         .delete()
@@ -85,16 +93,36 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
       liked = false;
+      myReaction = null;
+    } else if (existing) {
+      const { error } = await client
+        .from('community_likes')
+        .update({ reaction })
+        .eq('id', existing.id);
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      liked = true;
+      myReaction = reaction;
     } else {
       // A duplicate submit can race past the check above. The UNIQUE constraint
       // turns that into a harmless no-op instead of a 500 for the user.
       const { error } = await client
         .from('community_likes')
-        .insert({ item_id: itemId, user_id: user.id });
+        .insert({ item_id: itemId, user_id: user.id, reaction });
       if (error && error.code !== '23505') {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        // The reactions column only exists after its migration. A missing
+        // column is a deployment gap, not a user error worth a bare 500.
+        const missing =
+          error.code === '42703' ||
+          (typeof error.message === 'string' && error.message.includes('reaction'));
+        return NextResponse.json(
+          { error: missing ? 'Reactions are not set up yet' : error.message },
+          { status: missing ? 503 : 500 }
+        );
       }
       liked = true;
+      myReaction = reaction;
     }
 
     // The like is a toggle, so the notification has to be a toggle too: liking
@@ -118,12 +146,28 @@ export async function POST(request: NextRequest) {
 
     // Counted through admin so a post with zero likes still returns 0 instead of
     // a missing field, which the card would otherwise have to special-case.
-    const { count } = await admin
+    // The per-reaction breakdown rides along in the same query so the card can
+    // draw its stacked icons without a second request.
+    const { data: rows } = await admin
       .from('community_likes')
-      .select('id', { count: 'exact', head: true })
+      .select('reaction')
       .eq('item_id', itemId);
 
-    return NextResponse.json({ item_id: itemId, liked, like_count: count ?? 0 });
+    const reactionCounts = emptyReactionCounts();
+    for (const row of rows || []) {
+      const key = row.reaction as string;
+      if (isPostReaction(key)) reactionCounts[key] += 1;
+      else reactionCounts.like += 1;
+    }
+    const likeCount = Object.values(reactionCounts).reduce((n, v) => n + v, 0);
+
+    return NextResponse.json({
+      item_id: itemId,
+      liked,
+      like_count: likeCount,
+      my_reaction: myReaction,
+      reaction_counts: reactionCounts,
+    });
   } catch (err) {
     const error = err as Error;
     console.error('Error toggling like:', error);
