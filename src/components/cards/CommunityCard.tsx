@@ -186,8 +186,6 @@ export function CommunityCard({
   const [likePending, setLikePending] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const paletteRef = useRef<HTMLDivElement>(null);
-  const longPressTimer = useRef<number | null>(null);
-  const suppressTap = useRef(false);
   const [lastReactionProps, setLastReactionProps] = useState({
     reaction: item.my_reaction ?? null,
     count: item.like_count,
@@ -262,42 +260,11 @@ export function CommunityCard({
     [likePending, myReaction, reactionCounts, likeCount, item.id, onToggleFavorite, applyReactionUpdate]
   );
 
-  // Tap the main button: plain toggle, unless the long-press palette is open,
-  // in which case the tap only dismisses it.
+  // Tap the main button: opens/closes the palette, nothing else. Picking the
+  // active reaction inside the palette removes it, so un-reacting is
+  // open-then-tap instead of a toggle.
   const handleMainReact = useCallback(() => {
-    if (suppressTap.current) {
-      suppressTap.current = false;
-      return;
-    }
-    if (paletteOpen) {
-      setPaletteOpen(false);
-      return;
-    }
-    sendReaction(undefined);
-  }, [paletteOpen, sendReaction]);
-
-  // Long-press (touch) opens the palette; a short tap must not then also fire
-  // the toggle, so the press marks the following click as consumed.
-  const handleTouchStart = useCallback(() => {
-    suppressTap.current = false;
-    if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
-    longPressTimer.current = window.setTimeout(() => {
-      suppressTap.current = true;
-      setPaletteOpen(true);
-    }, 450);
-  }, []);
-
-  const cancelLongPress = useCallback(() => {
-    if (longPressTimer.current) {
-      window.clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
-    };
+    setPaletteOpen((o) => !o);
   }, []);
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -564,15 +531,6 @@ const caption = item.community_caption || '';
         <div
           ref={paletteRef}
           className="relative"
-          // Hover opens the palette on desktop only. On touch screens a tap
-          // synthesises mouseenter before click, which would open the palette
-          // and swallow the tap — so touch uses long-press instead (below).
-          onMouseEnter={() => {
-            if (typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches) {
-              setPaletteOpen(true);
-            }
-          }}
-          onMouseLeave={() => setPaletteOpen(false)}
         >
           {paletteOpen && (
             <div className="absolute bottom-full left-0 mb-2 z-50 flex items-end gap-0.5 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl shadow-black/60 px-1.5 py-1.5">
@@ -606,11 +564,9 @@ const caption = item.community_caption || '';
           <div className="flex items-center gap-1.5">
             <button
               onClick={handleMainReact}
-              onTouchStart={handleTouchStart}
-              onTouchEnd={cancelLongPress}
-              onTouchMove={cancelLongPress}
               disabled={likePending}
               aria-pressed={!!myReaction}
+              aria-expanded={paletteOpen}
               title={myReaction ? REACTION_LABEL[myReaction] : 'Like'}
               className={`flex items-center gap-1.5 text-xs transition-colors group/fav disabled:opacity-60 disabled:cursor-wait ${
                 myReaction ? REACTION_COLOR[myReaction] : 'text-slate-400 hover:text-sky-400'

@@ -4,14 +4,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Download, X, Sparkles, Smartphone, Check, Share, MoreVertical, Plus, Monitor } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { KeevaMark } from '@/components/KeevaMark';
+import { LS_INSTALLED, LS_MANUAL_UNTIL, isAppInstalled, isStandaloneMode } from '@/lib/pwaInstallState';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 }
-
-const LS_INSTALLED = 'keeva_pwa_installed';
-const LS_MANUAL_UNTIL = 'keeva_pwa_confirmed_until';
 
 /** First ask waits long enough for the dashboard to paint first. */
 const FIRST_SHOW_DELAY = 2500;
@@ -34,27 +32,6 @@ const REASK_DELAYS = [45_000, 90_000, 180_000, 300_000];
  * would be a silent dead end if they tapped it by mistake.
  */
 const CONFIRM_SUPPRESS_MS = 7 * 24 * 60 * 60 * 1000;
-
-function isStandaloneMode(): boolean {
-  if (typeof window === 'undefined') return false;
-  const mm = window.matchMedia.bind(window);
-  return (
-    mm('(display-mode: standalone)').matches ||
-    mm('(display-mode: fullscreen)').matches ||
-    mm('(display-mode: minimal-ui)').matches ||
-    (window.navigator as unknown as { standalone?: boolean }).standalone === true
-  );
-}
-
-/** Whether this profile ever installed the app (both event-based and manual). */
-function lsInstalled(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return localStorage.getItem(LS_INSTALLED) === 'true';
-  } catch {
-    return false;
-  }
-}
 
 type Platform = 'ios' | 'android' | 'safari' | 'desktop' | 'firefox';
 
@@ -108,7 +85,7 @@ export function PwaInstallPrompt() {
   // Lazy initialisers keep the first detection out of an effect, so nothing
   // sets state synchronously on mount.
   const [platform] = useState<Platform>(() => detectPlatform());
-  const [installed, setInstalled] = useState<boolean>(() => isStandaloneMode() || lsInstalled());
+  const [installed, setInstalled] = useState<boolean>(() => isAppInstalled());
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 

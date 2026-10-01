@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BellRing } from 'lucide-react';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { isAppInstalled } from '@/lib/pwaInstallState';
 
 const SNOOZE_MS = 15 * 60 * 1000;
 
@@ -18,6 +19,11 @@ const SNOOZE_MS = 15 * 60 * 1000;
 export function PushPermissionNudge() {
   const { state, busy, enable, refresh } = usePushNotifications();
   const [snoozed, setSnoozed] = useState(false);
+  // Install first, notification second. The install popup owns the top of the
+  // funnel, so this nudge stays hidden until the app is actually installed —
+  // asking for alerts inside a browser tab the user may never return to is
+  // how permissions end up denied on sight.
+  const [installed, setInstalled] = useState(() => isAppInstalled());
   const [isAndroid] = useState(
     () => typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
   );
@@ -36,9 +42,17 @@ export function PushPermissionNudge() {
     refresh().catch(() => undefined);
 
     const handleVisible = () => {
-      if (document.visibilityState === 'visible') refresh().catch(() => undefined);
+      if (document.visibilityState === 'visible') {
+        setInstalled(isAppInstalled());
+        refresh().catch(() => undefined);
+      }
     };
-    const handleInstalled = () => refresh().catch(() => undefined);
+    const handleInstalled = () => {
+      // The moment the install lands, this nudge takes over from the install
+      // popup as the next thing the user sees.
+      setInstalled(true);
+      refresh().catch(() => undefined);
+    };
 
     document.addEventListener('visibilitychange', handleVisible);
     window.addEventListener('focus', handleVisible);
@@ -90,7 +104,7 @@ export function PushPermissionNudge() {
 
   const eligible =
     state === 'default' || state === 'granted-unsubscribed' || state === 'denied';
-  if (!eligible || snoozed) return null;
+  if (!installed || !eligible || snoozed) return null;
 
   const blocked = state === 'denied';
 
