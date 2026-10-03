@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Send, Loader2, CornerUpLeft, X } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, CornerUpLeft, X, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getSupabaseClient } from '@/lib/supabase';
 import {
@@ -321,11 +321,20 @@ useEffect(() => {
 
       setMessages((prev) => prev.map((m) => (m.id === clientId ? body.message : m)));
       onSent?.();
-    } catch {
+    } catch (err) {
+      // A thrown fetch is a transport failure, not a rejection by the server.
+      // Naming which one matters: "Network error" for both meant a dropped
+      // connection and a blocked request were indistinguishable, and the second
+      // one is fixed by signing in again while the first is not.
+      const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+      setError(
+        offline
+          ? 'You are offline. Your message was not sent — it is still in the box.'
+          : `Could not reach the server${(err as Error)?.message ? ` (${(err as Error).message})` : ''}. Your message is still in the box.`
+      );
       setDraft((prev) => (prev ? `${text}\n${prev}` : text));
       setMessages((prev) => prev.filter((m) => m.id !== clientId));
       if (quote) setReplyTo(quoteTarget);
-      setError('Network error. Your message was not sent.');
     } finally {
       setSending(false);
     }
@@ -447,8 +456,15 @@ useEffect(() => {
         )}
       </div>
 
-      {error && messages.length > 0 && (
-        <p className="px-4 pb-2 text-[11px] text-rose-300">{error}</p>
+      {/* Shown whether or not any message has loaded. Gating this on
+          messages.length > 0 hid the one failure a new conversation hits first:
+          sending its very first message. A send that fails silently in an empty
+          thread looks exactly like a send button that does nothing. */}
+      {error && (
+        <p className="px-4 pb-2 text-[11.5px] text-rose-300 flex items-start gap-2">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" />
+          <span>{error}</span>
+        </p>
       )}
 
       {/* Composer */}
@@ -560,15 +576,27 @@ export function MessageButton({
 
   return (
     <>
-      <button
-        onClick={open}
-        disabled={opening}
-        title={error || `Message ${peerName}`}
-        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 hover:border-cyan-500/40 transition-all active:scale-95 disabled:opacity-60 ${className}`}
-      >
-        {opening ? <LoadingCircle className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
-        Message
-      </button>
+      {/* The button and its error are one unit. The error used to live only in
+          the button's title attribute — an invisible tooltip — so any failure
+          here presented as a button that does nothing when pressed. */}
+      <div className="inline-flex flex-col gap-1.5">
+        <button
+          onClick={open}
+          disabled={opening}
+          aria-label={`Message ${peerName}`}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 hover:border-cyan-500/40 transition-all active:scale-95 disabled:opacity-60 ${className}`}
+        >
+          {opening ? <LoadingCircle className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
+          {opening ? 'Opening…' : 'Message'}
+        </button>
+
+        {error && (
+          <p className="flex items-start gap-1.5 text-[11px] text-rose-300 max-w-[16rem]">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" />
+            <span>{error}</span>
+          </p>
+        )}
+      </div>
 
       {thread && (
         <MessageThread
