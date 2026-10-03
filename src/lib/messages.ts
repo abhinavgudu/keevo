@@ -55,7 +55,39 @@ export interface DmMessage {
    * private text is never duplicated into a second row.
    */
   reply_to_id?: string | null;
+  /**
+ * Set instead of deleting the row, within this window of created_at. A NULL
+ * means a live message; a set value is a tombstone, and the row keeps existing so
+ * replies pointing at it still have something to name.
+ */
+  deleted_at?: string | null;
   created_at: string;
+}
+
+/** How long after sending a message it can still be deleted for everyone. */
+export const DELETE_WINDOW_MS = 15 * 60 * 1000;
+
+/** What a tombstone renders as, rather than as an empty bubble. */
+export const DELETED_PLACEHOLDER = 'This message was deleted';
+
+/**
+ * Whether a message can still be deleted by its sender.
+ *
+ * `now` is injectable so this is testable at a fixed instant rather than only
+ * "right now", which is the only condition that ever actually matters.
+ */
+export function canDeleteMessage(
+  message: { sender_id: string; created_at: string; deleted_at?: string | null },
+  viewerId: string,
+  now: number = Date.now()
+): boolean {
+  // Only the author may delete. Letting either party remove a line would turn the
+  // conversation into something one person can rewrite.
+  if (message.sender_id !== viewerId) return false;
+  if (message.deleted_at) return false;
+  const sentAt = new Date(message.created_at).getTime();
+  if (Number.isNaN(sentAt)) return false;
+  return now - sentAt <= DELETE_WINDOW_MS;
 }
 
 /** A thread plus the other person's public profile, as the inbox renders it. */
@@ -254,9 +286,16 @@ export function resolveQuotes<T extends {
     // replies to carries its client_id as its own id, so the client can build
     // one locally. Skipped here rather than rendered as a message quoting itself.
     if (m.reply_to_id === m.id) continue;
+    // A quote whose target has since been deleted resolves to the tombstone
+    // text, not to nothing — "Deleted message" tells the reader the reply did
+    // answer something, which an absent quote does not.
     const target = byId.get(m.reply_to_id);
     if (!target) continue;
-    quotes.set(m.id, { body: quoteOf(target.body), sender_id: target.sender_id });
+    const isDeleted = Boolean((target as { deleted_at?: string | null }).deleted_at);
+    quotes.set(m.id, {
+      body: isDeleted ? 'Deleted message' : quoteOf(target.body),
+      sender_id: target.sender_id,
+    });
   }
 
   return quotes;

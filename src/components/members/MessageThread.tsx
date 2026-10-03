@@ -1,14 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Send, Loader2, CornerUpLeft, X, AlertCircle, CheckCheck, Copy, Search } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, CornerUpLeft, X, AlertCircle, CheckCheck, Copy, Search, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getSupabaseClient } from '@/lib/supabase';
 import {
   ACTIVE_HEARTBEAT_MS,
   ACTIVE_WINDOW_MS,
+  DELETED_PLACEHOLDER,
   MAX_MESSAGE_LENGTH,
   TYPING_THROTTLE_MS,
+  canDeleteMessage,
   isActiveAt,
   quoteOf,
   resolveQuotes,
@@ -16,7 +18,7 @@ import {
   type DmThread,
 } from '@/lib/messages';
 import { LoadingCircle } from '@/components/LoadingCircle';
-import { notify } from '@/lib/notices';
+import { describeSendFailure, notify } from '@/lib/notices';
 
 /**
  * One 1:1 conversation.
@@ -521,6 +523,50 @@ useEffect(() => {
 
   const myId = session?.user?.id;
 
+  /**
+   * Delete a message for everyone.
+   *
+   * Confirming first is not politeness, it is the whole point: this removes a
+   * line from the other person's copy too, so an accidental click would erase
+   * something they may have already read. The optimistic tombstone is applied
+   * locally so the bubble reacts immediately; a refusal puts the text back,
+   * because a deleted-looking message that is still there is worse than a delay.
+   */
+  const requestDelete = async (messageId: string, body: string) => {
+    if (!token) return;
+    const ok = window.confirm('Delete this message for both of you?');
+    if (!ok) return;
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId
+          ? { ...m, deleted_at: new Date().toISOString(), body: DELETED_PLACEHOLDER }
+          : m
+      )
+    );
+
+    try {
+      const res = await fetch(`/api/community/messages/message/${messageId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, deleted_at: null, body } : m))
+        );
+        notify(payload.error || "Couldn't delete that message.");
+        return;
+      }
+      notify('Message deleted for everyone');
+    } catch (err) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, deleted_at: null, body } : m))
+      );
+      notify(describeSendFailure(err, 'Deleting that message'));
+    }
+  };
+
   // Quotes are resolved from the thread already in memory. Recomputed whenever
   // the list changes, which also covers a message arriving over Realtime.
   const quotes = resolveQuotes(messages);
@@ -748,6 +794,19 @@ useEffect(() => {
                     >
                       <Copy className="w-3.5 h-3.5" />
                     </button>
+                    {/* Delete for everyone, inside the window. Shown only when the
+                        server would actually allow it, so the control never
+                        appears for something that is going to be refused. */}
+                    {!m.deleted_at && canDeleteMessage(m, myId ?? '') && (
+                      <button
+                        onClick={() => requestDelete(m.id, m.body)}
+                        aria-label="Delete message for everyone"
+                        title="Delete for everyone"
+                        className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
 
                     <div
                       className={`max-w-[80%] sm:max-w-[70%] px-3.5 py-2 rounded-2xl text-[13px] leading-relaxed break-words ${
@@ -777,7 +836,9 @@ useEffect(() => {
                         </div>
                       )}
 
-                      <span className="whitespace-pre-wrap">{m.body}</span>
+                      <span className={`whitespace-pre-wrap ${m.deleted_at ? 'italic opacity-70' : ''}`}>
+                        {m.deleted_at ? DELETED_PLACEHOLDER : m.body}
+                      </span>
 
                       <span className="flex items-center justify-end gap-1 mt-0.5 -mb-0.5">
                         <span
