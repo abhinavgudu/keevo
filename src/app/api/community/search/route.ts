@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getAuthorMap, type CommunityAuthor } from '@/lib/authorProfiles';
+import { getAuthorMapFast, type CommunityAuthor } from '@/lib/authorProfiles';
 import { fetchCommunityLikeRows } from '@/lib/reactions';
 
 /**
@@ -152,7 +152,7 @@ async function fetchEnrichedPublicItems(viewerId: string | null): Promise<Record
     commentCounts[key] = (commentCounts[key] || 0) + 1;
   }
 
-  const userProfiles = await getAuthorMap();
+  const userProfiles = await getAuthorMapFast();
   const likeCounts: Record<string, number> = {};
   const reactionCounts: Record<string, Record<string, number>> = {};
   const myReactions: Record<string, string> = {};
@@ -253,7 +253,7 @@ export async function GET(request: NextRequest) {
     // ── People ───────────────────────────────────────────────────────────────
     let people: Array<Record<string, unknown> & { matched: MatchField[] }> = [];
     if (scope === 'all' || scope === 'people') {
-      const authors = await getAuthorMap();
+      const authors = await getAuthorMapFast();
       const postCounts: Record<string, number> = {};
       for (const item of enriched) {
         const uid = item.user_id as string | undefined;

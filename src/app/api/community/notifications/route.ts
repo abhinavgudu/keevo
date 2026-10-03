@@ -6,7 +6,7 @@ import {
   membersFromAuthorMap,
   visibleToUserFilter,
 } from '@/lib/communityNotifications';
-import { getAuthorMap } from '@/lib/authorProfiles';
+import { getAuthorMapFast } from '@/lib/authorProfiles';
 import { resolveHandleDisplayNames } from '@/lib/mentions';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -93,14 +93,17 @@ export async function GET(request: NextRequest) {
     // handle → actual name, so a bell line about "@abhinavguddu99" reads
     // "Abhinav Guddu". Display-only: the stored @handle is still what resolved
     // the recipient, and a failed lookup must never break the feed itself.
-    let nameByHandle: Record<string, string> = {};
-    try {
-      const authorMap = await getAuthorMap();
-      for (const m of membersFromAuthorMap(authorMap)) {
-        if (m.handle && m.name) nameByHandle[m.handle.toLowerCase()] = m.name;
-      }
-    } catch {
-      nameByHandle = {};
+    //
+    // This is the reason the feed used to take four seconds. Resolving handles
+    // needs auth metadata, the only source of which is a paginated admin sweep
+    // of every user — seconds, not milliseconds — and the bell is fetched on
+    // every community page load. So it gets the fast variant: never block the
+    // response on a cold sweep. The sweep still runs and populates the cache for
+    // the next request; worst case this render shows stored handles.
+    const authorMap = await getAuthorMapFast();
+    const nameByHandle: Record<string, string> = {};
+    for (const m of membersFromAuthorMap(authorMap)) {
+      if (m.handle && m.name) nameByHandle[m.handle.toLowerCase()] = m.name;
     }
 
     const notifications: CommunityNotification[] = rows.map((row) => ({

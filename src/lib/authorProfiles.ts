@@ -51,6 +51,9 @@ export function authDisplayName(user: {
 // without this every hot reload drops it and the first request pays full cost.
 const globalCache = globalThis as typeof globalThis & {
   __keevaAuthorCache?: AuthorCache;
+  /** The one sweep currently running, shared by every caller that needs it. */
+  __keevaAuthorFlight?: Promise<Record<string, CommunityAuthor>> | null;
+  __keevaAuthorWarmed?: boolean;
 };
 
 async function fetchAllAuthors(): Promise<Record<string, CommunityAuthor>> {
@@ -111,10 +114,15 @@ async function fetchAllAuthors(): Promise<Record<string, CommunityAuthor>> {
  * Author display info for community posts.
  *
  * There is no `profiles` table, so display names live in auth metadata and the
- * only way to read them is `auth.admin.listUsers()`. That call costs ~3s and was
- * running on every community feed load, which is what made the tab feel slow.
- * Names change rarely, so the whole map is cached for a short TTL and a miss
- * costs one paginated sweep.
+ * only way to read them is `auth.admin.listUsers()`. That call costs seconds and
+ * was running on every community feed load, which is what made the tab feel
+ * slow. Names change rarely, so the whole map is cached for a short TTL and a
+ * miss costs one paginated sweep.
+ *
+ * The in-flight sweep is shared. Without that, every request that arrives while
+ * a cold sweep is running starts its OWN sweep — five concurrent community
+ * requests meant five full paginated passes over the user list, which is both
+ * slower than one and the reason a "cached" read was still costing seconds.
  */
 export async function getAuthorMap(): Promise<Record<string, CommunityAuthor>> {
   const cached = globalCache.__keevaAuthorCache;
@@ -122,16 +130,81 @@ export async function getAuthorMap(): Promise<Record<string, CommunityAuthor>> {
     return cached.map;
   }
 
-  try {
-    const map = await fetchAllAuthors();
-    globalCache.__keevaAuthorCache = { at: Date.now(), map };
-    return map;
-  } catch (err) {
-    // A stale cache beats an empty feed, so fall back to it on any failure.
-    if (cached) {
-      console.error('Author refresh failed, serving stale cache:', err);
-      return cached.map;
+  // Join a sweep already running rather than starting a second one.
+  if (globalCache.__keevaAuthorFlight) {
+    try {
+      return await globalCache.__keevaAuthorFlight;
+    } catch {
+      if (cached) return cached.map;
+      throw new Error('Author sweep failed');
     }
-    throw err;
   }
+
+  const flight = fetchAllAuthors()
+    .then((map) => {
+      globalCache.__keevaAuthorCache = { at: Date.now(), map };
+      return map;
+    })
+    .catch((err) => {
+      // A stale cache beats an empty feed, so fall back to it on any failure.
+      if (cached) {
+        console.error('Author refresh failed, serving stale cache:', err);
+        return cached.map;
+      }
+      throw err;
+    })
+    .finally(() => {
+      globalCache.__keevaAuthorFlight = null;
+    });
+
+  globalCache.__keevaAuthorFlight = flight;
+  return flight;
+}
+
+/**
+ * Start a refresh without waiting for it.
+ *
+ * For callers where a name is a nicety rather than the data itself: kicking the
+ * sweep off here and returning the cached map keeps a cold read at a few
+ * milliseconds, and the names it was missing arrive on the next load. Blocking
+ * a feed on a seconds-long metadata sweep to prettify four handles is the wrong
+ * trade in both directions.
+ */
+export function warmAuthorMap(): void {
+  if (globalCache.__keevaAuthorWarmed) {
+    const cached = globalCache.__keevaAuthorCache;
+    const fresh = cached && Date.now() - cached.at < TTL_MS;
+    if (fresh) return;
+  }
+  globalCache.__keevaAuthorWarmed = true;
+  void getAuthorMap().catch(() => undefined);
+}
+
+/**
+ * The author map, but never at the cost of the response that asked for it.
+ *
+ * Returns the cached map immediately when there is one, and an empty map on a
+ * cold cache so the caller renders stored data rather than nothing. The sweep
+ * keeps running in the background either way.
+ */
+export async function getAuthorMapFast(timeoutMs = 400): Promise<Record<string, CommunityAuthor>> {
+  const cached = globalCache.__keevaAuthorCache;
+  if (cached && Date.now() - cached.at < TTL_MS) {
+    return cached.map;
+  }
+
+  warmAuthorMap();
+
+  if (!cached) {
+    // Nothing cached yet: give the sweep a short budget, then give up. A feed
+    // that renders in 400ms with raw @handles beats one that renders in 4s with
+    // pretty ones.
+    const timedOut = new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs));
+    const settled = await Promise.race([getAuthorMap().catch(() => null), timedOut]);
+    return settled ?? {};
+  }
+
+  // Stale data beats no data — and it is already on its way to being fresh.
+  void getAuthorMap().catch(() => undefined);
+  return cached.map;
 }

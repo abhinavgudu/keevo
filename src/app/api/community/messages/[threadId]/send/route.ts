@@ -157,27 +157,38 @@ export async function POST(
       console.error('Failed to update DM thread ordering:', threadUpdateError);
     }
 
-    // Bell + push for the recipient. Awaited so the row exists before this
-    // request returns, but notifyDirectMessage never throws — a notification
-    // failure must not turn a delivered message into an error for the sender.
-    // The name is resolved here rather than stored on the message: it is
-    // display-only and a failure to resolve it still sends a usable line.
-    let actorName = 'Someone';
-    try {
-      const { data: senderRows } = await admin.auth.admin.getUserById(viewerId);
-      if (senderRows?.user) actorName = authDisplayName(senderRows.user);
-    } catch {
-      /* keep the fallback */
-    }
+    // The message is stored and visible in the conversation from this moment on.
+    // The response goes back here, immediately.
+    //
+    // Everything below — resolving the sender's display name, writing the bell
+    // row, and delivering push to the recipient's devices — is deliberately NOT
+    // awaited. Awaiting it was a real bug: that work reaches auth metadata and
+    // push endpoints and can take several seconds, so a send on a cold cache
+    // held the request open long enough for a proxy or the client to give up,
+    // and the sender saw a network error for a message that had actually been
+    // delivered. Fire-and-forget means the worst case is a notification that
+    // arrives late, never a message that appears to have failed.
+    //
+    // Note that in serverless this may not always run to completion, which is an
+    // acceptable trade: the message itself is already durable.
+    void (async () => {
+      let actorName = 'Someone';
+      try {
+        const { data: senderRows } = await admin.auth.admin.getUserById(viewerId);
+        if (senderRows?.user) actorName = authDisplayName(senderRows.user);
+      } catch {
+        /* keep the fallback */
+      }
 
-    await notifyDirectMessage({
-      recipientUserId: recipientId,
-      actorUserId: viewerId,
-      actorName,
-      threadId,
-      messageId: message.id as string,
-      recipientIsWatching,
-    });
+      await notifyDirectMessage({
+        recipientUserId: recipientId,
+        actorUserId: viewerId,
+        actorName,
+        threadId,
+        messageId: message.id as string,
+        recipientIsWatching,
+      });
+    })();
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (err) {
