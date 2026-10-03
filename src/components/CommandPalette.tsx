@@ -17,6 +17,7 @@ import {
   ExternalLink,
   Sparkles,
   Command,
+  X,
 } from 'lucide-react';
 
 interface CommandPaletteProps {
@@ -274,10 +275,14 @@ export function CommandPalette({
   return (
     <div
       onClick={onClose}
+      role="presentation"
       className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] p-4 bg-black/80 backdrop-blur-md"
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
         className="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col text-slate-100 animate-in fade-in zoom-in-95 duration-150"
       >
         {/* Search Header Input */}
@@ -292,8 +297,20 @@ export function CommandPalette({
               setSelectedIndex(0);
             }}
             placeholder="Type a command, search reels, PDFs, or jump to filters..."
+            aria-label="Type a command"
             className="flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none"
           />
+          {/* A visible close, not just the Escape hint below. The hint is
+              hidden below sm, and a phone has no Escape key at all — so on
+              touch the only way out was tapping the backdrop, which is not
+              something anyone looks for. */}
+          <button
+            onClick={onClose}
+            aria-label="Close command palette"
+            className="sm:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
           <kbd className="hidden sm:inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
             ESC to close
           </kbd>
