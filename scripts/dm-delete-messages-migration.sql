@@ -59,6 +59,19 @@ ALTER TABLE public.dm_messages
   ADD CONSTRAINT dm_messages_body_not_blank
   CHECK (deleted_at IS NOT NULL OR length(btrim(body)) > 0);
 
+-- ── Section 4: tell PostgREST the schema changed ──────────────────────────────
+--
+-- Required, and easy to miss. PostgREST caches the table shape it exposes, and a
+-- cached schema means every query against this table fails with PGRST204 "Could
+-- not find the 'deleted_at' column of 'dm_messages' in the schema cache" — even
+-- though the column now exists. Supabase normally reloads the cache itself when
+-- DDL runs through the SQL editor, but not reliably for every path, and the
+-- failure looks identical to "the migration never ran". So it is asked for
+-- explicitly.
+--
+-- Safe to run repeatedly.
+NOTIFY pgrst, 'reload schema';
+
 -- ── Verify ───────────────────────────────────────────────────────────────────
 -- deleted_at present; the body check now exempts tombstones.
 SELECT column_name, data_type, is_nullable

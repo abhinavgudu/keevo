@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X, Database, Download, Upload, Trash2, Copy, Check, Shield, Server, FileCode2 } from 'lucide-react';
 import { VaultStorage } from '@/lib/storage';
+import { describeSendFailure } from '@/lib/notices';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -154,10 +155,21 @@ export function SettingsModal({ isOpen, onClose, onDataChanged }: SettingsModalP
 
   const handleClearAllData = async () => {
     if (confirm('Are you sure you want to clear all vault content items?')) {
-      await VaultStorage.clearAllItems();
-      setStatusMsg('All items cleared from vault.');
-      onDataChanged();
-      setTimeout(() => setStatusMsg(''), 1500);
+      let ok = false;
+      try {
+        ok = await VaultStorage.clearAllItems();
+      } catch (err) {
+        setStatusMsg(describeSendFailure(err, 'Clearing the vault'));
+        return;
+      }
+      // clearAllItems reports whether it actually happened. Claiming success
+      // regardless is the one answer that must never be wrong here — the user
+      // walks away believing their content is gone when it is not.
+      setStatusMsg(ok ? 'All items cleared from vault.' : "Couldn't clear the vault. Nothing was deleted.");
+      if (ok) {
+        onDataChanged();
+        setTimeout(() => setStatusMsg(''), 1500);
+      }
     }
   };
 

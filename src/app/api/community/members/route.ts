@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getAuthorMap } from '@/lib/authorProfiles';
+import { getAuthorMapFast } from '@/lib/authorProfiles';
 import { membersFromAuthorMap } from '@/lib/communityNotifications';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -27,7 +27,12 @@ async function resolveViewer(req: NextRequest): Promise<string | undefined> {
 export async function GET(request: NextRequest) {
   try {
     const viewerId = await resolveViewer(request);
-    const authorMap = await getAuthorMap();
+    // Non-blocking, for the same reason as the notification feed: this list is
+    // built entirely from auth metadata, whose only source is a paginated admin
+    // sweep costing seconds. Blocking it made opening the member list feel broken,
+    // and it is fetched on the community page. The sweep keeps running in the
+    // background, so the names fill in on the next request.
+    const authorMap = await getAuthorMapFast();
     const members = membersFromAuthorMap(authorMap, viewerId);
 
     return NextResponse.json({ members });

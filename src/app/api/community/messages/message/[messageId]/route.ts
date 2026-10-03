@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { DELETED_PLACEHOLDER, DELETE_WINDOW_MS } from '@/lib/messages';
+import { isSchemaNotReady } from '@/lib/schemaMissing';
 
 /**
  * Delete a direct message for everyone, inside a short window.
@@ -72,6 +73,15 @@ export async function DELETE(
       .maybeSingle();
 
     if (readError) {
+      // The read itself names deleted_at, so an unrun migration fails HERE
+      // rather than at the update below. Guarding only the write turned "run
+      // the migration" into a 500 on the first query the route makes.
+      if (isSchemaNotReady(readError, 'dm_messages', 'deleted_at')) {
+        return NextResponse.json(
+          { error: 'Message deletion is not set up yet — run the delete migration.' },
+          { status: 503 }
+        );
+      }
       return NextResponse.json({ error: readError.message }, { status: 500 });
     }
     if (!message) {
@@ -113,7 +123,11 @@ export async function DELETE(
       .is('deleted_at', null);
 
     if (updateError) {
-      if (/deleted_at/.test(updateError.message || '') && /does not exist/.test(updateError.message || '')) {
+      // Recognises both "column does not exist" and PostgREST's PGRST204
+      // schema-cache variant, because PostgREST reports a missing column as the
+      // latter — and the old check only knew the former, so an unrun migration
+      // surfaced as a 500 with a stack trace.
+      if (isSchemaNotReady(updateError, 'dm_messages', 'deleted_at')) {
         return NextResponse.json(
           { error: 'Message deletion is not set up yet — run the delete migration.' },
           { status: 503 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getAuthorMap } from '@/lib/authorProfiles';
+import { isMissingTable } from '@/lib/schemaMissing';
 import { pairKey, peerOf, unreadCountFor, type DmConversation } from '@/lib/messages';
 
 /**
@@ -44,14 +45,7 @@ export async function resolveCaller(req: NextRequest): Promise<string | null> {
   }
 }
 
-/**
- * A missing tables error is reported as "not set up yet" rather than a 500, so
- * the UI can say to run the migration instead of showing a crash.
- */
-export function isMissingTable(error: unknown, table: string): boolean {
-  const message = (error as { message?: unknown } | null)?.message;
-  return typeof message === 'string' && message.includes(table);
-}
+export { isMissingTable };
 
 function handleOf(email: string): string {
   return (email || '').split('@')[0] || 'member';
