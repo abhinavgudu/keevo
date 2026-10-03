@@ -39,3 +39,21 @@ export function readPostFocusFromUrl(): PostFocus | null {
   if (!postId) return null;
   return { postId, focusComposer: params.get('reply') === '1' };
 }
+
+/**
+ * Deep link to one conversation. Kept next to the post links because the bell
+ * decides between them in the same switch, and a DM thread has no post id.
+ *
+ * Falls back to the inbox for a missing thread rather than to /community: a
+ * conversation that cannot open should still land the user somewhere useful.
+ */
+export function buildDmThreadHref(threadId: string | null): string {
+  if (!threadId) return '/messages';
+  return `/messages?thread=${encodeURIComponent(threadId)}`;
+}
+
+/** The conversation the inbox should open on mount, if the URL names one. */
+export function readDmThreadFromUrl(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('thread');
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { ContentItem } from '@/types/vault';
 import { CommunityCard } from '@/components/cards/CommunityCard';
 import { MediaPreviewModal } from '@/components/modals/MediaPreviewModal';
@@ -8,12 +9,13 @@ import { KeevaMark } from '@/components/KeevaMark';
 import { EditCommunityPostModal } from '@/components/modals/EditCommunityPostModal';
 import { CommunitySearch } from '@/components/community/CommunitySearch';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { MessagesBell } from '@/components/notifications/MessagesBell';
 import { FOCUS_POST_EVENT, readPostFocusFromUrl, type PostFocus } from '@/lib/communityDeepLink';
 import type { PostReaction } from '@/lib/reactions';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingCircle } from '@/components/LoadingCircle';
 import {
-  Compass, LayoutList, Columns3, Check, AlertCircle, X
+  Compass, LayoutList, Columns3, Check, AlertCircle, X, ArrowLeft
 } from 'lucide-react';
 
 type Layout = 'feed' | 'masonry';
@@ -208,9 +210,7 @@ function CommunityFeed() {
     return (
       <div className="min-h-screen bg-[#07090E] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="animate-pulse">
-            <KeevaMark className="w-12 h-12" alt="Keeva" />
-          </div>
+          <LoadingCircle className="w-12 h-12" label="Loading community" />
           <p className="text-xs text-slate-500 font-mono">Loading community…</p>
         </div>
       </div>
@@ -222,6 +222,14 @@ function CommunityFeed() {
       <div className="w-full max-w-[98%] 2xl:max-w-[96%] mx-auto">
         <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
+            <Link
+              href="/"
+              aria-label="Back to Keeva"
+              title="Back to Keeva"
+              className="mb-4 inline-flex items-center gap-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/40 px-3 py-1.5 text-xs font-bold text-slate-300 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to Keeva
+            </Link>
             <h1 className="text-3xl font-bold text-white flex items-center gap-3">
               <KeevaMark className="w-11 h-11" alt="Keeva" />
               <span>Keeva Community</span>
@@ -230,6 +238,7 @@ function CommunityFeed() {
           </div>
 
           <div className="flex items-center gap-2">
+            <MessagesBell />
             <NotificationBell />
 
             {items.length > 0 && (

@@ -156,11 +156,18 @@ export function CommunitySearch({
     });
   }, []);
 
+  // Live typing means several requests can be in flight at once, and they can
+  // resolve out of order. Each call takes a ticket; only the newest ticket is
+  // allowed to write state, so a slow early request cannot overwrite the results
+  // of a later, more complete query.
+  const requestSeq = useRef(0);
+
   const runSearch = useCallback(
     async (term: string, searchScope: Scope, save: boolean) => {
       const clean = term.trim();
       if (!clean) return;
       if (save) addRecent(clean);
+      const ticket = ++requestSeq.current;
       setQ(clean);
       setScope(searchScope);
       setLoading(true);
@@ -172,6 +179,7 @@ export function CommunitySearch({
           `/api/community/search?q=${encodeURIComponent(clean)}&scope=${searchScope}`,
           { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
         );
+        if (ticket !== requestSeq.current) return;
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           setError(body.error || 'Search failed. Please try again.');
@@ -181,16 +189,20 @@ export function CommunitySearch({
           setSubmitted(true);
         }
       } catch {
+        if (ticket !== requestSeq.current) return;
         setError('Network error. Please try again.');
         setResults(null);
       } finally {
-        setLoading(false);
+        if (ticket === requestSeq.current) setLoading(false);
       }
     },
     [onActiveChange, session, addRecent]
   );
 
   const exit = useCallback(() => {
+    // Invalidate any in-flight request so a late response cannot re-open the
+    // panel the user just closed.
+    requestSeq.current++;
     setQ('');
     setScope('all');
     setResults(null);
@@ -202,7 +214,10 @@ export function CommunitySearch({
   const onSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      runSearch(q, scope, true);
+      const term = q.trim();
+      if (!term) return;
+      // Cancel the pending debounce so this explicit submit is the only request.
+      runSearch(term, scope, true);
     },
     [q, scope, runSearch]
   );
@@ -214,6 +229,19 @@ export function CommunitySearch({
     },
     [submitted, q, runSearch]
   );
+
+  // Live search: run the query a short moment after typing stops, so results
+  // appear without pressing Enter. A single character is a valid query — the
+  // API weights fields rather than doing an exact match, so one letter already
+  // ranks meaningfully. Empty input is the only thing that turns this off.
+  useEffect(() => {
+    const term = q.trim();
+    if (!term) return;
+    // The first search of a fresh query also records it in the recents list,
+    // which is what Enter would have done; submit then just re-runs immediately.
+    const timer = setTimeout(() => runSearch(term, scope, false), 250);
+    return () => clearTimeout(timer);
+  }, [q, scope, runSearch]);
 
   // "/" focuses the bar from anywhere on the page.
   useEffect(() => {
@@ -287,7 +315,12 @@ export function CommunitySearch({
           {recents.map((term) => (
             <button
               key={term}
-              onClick={() => runSearch(term, scope, false)}
+              onClick={() => {
+                // Setting the input drives the live-search effect; recording the
+                // term here keeps recents working without a submit.
+                setQ(term);
+                addRecent(term);
+              }}
               className="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-xs text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 transition-colors"
             >
               {term}

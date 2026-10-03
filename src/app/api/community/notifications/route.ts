@@ -68,18 +68,27 @@ export async function GET(request: NextRequest) {
     const commentIds = Array.from(
       new Set(rows.map((r) => r.comment_id).filter((v): v is string => !!v))
     );
+    const messageIds = Array.from(
+      new Set(rows.map((r) => r.dm_message_id).filter((v): v is string => !!v))
+    );
 
-    const [itemsRes, commentsRes] = await Promise.all([
+    const [itemsRes, commentsRes, messagesRes] = await Promise.all([
       itemIds.length
         ? admin.from('content_items').select('id, title').in('id', itemIds)
         : Promise.resolve({ data: [] as { id: string; title: string }[] }),
       commentIds.length
         ? admin.from('community_comments').select('id, body').in('id', commentIds)
         : Promise.resolve({ data: [] as { id: string; body: string }[] }),
+      // Only ever read for rows the caller's own visibility filter already
+      // selected, so this does not expose anybody else's messages.
+      messageIds.length
+        ? admin.from('dm_messages').select('id, body').in('id', messageIds)
+        : Promise.resolve({ data: [] as { id: string; body: string }[] }),
     ]);
 
     const titleByItem = new Map((itemsRes.data || []).map((i) => [i.id, i.title]));
     const bodyByComment = new Map((commentsRes.data || []).map((c) => [c.id, c.body]));
+    const bodyByMessage = new Map((messagesRes.data || []).map((m) => [m.id, m.body]));
 
     // handle → actual name, so a bell line about "@abhinavguddu99" reads
     // "Abhinav Guddu". Display-only: the stored @handle is still what resolved
@@ -96,9 +105,17 @@ export async function GET(request: NextRequest) {
 
     const notifications: CommunityNotification[] = rows.map((row) => ({
       ...row,
+      thread_id: row.thread_id ?? null,
+      dm_message_id: row.dm_message_id ?? null,
       item_title: row.item_id ? titleByItem.get(row.item_id) ?? null : null,
       comment_excerpt: row.comment_id
         ? commentExcerpt(resolveHandleDisplayNames(bodyByComment.get(row.comment_id), nameByHandle))
+        : null,
+      // No @handle resolution here: a DM is between two people, and rewriting
+      // a private message before showing it in a feed would be a different
+      // product decision from rendering a public comment.
+      message_excerpt: row.dm_message_id
+        ? commentExcerpt(bodyByMessage.get(row.dm_message_id) ?? null)
         : null,
     }));
 

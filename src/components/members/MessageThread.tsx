@@ -1,0 +1,582 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Send, Loader2, CornerUpLeft, X } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getSupabaseClient } from '@/lib/supabase';
+import {
+  ACTIVE_HEARTBEAT_MS,
+  MAX_MESSAGE_LENGTH,
+  quoteOf,
+  resolveQuotes,
+  type DmMessage,
+  type DmThread,
+} from '@/lib/messages';
+import { LoadingCircle } from '@/components/LoadingCircle';
+
+/**
+ * One 1:1 conversation.
+ *
+ * Delivery is Realtime: the channel is filtered to this thread and RLS decides
+ * which inserts actually arrive, so a listener on someone else's conversation
+ * receives nothing. A failed subscribe is not fatal — the conversation still
+ * loads on open and the send path refetches — but it is surfaced, because a
+ * chat that silently stops updating is the kind of bug nobody reports.
+ *
+ * The sender is optimistic: the line appears immediately with the client_id it
+ * was sent under, and the server row replaces it when it lands. The same
+ * client_id makes a retry safe, so a failed send can be retried without risking
+ * a duplicate.
+ */
+
+interface Props {
+  threadId: string;
+  peer: {
+    id: string;
+    name: string;
+    handle: string;
+    avatar_url: string | null;
+  };
+  onClose: () => void;
+  onSent?: () => void;
+  /**
+   * Called when this thread's unread count reaches zero — on open and again on
+   * every message that arrives while it is open. The inbox uses it to clear its
+   * own badges without refetching the whole list.
+   */
+  onRead?: () => void;
+}
+
+interface PendingMessage extends DmMessage {
+  pending: true;
+}
+
+/** A line on screen: either a stored message or one still being sent. */
+type ShownMessage = DmMessage | PendingMessage;
+
+function isPending(m: ShownMessage): m is PendingMessage {
+  return (m as PendingMessage).pending === true;
+}
+
+function Avatar({ peer, size = 'md' }: { peer: Props['peer']; size?: 'md' | 'sm' }) {
+  const cls = size === 'sm' ? 'w-9 h-9 text-xs' : 'w-10 h-10 text-sm';
+  if (peer.avatar_url) {
+    return (
+      <img
+        src={peer.avatar_url}
+        alt={peer.name}
+        className={`${cls} rounded-full object-cover border border-slate-700 shrink-0`}
+      />
+    );
+  }
+  return (
+    <div
+      className={`${cls} rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 text-slate-950 flex items-center justify-center font-black shrink-0`}
+    >
+      {(peer.name || 'K').charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+export function MessageThread({ threadId, peer, onClose, onSent, onRead }: Props) {
+  const { session } = useAuth();
+  const [messages, setMessages] = useState<ShownMessage[]>([]);
+  // Which thread the loaded messages belong to. Loading is derived from this
+  // rather than a separate flag, so switching threads cannot leave the previous
+  // conversation's messages on screen next to a spinner.
+  const [loadedThreadId, setLoadedThreadId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const loading = loadedThreadId !== threadId;
+  const [draft, setDraft] = useState('');
+  // The message the next send will quote. Null means an ordinary reply.
+  const [replyTo, setReplyTo] = useState<{ id: string; body: string; sender_id: string } | null>(null);
+  const [sending, setSending] = useState(false);
+  const [live, setLive] = useState(false);
+
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const token = session?.access_token;
+
+  // Load history once per thread. Nothing is set synchronously in the effect
+  // body: `loading` is derived from loadedThreadId, and the error is cleared
+  // inside the request, so opening a chat cannot cascade a render.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/community/messages/${threadId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const body = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        setError(null);
+        if (!res.ok) {
+          setError(body.error || 'Could not open this conversation.');
+          // Marked loaded so the error shows instead of an endless spinner.
+          setLoadedThreadId(threadId);
+          return;
+        }
+        setMessages(body.messages ?? []);
+        setLoadedThreadId(threadId);
+      } catch {
+        if (cancelled) return;
+        setError('Network error. Please try again.');
+        setLoadedThreadId(threadId);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [threadId, token]);
+
+  /**
+   * Advance this reader's cursor. Fire-and-forget: a failure only leaves the
+   * badge looking stale until the next refetch, which is never worth showing an
+   * error for.
+   */
+  const markRead = useCallback(() => {
+    if (!token) return;
+    void fetch(`/api/community/messages/${threadId}/read`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {
+      /* the badge heals on the next inbox refresh */
+    });
+    onRead?.();
+  }, [threadId, token, onRead]);
+
+  // Opening a conversation is what "reading" it means.
+  useEffect(() => {
+    if (loadedThreadId !== threadId) return;
+    markRead();
+  }, [loadedThreadId, threadId, markRead]);
+
+  /**
+ * Tells the server this conversation is on screen, so a message arriving here
+ * does not also ring a bell.
+ *
+ * Only runs while the tab is actually visible and focused. A thread sitting open
+ * in a background tab is not being read, and suppressing notifications for it
+ * would lose messages the user never saw — the badge would be gone and the
+ * signal with it. The window this buys expires on its own, so a closed or
+ * crashed tab needs no cleanup.
+ */
+useEffect(() => {
+    if (!token || !loadedThreadId) return;
+
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const beat = () => {
+      void fetch(`/api/community/messages/${threadId}/active`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {
+        /* presence is best-effort; losing it only means an extra bell */
+      });
+    };
+
+    const watching = () => document.visibilityState === 'visible' && document.hasFocus();
+
+    const sync = () => {
+      const active = watching();
+      if (active && !timer) {
+        beat();
+        timer = setInterval(beat, ACTIVE_HEARTBEAT_MS);
+      } else if (!active && timer) {
+        // Stop the beat. The window drains on its own — no "leave" call to get
+        // wrong, and nothing to leak if the tab is killed instead.
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    sync();
+    const onActivity = () => sync();
+    document.addEventListener('visibilitychange', onActivity);
+    window.addEventListener('focus', onActivity);
+    window.addEventListener('blur', onActivity);
+
+    return () => {
+      if (timer) clearInterval(timer);
+      document.removeEventListener('visibilitychange', onActivity);
+      window.removeEventListener('focus', onActivity);
+      window.removeEventListener('blur', onActivity);
+    };
+  }, [threadId, token, loadedThreadId]);
+
+  // Realtime for this thread. The filter is scoped to the thread id; RLS is what
+  // actually decides delivery, so the filter is an optimisation, not the guard.
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase || !session?.access_token) return;
+
+    const channel = supabase
+      .channel(`dm:${threadId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'dm_messages', filter: `thread_id=eq.${threadId}` },
+        (payload: { new: Record<string, unknown> }) => {
+          const incoming = payload.new as unknown as DmMessage;
+          setMessages((prev) => {
+            // The sender also gets its own insert back. Drop the optimistic copy
+            // in favour of the server row, and ignore anything already listed
+            // so a refetch plus a live event cannot double a line.
+            const withoutOptimistic = prev.filter(
+              (m) => !(isPending(m) && m.client_id && m.client_id === incoming.client_id)
+            );
+            if (withoutOptimistic.some((m) => m.id === incoming.id)) return withoutOptimistic;
+            return [...withoutOptimistic, incoming];
+          });
+
+          // A message that lands while the conversation is open and the tab is
+          // in front is read by definition. The window focus check is what keeps
+          // a chat open in a background tab from quietly draining the badge.
+          if (document.visibilityState === 'visible' && document.hasFocus()) {
+            markRead();
+          }
+        }
+      )
+      .subscribe((status: string) => {
+        setLive(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [threadId, session?.access_token, markRead]);
+
+  // Coming back to the tab with the conversation open clears whatever arrived
+  // while it was in the background.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') markRead();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [markRead]);
+
+  // Pin to the newest line whenever the list grows.
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ block: 'end' });
+  }, [messages.length]);
+
+  const send = async () => {
+    const text = draft.trim();
+    if (!text || sending) return;
+
+    // Captured before the state is cleared below, so the optimistic bubble can
+    // already carry its quote rather than showing one only after it lands.
+    const quoteTarget = replyTo;
+    const quote = quoteTarget
+      ? { body: quoteTarget.body, sender_id: quoteTarget.sender_id }
+      : null;
+
+    // Generated per attempt and reused for the retry, so a timeout can be
+    // retried without posting the same line twice.
+    const clientId = crypto.randomUUID();
+    const optimistic: PendingMessage = {
+      id: clientId,
+      thread_id: threadId,
+      sender_id: session?.user?.id ?? '',
+      recipient_id: peer.id,
+      body: text,
+      client_id: clientId,
+      reply_to_id: quoteTarget?.id ?? null,
+      created_at: new Date().toISOString(),
+      pending: true,
+    };
+
+    setMessages((prev) => [...prev, optimistic]);
+    setDraft('');
+    setReplyTo(null);
+    setSending(true);
+
+    try {
+      const res = await fetch(`/api/community/messages/${threadId}/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          body: text,
+          client_id: clientId,
+          reply_to_id: quoteTarget?.id ?? null,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        // Put the line back in the box rather than dropping what was written.
+        setDraft((prev) => (prev ? `${text}\n${prev}` : text));
+        setMessages((prev) => prev.filter((m) => m.id !== clientId));
+        // The quote is restored too, or a retried reply silently stops quoting.
+        if (quote) setReplyTo(quoteTarget);
+        setError(body.error || 'Message could not be sent.');
+        return;
+      }
+
+      setMessages((prev) => prev.map((m) => (m.id === clientId ? body.message : m)));
+      onSent?.();
+    } catch {
+      setDraft((prev) => (prev ? `${text}\n${prev}` : text));
+      setMessages((prev) => prev.filter((m) => m.id !== clientId));
+      if (quote) setReplyTo(quoteTarget);
+      setError('Network error. Your message was not sent.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const myId = session?.user?.id;
+
+  // Quotes are resolved from the thread already in memory. Recomputed whenever
+  // the list changes, which also covers a message arriving over Realtime.
+  const quotes = resolveQuotes(messages);
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#06070B]/95 backdrop-blur-xl">
+      {/* Header — the only way out of the conversation on mobile. */}
+      <header className="flex items-center gap-3 px-4 py-3 border-b border-slate-800 bg-slate-900/70 shrink-0">
+        <button
+          onClick={onClose}
+          aria-label="Back"
+          className="p-2 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors shrink-0"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        <Avatar peer={peer} />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-white truncate">{peer.name}</p>
+          <p className="text-[11px] font-mono text-slate-500 truncate">@{peer.handle}</p>
+        </div>
+        {!live && (
+          <span
+            className="text-[10px] font-mono text-amber-400/90 shrink-0"
+            title="Live updates are not connected — messages will still send, but new ones may not appear until you reopen this chat."
+          >
+            offline
+          </span>
+        )}
+      </header>
+
+      {/* Transcript */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-5">
+        {loading ? (
+          <div className="h-full flex items-center justify-center">
+            <LoadingCircle className="w-8 h-8" label="Loading messages" />
+          </div>
+        ) : error && messages.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-center px-6">
+            <p className="text-sm text-rose-300">{error}</p>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center gap-3 text-center px-6">
+            <Avatar peer={peer} size="sm" />
+            <p className="text-sm font-bold text-white">This is the start of your conversation</p>
+            <p className="text-xs text-slate-500 max-w-xs">
+              Messages here are private to you and {peer.name}.
+            </p>
+          </div>
+        ) : (
+          <div className="max-w-2xl mx-auto space-y-2.5">
+            {messages.map((m, i) => {
+              const mine = m.sender_id === myId;
+              const previous = messages[i - 1];
+              // Group consecutive lines from the same person, the way a chat
+              // reads, instead of one bubble per line. A reply always starts its
+              // own group — the quote it carries is the visual separator.
+              const grouped = previous?.sender_id === m.sender_id && !m.reply_to_id;
+              const quote = quotes.get(m.id);
+              return (
+                <div
+                  key={m.id}
+                  className={`group flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}
+                >
+                  {/* Hidden until hover on a pointer, always visible on touch:
+                      `hover:` never fires on a phone, so a hover-only control is
+                      a control that does not exist for half the users. */}
+                  <button
+                    onClick={() => setReplyTo({ id: m.id, body: m.body, sender_id: m.sender_id })}
+                    aria-label={`Reply to this message${mine ? ' from you' : ` from ${peer.name}`}`}
+                    title="Reply"
+                    className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-cyan-300 hover:bg-slate-800 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                  >
+                    <CornerUpLeft className="w-3.5 h-3.5" />
+                  </button>
+
+                  <div
+                    className={`max-w-[80%] sm:max-w-[70%] px-3.5 py-2 rounded-2xl text-[13px] leading-relaxed break-words ${
+                      mine
+                        ? 'bg-gradient-to-br from-cyan-500 to-indigo-600 text-white rounded-br-md'
+                        : 'bg-slate-800/80 text-slate-200 border border-slate-700/60 rounded-bl-md'
+                    } ${grouped ? (mine ? 'rounded-tr-md' : 'rounded-tl-md') : ''} ${
+                      isPending(m) ? 'opacity-60' : ''
+                    }`}
+                  >
+                    {/* The quoted line. Resolved from the loaded thread rather
+                        than stored, so a reply still renders when the message it
+                        quotes is older than the loaded window — it just falls
+                        back to naming the sender. */}
+                    {m.reply_to_id && (
+                      <div
+                        className={`mb-1.5 border-l-2 pl-2 py-0.5 ${
+                          mine ? 'border-white/50' : 'border-cyan-400'
+                        }`}
+                      >
+                        <p className={`text-[10.5px] font-bold ${mine ? 'text-white/80' : 'text-cyan-300'}`}>
+                          {quote?.sender_id === myId ? 'You' : peer.name}
+                        </p>
+                        <p className={`text-[11.5px] ${mine ? 'text-white/75' : 'text-slate-400'}`}>
+                          {quote?.body ?? 'Quoted a message'}
+                        </p>
+                      </div>
+                    )}
+
+                    <span className="whitespace-pre-wrap">{m.body}</span>
+                    {isPending(m) && <Loader2 className="w-3 h-3 inline ml-1.5 animate-spin align-[-2px]" />}
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={bottomRef} />
+          </div>
+        )}
+      </div>
+
+      {error && messages.length > 0 && (
+        <p className="px-4 pb-2 text-[11px] text-rose-300">{error}</p>
+      )}
+
+      {/* Composer */}
+      <footer className="border-t border-slate-800 bg-slate-900/70 px-4 py-3 shrink-0">
+        <div className="max-w-2xl mx-auto">
+          {/* What the next message will quote. Dismissible, because picking the
+              wrong message should not force a cancel before writing. */}
+          {replyTo && (
+            <div className="mb-2 flex items-start gap-2 pl-1">
+              <div className="flex-1 min-w-0 border-l-2 border-cyan-400 pl-2.5">
+                <p className="text-[10px] font-mono text-cyan-300/90 uppercase tracking-wider">
+                  Replying to {replyTo.sender_id === myId ? 'yourself' : peer.name}
+                </p>
+                <p className="text-xs text-slate-400 truncate">{quoteOf(replyTo.body, 120)}</p>
+              </div>
+              <button
+                onClick={() => setReplyTo(null)}
+                aria-label="Cancel reply"
+                className="p-1 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-end gap-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
+            onKeyDown={(e) => {
+              // Enter sends, Shift+Enter is a newline — the convention every
+              // chat uses, so Enter must not also insert a line.
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                void send();
+              }
+            }}
+            rows={1}
+            placeholder={
+              replyTo ? `Replying to ${replyTo.sender_id === myId ? 'yourself' : peer.name}…` : `Message ${peer.name}…`
+            }
+            aria-label={`Message ${peer.name}`}
+            className="flex-1 resize-none rounded-2xl bg-slate-800/70 border border-slate-700 px-4 py-2.5 text-[13px] text-slate-100 placeholder-slate-500 outline-none focus:border-cyan-500/50 max-h-32"
+          />
+          <button
+            onClick={send}
+            disabled={!draft.trim() || sending}
+            aria-label="Send message"
+            className="p-2.5 rounded-2xl bg-gradient-to-br from-cyan-500 to-indigo-600 text-white shadow-lg shadow-cyan-500/25 hover:from-cyan-400 hover:to-indigo-500 transition-all active:scale-95 disabled:opacity-40 disabled:shadow-none shrink-0"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+/**
+ * Small entry point for a member profile: opens the conversation with that
+ * person, creating the thread on first use. Returns null when signed out, so
+ * the profile page decides whether to prompt instead.
+ */
+export function MessageButton({
+  peerId,
+  peerName,
+  peerHandle,
+  peerAvatarUrl,
+  className = '',
+}: {
+  peerId: string;
+  peerName: string;
+  peerHandle: string;
+  peerAvatarUrl?: string | null;
+  className?: string;
+}) {
+  const { session } = useAuth();
+  const [thread, setThread] = useState<DmThread | null>(null);
+  const [opening, setOpening] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!session?.access_token) return null;
+
+  const open = async () => {
+    setOpening(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/community/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ user_id: peerId }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(body.error || 'Could not open a conversation.');
+        return;
+      }
+      setThread(body.thread);
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={open}
+        disabled={opening}
+        title={error || `Message ${peerName}`}
+        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 hover:border-cyan-500/40 transition-all active:scale-95 disabled:opacity-60 ${className}`}
+      >
+        {opening ? <LoadingCircle className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
+        Message
+      </button>
+
+      {thread && (
+        <MessageThread
+          threadId={thread.id}
+          peer={{ id: peerId, name: peerName, handle: peerHandle, avatar_url: peerAvatarUrl ?? null }}
+          onClose={() => setThread(null)}
+        />
+      )}
+    </>
+  );
+}

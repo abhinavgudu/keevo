@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { VaultStorage } from '@/lib/storage';
 import { LEGACY_CATEGORY_ALIASES } from '@/lib/categories';
 import { Category, MediaType, AspectRatioType } from '@/types/vault';
-import { CheckCircle, AlertTriangle, ArrowLeft, Sparkles, Check } from 'lucide-react';
+import { CheckCircle, AlertTriangle, ArrowLeft, Sparkles, Check, X } from 'lucide-react';
 import Link from 'next/link';
 import { KeevaMark } from '@/components/KeevaMark';
 import { LoadingCircle } from '@/components/LoadingCircle';
@@ -274,13 +274,22 @@ function ShareTargetContent() {
               Save without a category
             </button>
 
-            <button
-              type="button"
-              onClick={commitSave}
-              className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-sky-500 text-white text-sm font-black shadow-lg shadow-cyan-500/25 transition-all hover:brightness-110 active:scale-[0.98] cursor-pointer"
-            >
-              <Check className="w-4 h-4" /> Save to Keeva
-            </button>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => router.push('/')}
+                className="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+              >
+                <X className="w-4 h-4" /> Cancel
+              </button>
+              <button
+                type="button"
+                onClick={commitSave}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-sky-500 text-white text-sm font-black shadow-lg shadow-cyan-500/25 transition-all hover:brightness-110 active:scale-[0.98] cursor-pointer"
+              >
+                <Check className="w-4 h-4" /> Save to Keeva
+              </button>
+            </div>
           </div>
         )}
 

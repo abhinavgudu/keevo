@@ -405,13 +405,22 @@ export function AddItemModal({ isOpen, onClose, categories, onSave }: AddItemMod
           )}
         </div>
 
-        {/* Save Button */}
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={isSaving || isScraping || isUploading || (!urlInput && !docFileUrl)}
-          className="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-bold text-sm shadow-xl shadow-cyan-500/25 flex items-center justify-center gap-2 disabled:opacity-50 transition-all cursor-pointer active:scale-95"
-        >
+        {/* Cancel + Save */}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving || isUploading}
+            className="px-5 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-all cursor-pointer active:scale-95"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving || isScraping || isUploading || (!urlInput && !docFileUrl)}
+            className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-bold text-sm shadow-xl shadow-cyan-500/25 flex items-center justify-center gap-2 disabled:opacity-50 transition-all cursor-pointer active:scale-95"
+          >
           {isSaving ? (
             <>
               <LoadingCircle className="w-4 h-4" />
@@ -423,7 +432,8 @@ export function AddItemModal({ isOpen, onClose, categories, onSave }: AddItemMod
               <span>Instant Save to Vault</span>
             </>
           )}
-        </button>
+          </button>
+        </div>
       </div>
     </div>
   );

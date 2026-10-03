@@ -26,8 +26,8 @@ import { Footer } from '@/components/Footer';
 import { ExitConfirmPopup } from '@/components/ExitConfirmPopup';
 import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
 import { useMobileBackHandler } from '@/hooks/useMobileBackHandler';
+import { searchItemsWithMatches } from '@/lib/vaultSearch';
 import { LoadingCircle } from '@/components/LoadingCircle';
-import { KeevaMark } from '@/components/KeevaMark';
 import { Plus, BookmarkCheck, Compass } from 'lucide-react';
 
 export default function KeevaDashboard() {
@@ -47,9 +47,6 @@ export default function KeevaDashboard() {
 
   // Filters & Search State
   const [searchQuery, setSearchQuery] = useState('');
-  // Typing must not fire a query per keystroke; the list follows the debounced
-  // value while the input stays controlled by searchQuery.
-  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedMediaType, setSelectedMediaType] = useState<FilterMediaType>('ALL');
   const [sortBy, setSortBy] = useState<SortOption>('NEWEST');
@@ -96,13 +93,14 @@ export default function KeevaDashboard() {
     }
   }, []);
 
-  // Only the rows the current filters allow are fetched.
+  // Only the rows the current category/media filters allow are fetched. Search
+  // is deliberately NOT applied here: it runs client-side (see vaultSearch) so
+  // every keystroke filters instantly instead of waiting on a round trip.
   const loadItems = useCallback(async () => {
     setIsItemsLoading(true);
     try {
       const loaded = await VaultStorage.getItems({
         categoryId: selectedCategoryId,
-        search: debouncedSearch,
         mediaType: selectedMediaType,
       });
       setItems(loaded);
@@ -112,17 +110,11 @@ export default function KeevaDashboard() {
     } finally {
       setIsItemsLoading(false);
     }
-  }, [selectedCategoryId, debouncedSearch, selectedMediaType]);
+  }, [selectedCategoryId, selectedMediaType]);
 
   const loadVaultData = useCallback(async () => {
     await Promise.all([loadVaultMeta(), loadItems()]);
   }, [loadVaultMeta, loadItems]);
-
-  // Debounce the search box into the query layer.
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
   // Auth guard — redirect unauthenticated users to /auth/signin
   useEffect(() => {
@@ -168,38 +160,39 @@ export default function KeevaDashboard() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
-  // Search, category and media type are resolved in the query (see loadItems),
-  // so this only re-applies what cannot be expressed server-side and sorts.
+  // Category and media type are resolved in the query (see loadItems). Search runs
+  // here instead, so results appear on the same keystroke with no network wait,
+  // and relevance — not created_at — decides the order while a search is active.
   const filteredItems = useMemo(() => {
-    let result = [...items];
+    const hasQuery = searchQuery.trim().length > 0;
+
+    const bySort = (a: ContentItem, b: ContentItem) => {
+      if (sortBy === 'PRIORITY_DESC') return b.priority_score - a.priority_score;
+      if (sortBy === 'ACCESS_COUNT') return (b.access_count || 0) - (a.access_count || 0);
+      if (sortBy === 'TITLE_ASC') return a.title.localeCompare(b.title);
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    };
 
     // MUST_LEARN is narrowed server-side on the stored priority_score, but the
     // score rendered on each card is recalculated in JS (uncapped access bonus
     // plus time decay), so the two can disagree. Re-check against the value the
     // user actually sees, otherwise this tab would show cards scored under 100.
-    if (selectedMediaType === 'MUST_LEARN') {
-      result = result.filter((item) => item.priority === 'MUST_LEARN' || item.priority_score >= 100);
-    }
+    const matchesMustLearn = (item: ContentItem) =>
+      selectedMediaType !== 'MUST_LEARN' ||
+      item.priority === 'MUST_LEARN' ||
+      item.priority_score >= 100;
 
-    // Sorting
-    result.sort((a, b) => {
-      if (sortBy === 'PRIORITY_DESC') {
-        return b.priority_score - a.priority_score;
-      }
-      if (sortBy === 'NEWEST') {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      }
-      if (sortBy === 'ACCESS_COUNT') {
-        return (b.access_count || 0) - (a.access_count || 0);
-      }
-      if (sortBy === 'TITLE_ASC') {
-        return a.title.localeCompare(b.title);
-      }
-      return 0;
-    });
+    // With no query the list is just the fetched rows in the chosen order.
+    if (!hasQuery) return items.filter(matchesMustLearn).sort(bySort);
 
-    return result;
-  }, [items, selectedMediaType, sortBy]);
+    // Relevance decides the order; the sort choice only breaks ties. Sorting by
+    // date outright is what used to push an exact title match below an
+    // incidental description hit.
+    const scored = searchItemsWithMatches(items, searchQuery).filter((s) => matchesMustLearn(s.item));
+    return scored
+      .sort((a, b) => b.score - a.score || bySort(a.item, b.item))
+      .map((s) => s.item);
+  }, [items, searchQuery, selectedMediaType, sortBy]);
 
   // Actions
   const handleOpenPdf = async (item: ContentItem) => {
@@ -359,9 +352,7 @@ export default function KeevaDashboard() {
     return (
       <div className="min-h-screen bg-[#06070B] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="animate-pulse">
-            <KeevaMark className="w-12 h-12" alt="Keeva" />
-          </div>
+          <LoadingCircle className="w-12 h-12" label="Loading Keeva" />
           <p className="text-xs text-slate-500 font-mono">Loading Keeva...</p>
         </div>
       </div>

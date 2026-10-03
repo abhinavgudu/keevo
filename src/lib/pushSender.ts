@@ -104,6 +104,10 @@ const KIND_COPY: Record<CommunityNotificationKind, { verb: string; fallback: str
     verb: 'edited a post you interacted with',
     fallback: 'Tap to see the latest version on Keeva.',
   },
+  dm_message: {
+    verb: 'sent you a message',
+    fallback: 'Tap to open the conversation on Keeva.',
+  },
 };
 
 function truncate(text: string, max: number): string {

@@ -2,7 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { CommunityAuthor } from './authorProfiles';
 import { getAuthorMap } from './authorProfiles';
 import { extractMentionHandles, handleFromEmail, resolveHandleDisplayNames } from './mentions';
-import { buildCommunityPostHref } from './communityDeepLink';
+import { buildCommunityPostHref, buildDmThreadHref } from './communityDeepLink';
 import { buildPushPayload, sendPush } from './pushSender';
 
 export { extractMentionHandles, handleFromEmail };
@@ -23,7 +23,8 @@ export type CommunityNotificationKind =
   | 'like'
   | 'comment_like'
   | 'new_follower'
-  | 'post_edited';
+  | 'post_edited'
+  | 'dm_message';
 
 export const COMMUNITY_NOTIFICATION_KINDS: CommunityNotificationKind[] = [
   'new_post',
@@ -34,6 +35,7 @@ export const COMMUNITY_NOTIFICATION_KINDS: CommunityNotificationKind[] = [
   'comment_like',
   'new_follower',
   'post_edited',
+  'dm_message',
 ];
 
 export interface CommunityNotificationRow {
@@ -43,6 +45,10 @@ export interface CommunityNotificationRow {
   kind: CommunityNotificationKind;
   item_id: string | null;
   comment_id: string | null;
+  /** Set for 'dm_message' rows only: the conversation it belongs to. */
+  thread_id: string | null;
+  /** Set for 'dm_message' rows only: the message, for the retry dedupe. */
+  dm_message_id: string | null;
   actor_name: string;
   created_at: string;
   read_at: string | null;
@@ -53,6 +59,8 @@ export interface CommunityNotification extends CommunityNotificationRow {
   item_title: string | null;
   /** Short excerpt of the comment, for comment/reply/mention rows. */
   comment_excerpt: string | null;
+  /** Short excerpt of a DM, for dm_message rows. */
+  message_excerpt: string | null;
 }
 
 export interface CommunityMember {
@@ -134,6 +142,9 @@ const KIND_PRIORITY: Record<CommunityNotificationKind, number> = {
   new_follower: 0,
   post_edited: 0,
   new_post: 0,
+  // A DM has no competition: it is never collapsed against a comment or a like,
+  // because each message is its own event with its own recipient.
+  dm_message: 0,
 };
 
 export interface NotificationInput {
@@ -143,6 +154,19 @@ export interface NotificationInput {
   kind: CommunityNotificationKind;
   itemId?: string | null;
   commentId?: string | null;
+  /** 'dm_message' only — the conversation the message belongs to. */
+  threadId?: string | null;
+  /** 'dm_message' only — makes a retried send produce one row, not two. */
+  dmMessageId?: string | null;
+  /**
+   * Written to read_at on insert, for an event the recipient has already seen.
+   * The row is still stored — it is the permanent record that the message
+   * arrived, and the recipient's other devices need it — it simply does not
+   * count as unread on the surface they were already looking at.
+   */
+  readAt?: string | null;
+  /** Skips push delivery for an event the recipient is currently watching. */
+  skipPush?: boolean;
 }
 
 /**
@@ -185,6 +209,9 @@ export async function insertNotifications(inputs: NotificationInput[]): Promise<
     kind: input.kind,
     item_id: input.itemId ?? null,
     comment_id: input.commentId ?? null,
+    thread_id: input.threadId ?? null,
+    dm_message_id: input.dmMessageId ?? null,
+    read_at: input.readAt ?? null,
   }));
 
   let persisted = false;
@@ -206,8 +233,12 @@ export async function insertNotifications(inputs: NotificationInput[]): Promise<
   // Push only once the row is actually in the feed. Pushing on a failed write
   // would alert someone to something they cannot then open, and a 23505 counts
   // as persisted because the row the event belongs to is already there.
-  if (persisted) {
-    await pushForNotifications(inputs);
+  //
+  // Rows the recipient has already seen are skipped: they are for the record,
+  // not for interrupting somebody who is looking at the thing itself.
+  const pushable = inputs.filter((input) => !input.skipPush);
+  if (persisted && pushable.length) {
+    await pushForNotifications(pushable);
   }
 }
 
@@ -228,13 +259,21 @@ async function pushForNotifications(inputs: NotificationInput[]): Promise<void> 
     const commentIds = Array.from(
       new Set(inputs.map((i) => i.commentId).filter((id): id is string => Boolean(id)))
     );
+    const messageIds = Array.from(
+      new Set(inputs.map((i) => i.dmMessageId).filter((id): id is string => Boolean(id)))
+    );
 
-    const [itemsRes, commentsRes] = await Promise.all([
+    const [itemsRes, commentsRes, messagesRes] = await Promise.all([
       itemIds.length
         ? admin().from('content_items').select('id, title').in('id', itemIds)
         : Promise.resolve({ data: [] as Array<{ id: string; title: string | null }> }),
       commentIds.length
         ? admin().from('community_comments').select('id, body').in('id', commentIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; body: string | null }> }),
+      // Read here rather than stored on the notification row: see the migration's
+      // note on why private message text is not duplicated into that table.
+      messageIds.length
+        ? admin().from('dm_messages').select('id, body').in('id', messageIds)
         : Promise.resolve({ data: [] as Array<{ id: string; body: string | null }> }),
     ]);
 
@@ -243,6 +282,9 @@ async function pushForNotifications(inputs: NotificationInput[]): Promise<void> 
     );
     const bodies = new Map(
       (commentsRes.data || []).map((row) => [row.id as string, row.body as string | null])
+    );
+    const messageBodies = new Map(
+      (messagesRes.data || []).map((row) => [row.id as string, row.body as string | null])
     );
 
     // handle → actual name, so a push about "@abhinavguddu99" reads "Abhinav
@@ -260,16 +302,22 @@ async function pushForNotifications(inputs: NotificationInput[]): Promise<void> 
 
     await sendPush(inputs, (input) => {
       // A follow has no post: tapping it opens the follower's profile, which
-      // is the new person the recipient will want to check out.
+      // is the new person the recipient will want to check out. A DM opens the
+      // conversation itself. Everything else is about a post.
       const href =
         input.kind === 'new_follower'
           ? `/members/${input.actorUserId}`
-          : buildCommunityPostHref(input.itemId ?? null, input.kind);
-      // For a mention or a reply the comment text is the useful part; for the
-      // rest the post title is, and a comment body would be noise.
+          : input.kind === 'dm_message'
+            ? buildDmThreadHref(input.threadId ?? null)
+            : buildCommunityPostHref(input.itemId ?? null, input.kind);
+      // For a mention or a reply the comment text is the useful part; for a DM the
+      // message itself is. For the rest the post title is, and a body would be
+      // noise.
       const detail = input.commentId
         ? commentExcerpt(resolveHandleDisplayNames(bodies.get(input.commentId) ?? null, nameByHandle))
-        : null;
+        : input.dmMessageId
+          ? commentExcerpt(messageBodies.get(input.dmMessageId) ?? null)
+          : null;
       return buildPushPayload({
         kind: input.kind,
         actorName: input.actorName,
@@ -398,6 +446,50 @@ export async function removeCommentLikeNotification(params: {
     if (error) console.error('Failed to clear comment like notification:', error);
   } catch (err) {
     console.error('Failed to clear comment like notification:', err);
+  }
+}
+
+/**
+ * Tell the recipient that a direct message arrived.
+ *
+ * One row per message, keyed on dm_message_id by a partial unique index — so a
+ * retried send (the client reuses its client_id on a timeout) is absorbed by a
+ * 23505 rather than producing a second bell entry. Never throws: the message is
+ * already stored, and failing to notify must not turn a successful send into an
+ * error the sender sees.
+ */
+export async function notifyDirectMessage(params: {
+  recipientUserId: string;
+  actorUserId: string;
+  actorName: string;
+  threadId: string;
+  messageId: string;
+  /** True when the recipient is looking at this conversation as it arrives. */
+  recipientIsWatching?: boolean;
+}): Promise<void> {
+  try {
+    const watching = params.recipientIsWatching === true;
+    await insertNotifications([
+      {
+        recipientUserId: params.recipientUserId,
+        actorUserId: params.actorUserId,
+        actorName: params.actorName,
+        kind: 'dm_message',
+        itemId: null,
+        commentId: null,
+        threadId: params.threadId,
+        dmMessageId: params.messageId,
+        // Watched: stored as already read. NOT stored — this is the subtle
+        // part. The row must still exist, because it is the permanent record
+        // that the message arrived, and because the recipient's other devices
+        // read from this same table and have no way to know it was suppressed
+        // here. Only this surface's unread count is spared.
+        readAt: watching ? new Date().toISOString() : null,
+        skipPush: watching,
+      },
+    ]);
+  } catch (err) {
+    console.error('Failed to record DM notification:', err);
   }
 }
 

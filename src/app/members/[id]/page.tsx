@@ -3,15 +3,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Pencil } from 'lucide-react';
+import { ArrowLeft, Pencil, Share2 } from 'lucide-react';
 import { ContentItem } from '@/types/vault';
 import { CommunityCard } from '@/components/cards/CommunityCard';
 import { MediaPreviewModal } from '@/components/modals/MediaPreviewModal';
 import { FollowButton } from '@/components/members/FollowButton';
+import { MessageButton } from '@/components/members/MessageThread';
+import { ShareSheet } from '@/components/sharing/ShareSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { getSupabaseClient } from '@/lib/supabase';
 import { LoadingCircle } from '@/components/LoadingCircle';
-import { KeevaMark } from '@/components/KeevaMark';
 import type { PostReaction } from '@/lib/reactions';
 
 interface MemberProfile {
@@ -49,6 +50,11 @@ export default function MemberProfilePage() {
 
   const [selectedItem, setSelectedItem] = useState<ContentItem | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  // The share sheet needs an absolute URL, which only exists on the client.
+  const [showShare, setShowShare] = useState(false);
+
+  
 
   // Reset on member change during render (the documented alternative to
   // setState-in-effect), so navigating from one profile to another never
@@ -170,9 +176,7 @@ export default function MemberProfilePage() {
     return (
       <div className="min-h-screen bg-[#06070B] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="animate-pulse">
-            <KeevaMark className="w-12 h-12" alt="Keeva" />
-          </div>
+          <LoadingCircle className="w-12 h-12" label="Loading profile" />
           <p className="text-xs text-slate-500 font-mono">Loading profile…</p>
         </div>
       </div>
@@ -226,6 +230,14 @@ export default function MemberProfilePage() {
                 <p className="text-[13px] text-slate-300 mt-1">{member.headline}</p>
               )}
             </div>
+            <button
+              onClick={() => setShowShare(true)}
+              aria-label="Share profile"
+              title="Share profile"
+              className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 hover:border-cyan-500/40 transition-all active:scale-95"
+            >
+              <Share2 className="w-3.5 h-3.5" /> Share
+            </button>
           </div>
 
           {editingBio ? (
@@ -287,22 +299,30 @@ export default function MemberProfilePage() {
                   <strong className="text-white font-black">{member.post_count}</strong> posts
                 </span>
               </div>
-              <div className="mt-3">
+<div className="mt-3 flex items-center gap-2 flex-wrap">
                 {isSelf ? (
                   <button
                     onClick={startBioEdit}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 border border-slate-700 text-slate-200 hover:border-slate-600 transition-all active:scale-95"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-600 transition-all active:scale-95"
                   >
                     <Pencil className="w-3.5 h-3.5" /> Edit profile
                   </button>
                 ) : (
-                  <FollowButton
-                    targetUserId={member.id}
-                    initialFollowing={member.followed_by_me}
-                    onCountChange={(count) =>
-                      setMember((prev) => (prev ? { ...prev, follower_count: count } : prev))
-                    }
-                  />
+                  <>
+                    <FollowButton
+                      targetUserId={member.id}
+                      initialFollowing={member.followed_by_me}
+                      onCountChange={(count) =>
+                        setMember((prev) => (prev ? { ...prev, follower_count: count } : prev))
+                      }
+                    />
+                    <MessageButton
+                      peerId={member.id}
+                      peerName={member.name}
+                      peerHandle={member.handle}
+                      peerAvatarUrl={member.avatar_url}
+                    />
+                  </>
                 )}
               </div>
             </>
@@ -334,6 +354,15 @@ export default function MemberProfilePage() {
             ))}
           </div>
         )}
+
+        <ShareSheet
+          open={showShare}
+          onClose={() => setShowShare(false)}
+          path={`/members/${member.id}`}
+          title={member.name}
+          subtitle={member.headline ?? `@${member.handle}`}
+          fileName={`keeva-${member.handle}`}
+        />
 
         <MediaPreviewModal
           item={selectedItem}

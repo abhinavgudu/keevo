@@ -26,7 +26,18 @@ export function LoadingCircle({
     >
       <div
         aria-hidden="true"
-        className="absolute -inset-[3px] rounded-full border-[3px] border-cyan-500/15 border-t-cyan-300 border-r-cyan-500/40 animate-spin"
+        className="absolute -inset-[3px] rounded-full border-[3px] border-cyan-500/10"
+      />
+      <div
+        aria-hidden="true"
+        className="spinner-ring absolute -inset-[3px] rounded-full"
+        style={{
+          background:
+            'conic-gradient(from 0deg, rgba(34,211,238,0) 0deg, rgba(103,232,249,0.95) 70deg, rgba(129,140,248,0.95) 170deg, rgba(34,211,238,0) 300deg, rgba(34,211,238,0) 360deg)',
+          WebkitMask:
+            'radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px))',
+          mask: 'radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px))',
+        }}
       />
       <KeevaMark className="w-full h-full" alt="" />
     </div>

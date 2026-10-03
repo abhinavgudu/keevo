@@ -14,12 +14,18 @@ import {
   PencilLine,
   BellRing,
   UserPlus,
+  MessagesSquare,
 } from 'lucide-react';
 import { LoadingCircle } from '@/components/LoadingCircle';
 import { useCommunityNotifications } from '@/hooks/useCommunityNotifications';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import type { CommunityNotification, CommunityNotificationKind } from '@/lib/communityNotifications';
-import { buildCommunityPostHref, isConversationKind, notifyCommunityPostFocus } from '@/lib/communityDeepLink';
+import {
+  buildCommunityPostHref,
+  buildDmThreadHref,
+  isConversationKind,
+  notifyCommunityPostFocus,
+} from '@/lib/communityDeepLink';
 
 function timeAgo(dateString: string) {
   const diffMs = Date.now() - new Date(dateString).getTime();
@@ -42,6 +48,9 @@ const KIND_ICON: Record<CommunityNotificationKind, React.ReactNode> = {
   comment_like: <Heart className="w-3.5 h-3.5 text-rose-400" />,
   new_follower: <UserPlus className="w-3.5 h-3.5 text-emerald-400" />,
   post_edited: <PencilLine className="w-3.5 h-3.5 text-violet-400" />,
+  // A direct message is a different channel from a comment on a post, so it gets
+  // a different icon — the bell has to be scannable without reading the line.
+  dm_message: <MessagesSquare className="w-3.5 h-3.5 text-sky-400" />,
 };
 
 const KIND_LABEL: Record<CommunityNotificationKind, string> = {
@@ -53,6 +62,7 @@ const KIND_LABEL: Record<CommunityNotificationKind, string> = {
   comment_like: 'liked your comment',
   new_follower: 'started following you',
   post_edited: 'edited a post you engaged with',
+  dm_message: 'sent you a message',
 };
 
 function NotificationRow({
@@ -88,7 +98,13 @@ function NotificationRow({
           </p>
         )}
 
-        {!notification.comment_excerpt && notification.item_title && (
+        {notification.message_excerpt && (
+          <p className="text-[11.5px] text-slate-500 mt-0.5 line-clamp-2 break-words">
+            {notification.message_excerpt}
+          </p>
+        )}
+
+        {!notification.comment_excerpt && !notification.message_excerpt && notification.item_title && (
           <p className="text-[11.5px] text-slate-500 mt-0.5 truncate">{notification.item_title}</p>
         )}
 
@@ -204,10 +220,18 @@ export function NotificationBell({ className = '' }: { className?: string }) {
     if (!n.read_at) markRead([n.id]);
     setOpen(false);
 
-    // A follow has no post: tapping it opens the follower's profile. The page
-    // itself lands in T2; until then this falls through to /community.
+    // A follow has no post: tapping it opens the follower's profile. A DM opens the
+    // conversation itself. The page itself lands in T2; until then these fall
+    // through to /community.
     if (n.kind === 'new_follower') {
       router.push(`/members/${n.actor_user_id}`);
+      return;
+    }
+
+    // A direct message has no post, but it does have a thread. Opening it lands
+    // straight in the conversation, which is the whole point of tapping it.
+    if (n.kind === 'dm_message') {
+      router.push(buildDmThreadHref(n.thread_id));
       return;
     }
 

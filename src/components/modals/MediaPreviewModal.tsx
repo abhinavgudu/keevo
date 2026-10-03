@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import { ContentItem } from '@/types/vault';
-import { X, ExternalLink, Heart, Eye, Sparkles, MessageSquare, Play, Flame, Check, Globe, FileText } from 'lucide-react';
+import { X, ExternalLink, Heart, Eye, Sparkles, MessageSquare, Play, Flame, Check, Globe, FileText, Share2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { TranscriptViewerModal } from './TranscriptViewerModal';
 import { ShareToCommunityModal } from './ShareToCommunityModal';
+import { ShareSheet } from '@/components/sharing/ShareSheet';
 
 interface MediaPreviewModalProps {
   item: ContentItem | null;
@@ -61,6 +62,7 @@ export function MediaPreviewModal({
   const [isSavedNotes, setIsSavedNotes] = useState(false);
   const [isPublic, setIsPublic] = useState(item?.is_public || false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showShareSheet, setShowShareSheet] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
 
   if (!isOpen || !item) return null;
@@ -262,6 +264,20 @@ return (
                   </button>
                 )}
 
+                {/* Share. A public post shares as a Keeva deep link so the
+                    recipient gets the caption, likes and comments along with it;
+                    anything else shares the original source, which is the only
+                    link that exists for a post nobody else can see. */}
+                <button
+                  onClick={() => setShowShareSheet(true)}
+                  aria-label={isPublic ? 'Share this post' : 'Share the original link'}
+                  title={isPublic ? 'Share this post' : 'Share the original link'}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>Share</span>
+                </button>
+
                 {/* Transcript Button - only for YouTube where it's actually possible */}
                 {(item.platform === 'YouTube' || item.platform === 'YouTube Shorts') && item.transcript_json?.length ? (
                   <button
@@ -289,6 +305,15 @@ return (
           onClose={() => setShowTranscript(false)}
         />
       )}
+
+      <ShareSheet
+        open={showShareSheet}
+        onClose={() => setShowShareSheet(false)}
+        path={isPublic ? `/community?post=${item.id}` : item.source_url}
+        title={isPublic ? 'Share this post' : 'Share the original'}
+        subtitle={isPublic ? item.community_caption || item.title : item.platform}
+        fileName={`keeva-${item.id}`}
+      />
 
       <ShareToCommunityModal
         key={item?.id ?? 'none'}

@@ -89,3 +89,15 @@ body {
 .animate-shimmer {
   animation: shimmer 2s infinite;
 }
+
+/* Loading spinner ring rotation */
+@keyframes keeva-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinner-ring {
+  animation: keeva-spin 0.8s linear infinite;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
