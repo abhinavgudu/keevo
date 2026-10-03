@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { KeevaMark } from '@/components/KeevaMark';
 import { LoadingCircle } from '@/components/LoadingCircle';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, CheckCircle2, AlertCircle, User } from 'lucide-react';
+import { describeSendFailure } from '@/lib/notices';
 
 export default function SignUpPage() {
   const { signUpWithEmail } = useAuth();
@@ -31,6 +32,11 @@ export default function SignUpPage() {
       if (needsConfirm) { setNeedsConfirm(true); return; }
       router.push('/');
       router.refresh();
+    } catch (err) {
+      // Same missing catch as the sign-in form — a thrown failure left the page
+      // inert with no explanation.
+      console.error('Sign up failed:', err);
+      setError(describeSendFailure(err, 'Creating your account'));
     } finally {
       setIsSubmitting(false);
     }

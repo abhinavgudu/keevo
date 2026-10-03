@@ -316,7 +316,23 @@ export default function KeevaDashboard() {
   };
 
   const handleDeleteCategory = async (id: string) => {
-    await VaultStorage.deleteCategory(id);
+    let deleted = false;
+    try {
+      deleted = await VaultStorage.deleteCategory(id);
+    } catch (err) {
+      notify(describeSendFailure(err, 'Deleting that category'));
+      return;
+    }
+
+    // deleteCategory answers false on a rejected delete. The return value was
+    // ignored, so the pill was removed locally and "Category removed" was shown
+    // for a category still sitting in the database — which came back on the next
+    // load. The user was told something had happened that had not.
+    if (!deleted) {
+      notify("Couldn't delete that category. Please try again.");
+      return;
+    }
+
     setCategories((prev) => prev.filter((c) => c.id !== id));
     if (selectedCategoryId === id) setSelectedCategoryId(null);
     // The FK is ON DELETE SET NULL, so the deleted category's posts reappear
@@ -339,7 +355,19 @@ export default function KeevaDashboard() {
 
   const handleClearAll = async () => {
     if (confirm('Are you sure you want to clear all vault content items?')) {
-      await VaultStorage.clearAllItems();
+      let ok = false;
+      try {
+        ok = await VaultStorage.clearAllItems();
+      } catch (err) {
+        notify(describeSendFailure(err, 'Clearing the vault'));
+        return;
+      }
+      // clearAllItems swallowed its own errors, so "Vault cleared" was shown
+      // unconditionally — including when nothing had been deleted.
+      if (!ok) {
+        notify("Couldn't clear the vault. Nothing was deleted.");
+        return;
+      }
       await Promise.all([loadItems(), loadVaultMeta()]);
       showToast('Vault cleared');
     }

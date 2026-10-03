@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { KeevaMark } from '@/components/KeevaMark';
 import { LoadingCircle } from '@/components/LoadingCircle';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { describeSendFailure } from '@/lib/notices';
 
 export default function SignInPage() {
   const { signInWithEmail } = useAuth();
@@ -27,6 +28,15 @@ export default function SignInPage() {
       if (error) { setError(error); return; }
       router.push('/');
       router.refresh();
+    } catch (err) {
+      // There was no catch here at all — only a finally. Anything thrown rather
+      // than returned (a network failure, Supabase rejecting, an unexpected
+      // shape) escaped the handler, so the form simply stopped: no message, no
+      // navigation, no spinner. From the user's side that is an app where
+      // "Sign In" does nothing, which is indistinguishable from their password
+      // being rejected on a working form.
+      console.error('Sign in failed:', err);
+      setError(describeSendFailure(err, 'Signing in'));
     } finally {
       setIsSubmitting(false);
     }

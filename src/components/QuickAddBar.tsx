@@ -21,6 +21,7 @@ import confetti from 'canvas-confetti';
 import { LoadingCircle } from '@/components/LoadingCircle';
 import { Category, SaveItemInput } from '@/types/vault';
 import { LEGACY_CATEGORY_ALIASES } from '@/lib/categories';
+import { describeSendFailure, notify } from '@/lib/notices';
 
 interface QuickAddBarProps {
   onSaveItem: (item: SaveItemInput) => Promise<void>;
@@ -158,6 +159,10 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal, categories }: QuickAdd
       }
     } catch (e) {
       console.warn('Clipboard read error:', e);
+      // Clipboard reads are refused routinely — no permission, an insecure
+      // origin, or a browser that gates it behind a user gesture. Pressing Paste
+      // and seeing nothing at all is indistinguishable from a broken button.
+      notify('Could not read your clipboard. Paste into the box instead.');
     }
   };
 
@@ -207,7 +212,18 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal, categories }: QuickAdd
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: trimmed }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+
+      // res.ok was never checked. The scrape route answers a failure with
+      // `{ error }` and no `metadata`, so `meta` became `{}` and the item was
+      // saved with the raw URL as its title — then confetti fired. A link the
+      // extractor could not read turned into a junk row in the vault and looked
+      // like a success, which is the worst possible outcome: the user finds out
+      // days later that half their "saved" items are bare URLs.
+      if (!res.ok) {
+        notify(data.error || "Couldn't read that link. Try a different one, or add it as a PDF.");
+        return;
+      }
       const meta = data.metadata || {};
 
       await onSaveItem({
@@ -231,6 +247,9 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal, categories }: QuickAdd
       setCategoryId('');
     } catch (err) {
       console.error('Quick ingestion error:', err);
+      notify(describeSendFailure(err, 'Saving that link'));
+      // The URL is left in the box on purpose. Clearing it on failure throws
+      // away something the user typed and would have to find and re-paste.
     } finally {
       setIsLoading(false);
     }
@@ -244,7 +263,15 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal, categories }: QuickAdd
       const formData = new FormData();
       formData.append('file', file);
       const res = await fetch('/api/upload-pdf', { method: 'POST', body: formData });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+
+      // Same as the scrape path: an upload that failed used to fall straight
+      // past the success branch and report nothing at all.
+      if (!res.ok || !data.success) {
+        notify(data.error || "Couldn't upload that file. It may be too large, or not a document.");
+        return;
+      }
+
       if (data.success) {
         await onSaveItem({
           title: file.name.replace(/\.[a-zA-Z0-9]+$/, '').replace(/[-_]/g, ' '),
@@ -259,6 +286,9 @@ export function QuickAddBar({ onSaveItem, onOpenPdfModal, categories }: QuickAdd
         });
         confetti({ particleCount: 50, spread: 60, origin: { y: 0.75 } });
       }
+    } catch (err) {
+      console.error('File upload error:', err);
+      notify(describeSendFailure(err, 'Uploading that file'));
     } finally {
       setIsLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

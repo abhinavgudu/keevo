@@ -524,17 +524,26 @@ const fullItem: ContentItem = {
     return true;
   }
 
-  static async clearAllItems(): Promise<void> {
+/**
+   * Empties the vault for the signed-in member.
+   *
+   * Returns whether it actually happened. It used to swallow its own errors and
+   * return nothing, so the caller announced "Vault cleared" over a delete that
+   * had failed — the one case where claiming success is worst, because the
+   * user's content is still there and they now believe it is not.
+   */
+  static async clearAllItems(): Promise<boolean> {
     const supabase = getSupabaseClient();
     if (!supabase) throw new Error('Supabase client not initialized');
 
     if (!_currentUserId) throw new Error('Cannot clear all items without an authenticated user');
-    
-    try {
-      await supabase.from('content_items').delete().eq('user_id', _currentUserId);
-    } catch (err) {
-      console.warn('Supabase clear items error:', err);
+
+    const { error } = await supabase.from('content_items').delete().eq('user_id', _currentUserId);
+    if (error) {
+      console.error('Supabase clear items error:', error);
+      return false;
     }
+return true;
   }
 
   // --- STATS ---
