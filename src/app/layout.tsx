@@ -4,6 +4,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { PushPermissionNudge } from '@/components/PushPermissionNudge';
 import { PwaUpdatePrompt } from '@/components/PwaUpdatePrompt';
 import { OfflineBanner, OfflineSync } from '@/components/OfflineStatus';
+import { NoticeHost } from '@/components/NoticeHost';
 
 export const metadata: Metadata = {
   title: 'Keeva — Personal Media Intelligence Vault',
@@ -80,6 +81,9 @@ export default function RootLayout({
               queued edits have to flush no matter where they navigated to. */}
           <OfflineSync />
           <OfflineBanner />
+          {/* One place for anything that failed, so a silently reverted action
+              on any screen has somewhere to say so. */}
+          <NoticeHost />
         </AuthProvider>
       </body>
     </html>

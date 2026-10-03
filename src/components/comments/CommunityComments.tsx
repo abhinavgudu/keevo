@@ -10,6 +10,7 @@ import { CommunityComment } from '@/types/vault';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCommunityMembers } from '@/hooks/useCommunityMembers';
 import { applyMention, detectMentionQuery } from '@/lib/mentions';
+import { describeSendFailure } from '@/lib/notices';
 import { CommentBody } from '@/components/comments/CommentBody';
 import { LoadingCircle } from '@/components/LoadingCircle';
 import { MessageSquare, Smile, Send, Trash2, CornerDownRight, Pencil, ThumbsUp } from 'lucide-react';
@@ -212,10 +213,18 @@ export function CommunityComments({ itemId, initialCount = 0, onCountChange, foc
     if (!wantsThread || loaded) return;
     let cancelled = false;
     fetch(`/api/community/items/${itemId}/comments`)
-      .then((r) => (r.ok ? r.json() : { comments: [] }))
-      .then((d) => { if (!cancelled) setComments(d.comments || []); })
-      .catch(() => { if (!cancelled) setComments([]); })
-      .finally(() => { if (!cancelled) setLoaded(true); });
+.then((r) => (r.ok ? r.json() : Promise.reject(new Error('request failed'))))
+        .then((d) => { if (!cancelled) setComments(d.comments || []); })
+        // An empty list is what a post with no comments looks like. Returning
+        // one here on a failed request was a lie that reads as deletion: a
+        // thread that had replies would silently come back empty, and posting a
+        // new comment onto it would look like it started a fresh conversation.
+        .catch((err) => {
+          if (cancelled) return;
+          setComments([]);
+          setError(describeSendFailure(err, 'Loading comments'));
+        })
+        .finally(() => { if (!cancelled) setLoaded(true); });
     return () => { cancelled = true; };
   }, [wantsThread, loaded, itemId]);
 

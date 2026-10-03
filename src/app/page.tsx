@@ -28,6 +28,7 @@ import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
 import { useMobileBackHandler } from '@/hooks/useMobileBackHandler';
 import { searchItemsWithMatches } from '@/lib/vaultSearch';
 import { notePendingEdits } from '@/lib/connectivity';
+import { describeSendFailure, notify } from '@/lib/notices';
 import { LoadingCircle } from '@/components/LoadingCircle';
 import { Plus, BookmarkCheck, Compass } from 'lucide-react';
 
@@ -223,7 +224,26 @@ export default function KeevaDashboard() {
   };
 
   const handleToggleFavorite = async (id: string) => {
-    const updated = await VaultStorage.toggleFavorite(id);
+    // Wrapped because storage throws on a network failure. The card's own
+    // optimistic heart had already flipped by then, so an uncaught throw left
+    // the UI claiming a favourite that was never saved.
+    let updated = null;
+    try {
+      updated = await VaultStorage.toggleFavorite(id);
+    } catch (err) {
+      notify(describeSendFailure(err, 'Favouriting'));
+      await loadItems();
+      return;
+    }
+
+    if (!updated) {
+      notify("Couldn't update favourite. Please try again.");
+      // Re-read so the heart snaps back to what is actually stored, rather than
+      // staying flipped on a change that never landed.
+      await loadItems();
+      return;
+    }
+
     if (updated) {
       setItems((prev) => prev.map((i) => (i.id === id ? updated : i)));
       if (activeMediaItem && activeMediaItem.id === id) {

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { UserPlus, UserCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { describeSendFailure, notify } from '@/lib/notices';
 
 /**
  * Follow/unfollow toggle for a member. Owns its state optimistically and
@@ -52,13 +53,18 @@ export function FollowButton({
       });
       if (!res.ok) {
         setFollowing(!next);
+        // Previously reverted silently, which is indistinguishable from a tap
+        // that never registered: the button just sprang back and said nothing.
+        const body = await res.json().catch(() => ({}));
+        notify(body.error || "Couldn't update follow. Please try again.");
         return;
       }
       const body = await res.json();
       setFollowing(body.following);
       onCountChange?.(body.follower_count ?? 0);
-    } catch {
+    } catch (err) {
       setFollowing(!next);
+      notify(describeSendFailure(err, 'Following'));
     } finally {
       setPending(false);
     }

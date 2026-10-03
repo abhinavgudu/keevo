@@ -18,6 +18,7 @@ import {
   isPostReaction,
   type PostReaction,
 } from '@/lib/reactions';
+import { describeSendFailure, notify } from '@/lib/notices';
 
 function formatDate(dateString: string) {
   const date = new Date(dateString);
@@ -252,8 +253,14 @@ export function CommunityCard({
       try {
         const result = await onToggleFavorite(item.id, reaction);
         applyReactionUpdate(result, { reaction: prevReaction, counts: prevCounts, count: prevCount });
-      } catch {
+        // A parent that resolves null instead of throwing means the request was
+        // understood and refused — an expired session, or a post that has since
+        // been made private. Rolling back with no explanation looks exactly like
+        // the tap never registered.
+        if (result === null) notify("Couldn't save that reaction. Please try again.");
+      } catch (err) {
         applyReactionUpdate(null, { reaction: prevReaction, counts: prevCounts, count: prevCount });
+        notify(describeSendFailure(err, 'Your reaction'));
       } finally {
         setLikePending(false);
       }
