@@ -27,6 +27,7 @@ import { ExitConfirmPopup } from '@/components/ExitConfirmPopup';
 import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
 import { useMobileBackHandler } from '@/hooks/useMobileBackHandler';
 import { searchItemsWithMatches } from '@/lib/vaultSearch';
+import { notePendingEdits } from '@/lib/connectivity';
 import { LoadingCircle } from '@/components/LoadingCircle';
 import { Plus, BookmarkCheck, Compass } from 'lucide-react';
 
@@ -257,8 +258,25 @@ export default function KeevaDashboard() {
   const handleUpdateNotes = async (id: string, notes: string) => {
     const current = items.find((i) => i.id === id);
     if (!current) return;
-    const saved = await VaultStorage.saveItem({ ...current, notes });
-    setItems((prev) => prev.map((i) => (i.id === id ? saved : i)));
+
+    // Optimistic either way: the note is on screen immediately, and whether it
+    // reached the server is a separate question answered by the outbox.
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, notes } : i)));
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const { enqueueNotesEdit } = await import('@/lib/offlineStore');
+      const { getVaultUserId } = await import('@/lib/storage');
+      await enqueueNotesEdit({ userId: getVaultUserId(), itemId: id, notes });
+      const { listPendingNotes } = await import('@/lib/offlineStore');
+      const rows = await listPendingNotes(getVaultUserId());
+      notePendingEdits(rows.length);
+      return;
+    }
+
+    const saved = await VaultStorage.saveNotes(id, notes);
+    if (saved) {
+      setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...saved } : i)));
+    }
   };
 
   const handleItemUpdated = (updated: ContentItem) => {

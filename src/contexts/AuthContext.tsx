@@ -116,7 +116,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     await supabase.auth.signOut();
-  }, [supabase, session?.access_token]);
+
+    // Erase this member's offline cache. The IndexedDB copy is keyed by user id
+    // so it can never be served to the wrong person, but leaving a private vault
+    // sitting in a database on a shared device is still data at rest that should
+    // not outlive the session that created it. Awaited so the next person to
+    // sign in cannot observe it mid-delete.
+    const leavingId = session?.user?.id;
+    if (leavingId) {
+      try {
+        const { clearOfflineDataFor } = await import('@/lib/offlineStore');
+        await clearOfflineDataFor(leavingId);
+      } catch {
+        /* sign-out must never be blocked by cache cleanup */
+      }
+    }
+  }, [supabase, session?.access_token, session?.user?.id]);
 
   return (
     <AuthContext.Provider value={{ user, session, supabase, isLoading, signInWithEmail, signUpWithEmail, signInWithGoogle, signOut }}>

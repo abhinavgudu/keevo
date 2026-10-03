@@ -3,6 +3,7 @@ import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { PushPermissionNudge } from '@/components/PushPermissionNudge';
 import { PwaUpdatePrompt } from '@/components/PwaUpdatePrompt';
+import { OfflineBanner, OfflineSync } from '@/components/OfflineStatus';
 
 export const metadata: Metadata = {
   title: 'Keeva — Personal Media Intelligence Vault',
@@ -74,6 +75,11 @@ export default function RootLayout({
               prompt that only existed on the dashboard would never be seen by
               someone who opened a deep link straight into a conversation. */}
           <PwaUpdatePrompt />
+          {/* Offline support is a root concern, not a page one: the banner has
+              to be visible on whatever screen the user happens to be on, and
+              queued edits have to flush no matter where they navigated to. */}
+          <OfflineSync />
+          <OfflineBanner />
         </AuthProvider>
       </body>
     </html>

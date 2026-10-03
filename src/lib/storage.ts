@@ -7,6 +7,8 @@ import {
   type ItemQueryOptions,
 } from './vaultFilters';
 import { autoCategoryColor, resolveCategoryName, taxonomyVisual } from './categories';
+import { cacheItems, patchCachedNotes, readCachedItems } from './offlineStore';
+import { noteOfflineSource, noteOnlineSource } from './connectivity';
 
 export {
   buildVaultFilter,
@@ -27,6 +29,11 @@ let _currentUserId: string | null = null;
 
 export function setVaultUserId(uid: string | null) {
   _currentUserId = uid;
+}
+
+/** The signed-in member, or '' when signed out. Used to key the offline cache. */
+export function getVaultUserId(): string {
+  return _currentUserId || '';
 }
 
 export function normalizeUrl(rawUrl: string): string {
@@ -305,6 +312,17 @@ export class VaultStorage {
     }
 
     if (data === null) {
+      // Every variant failed. When the network is simply gone, the cache is a
+      // far better answer than an empty vault — the user gets their content back
+      // with a stale-data badge rather than a blank grid that looks like
+      // deletion.
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        const cached = await readCachedItems(_currentUserId || '');
+        if (cached.length) {
+          noteOfflineSource();
+          return cached;
+        }
+      }
       console.error('Supabase items fetch failed for every filter variant:', lastError);
       return [];
     }
@@ -324,7 +342,7 @@ export class VaultStorage {
     });
 
 
-    // Deduplicate by normalized source_url & id
+// Deduplicate by normalized source_url & id
     const uniqueMap = new Map<string, ContentItem>();
     for (const item of mapped) {
       const key = item.source_url ? normalizeUrl(item.source_url) : item.id;
@@ -333,7 +351,18 @@ export class VaultStorage {
       }
     }
 
-    return Array.from(uniqueMap.values()).sort((a: ContentItem, b: ContentItem) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const deduped = Array.from(uniqueMap.values()).sort(
+      (a: ContentItem, b: ContentItem) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    // Mirror to the offline cache. Fire-and-forget on purpose: the user already
+    // has the data in hand at this point, so a cache failure must not turn a
+    // good fetch into an error.
+    noteOnlineSource();
+    void cacheItems(_currentUserId || '', deduped);
+
+    return deduped;
   }
 
 static async saveItem(item: SaveItemInput): Promise<ContentItem> {
@@ -428,6 +457,37 @@ const fullItem: ContentItem = {
       ...data,
       category: data.category_id ? categories.find((c) => c.id === data.category_id) : undefined,
     };
+  }
+
+  /**
+   * Writes just the notes column.
+   *
+   * Deliberately not saveItem(): that upserts the entire row from whatever the
+   * caller is holding, which offline means a stale snapshot — replaying it after
+   * reconnecting would silently undo any change made on another device in the
+   * meantime. A single-column update cannot touch anything it does not own.
+   */
+  static async saveNotes(id: string, notes: string): Promise<ContentItem | null> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+      .from('content_items')
+      .update({ notes })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase notes update error:', error);
+      return null;
+    }
+
+    // Patch the cached copy too, or the next offline load would serve the
+    // pre-edit note and the user would think their edit had vanished.
+    void patchCachedNotes(_currentUserId || '', id, notes);
+
+    return data as unknown as ContentItem;
   }
 
   static async incrementAccess(id: string): Promise<ContentItem | null> {
