@@ -48,7 +48,15 @@ export default function MessagesPage() {
   // shown is derived rather than stored: a row the user taps wins, and only
   // until then does the deep-linked one apply. Resolved against the fetched list
   // so a stale or guessed id falls back to the inbox instead of an empty chat.
-  const requestedThreadId = readDmThreadFromUrl();
+  //
+  // Read after commit rather than during render. This page is statically
+  // prerendered, so touching `window` while rendering it fails the build with
+  // "window is not defined" — the URL search string is a client-only concern.
+  const [requestedThreadId, setRequestedThreadId] = useState<string | null>(null);
+  useEffect(() => {
+    queueMicrotask(() => setRequestedThreadId(readDmThreadFromUrl()));
+  }, []);
+
   const deepLinked = requestedThreadId
     ? conversations?.find((c) => c.id === requestedThreadId) ?? null
     : null;

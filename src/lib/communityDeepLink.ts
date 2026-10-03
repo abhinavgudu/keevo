@@ -54,6 +54,10 @@ export function buildDmThreadHref(threadId: string | null): string {
 
 /** The conversation the inbox should open on mount, if the URL names one. */
 export function readDmThreadFromUrl(): string | null {
+  // Guarded because a statically prerendered page can call this during the
+  // server render, where there is no location to read. Returning null there is
+  // correct: there is no query string on the server to act on.
+  if (typeof window === 'undefined') return null;
   const params = new URLSearchParams(window.location.search);
   return params.get('thread');
 }
