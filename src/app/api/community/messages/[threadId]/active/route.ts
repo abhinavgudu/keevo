@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { ACTIVE_WINDOW_MS, activeColumnFor } from '@/lib/messages';
+import {
+  TYPING_WINDOW_MS,
+  activeColumnFor,
+  typingColumnFor,
+} from '@/lib/messages';
 import { isMissingTable, resolveCaller } from '../../route';
 
 /**
- * The presence heartbeat: "I am looking at this conversation right now".
+ * Presence and typing heartbeat.
  *
- * The browser refreshes this on a timer while the thread is open, visible and
- * focused. It writes an expiry a little way into the future rather than a
- * boolean, so a tab that is closed, a laptop that sleeps or a process that dies
- * simply stops being refreshed and drops out of the window on its own. Nothing
- * has to detect the end of a session, which is the part that would otherwise be
- * unreliable everywhere it matters.
+ * One endpoint for both because they are written on the same tick and read on the
+ * same tick: splitting them would mean two round trips per heartbeat to record
+ * one fact about one person.
  *
- * Only the caller's own column is writable, so this cannot mark somebody else as
- * present.
+ * Body: { typing: boolean }. Presence is always refreshed; typing is only touched
+ * when the flag is sent, so a client that never types does not keep clearing it.
+ *
+ * Both are expiries rather than booleans. A boolean survives a closed tab, a
+ * crashed process and a sleeping laptop, and the other person is then left
+ * looking at a typing indicator or an online dot that nothing will ever clear.
  */
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -52,18 +57,35 @@ export async function POST(
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
     }
 
-    const column = activeColumnFor(
-      { participant_a: thread.participant_a as string, participant_b: thread.participant_b as string },
-      viewerId
-    );
-    if (!column) {
+    const participants = {
+      participant_a: thread.participant_a as string,
+      participant_b: thread.participant_b as string,
+    };
+
+    const presenceColumn = activeColumnFor(participants, viewerId);
+    const typingColumn = typingColumnFor(participants, viewerId);
+    if (!presenceColumn || !typingColumn) {
+      // Not a participant, so the thread's existence is not confirmed.
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
     }
 
-    const activeUntil = new Date(Date.now() + ACTIVE_WINDOW_MS).toISOString();
+    const body = (await request.json().catch(() => ({}))) as { typing?: boolean };
+
+    const patch: Record<string, string | null> = {
+      [presenceColumn]: new Date(Date.now() + 20_000).toISOString(),
+    };
+
+    if (typeof body.typing === 'boolean') {
+      patch[typingColumn] = body.typing
+        ? new Date(Date.now() + TYPING_WINDOW_MS).toISOString()
+        : // Stopped typing: cleared now rather than left to expire, so the
+          // indicator disappears the moment they stop instead of lingering.
+          null;
+    }
+
     const { error: updateError } = await admin
       .from('dm_threads')
-      .update({ [column]: activeUntil })
+      .update(patch)
       .eq('id', threadId);
 
     if (updateError) {
@@ -77,7 +99,7 @@ export async function POST(
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ active_until: activeUntil });
+    return NextResponse.json({ ok: true });
   } catch (err) {
     const error = err as Error;
     console.error('Failed to record DM presence:', error);

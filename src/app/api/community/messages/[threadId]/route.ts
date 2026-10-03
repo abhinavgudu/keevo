@@ -22,7 +22,16 @@ const admin = createClient(supabaseUrl, supabaseServiceKey, {
 export async function loadThread(
   viewerId: string,
   threadId: string
-): Promise<{ thread: DmThread | null; peerId: string } | null> {
+): Promise<{
+  thread: DmThread | null;
+  peerId: string;
+  /** The caller's own read cursor — what separates read from unread. */
+  myReadAt: string | null;
+  /** The other person's cursor — what turns a tick blue. */
+  peerReadAt: string | null;
+  peerActiveUntil: string | null;
+  peerTypingUntil: string | null;
+} | null> {
   const { data, error } = await admin
     .from('dm_threads')
     .select('*')
@@ -31,12 +40,21 @@ export async function loadThread(
 
   if (error) return null;
 
-  const peerId = peerOf(data as unknown as DmThread, viewerId);
+  const row = data as unknown as DmThread;
+  const peerId = peerOf(row, viewerId);
   if (!peerId) return null;
 
+  const iAmA = row.participant_a === viewerId;
+
   return {
-    thread: data as unknown as DmThread,
+    thread: row,
     peerId,
+    myReadAt: (iAmA ? row.participant_a_read_at : row.participant_b_read_at) ?? null,
+    peerReadAt: (iAmA ? row.participant_b_read_at : row.participant_a_read_at) ?? null,
+    peerActiveUntil:
+      (iAmA ? row.participant_b_active_until : row.participant_a_active_until) ?? null,
+    peerTypingUntil:
+      (iAmA ? row.participant_b_typing_until : row.participant_a_typing_until) ?? null,
   };
 }
 
@@ -85,6 +103,12 @@ export async function GET(
     return NextResponse.json({
       thread: found.thread,
       peer_id: found.peerId,
+      // Everything the transcript needs to draw ticks, the unread divider and
+      // the typing indicator. Sent as one read so the UI makes a single call.
+      my_read_at: found.myReadAt,
+      peer_read_at: found.peerReadAt,
+      peer_active_until: found.peerActiveUntil,
+      peer_typing_until: found.peerTypingUntil,
       // Reading order. The limit above keeps the newest 200, which is what a
       // long-running conversation actually needs on open; older history would
       // need paging, and nothing reads that far back yet.

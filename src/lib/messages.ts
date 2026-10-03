@@ -30,6 +30,16 @@ export interface DmThread {
   participant_a_active_until?: string | null;
   /** Same, for participant_b. */
   participant_b_active_until?: string | null;
+  /**
+   * How far into the future participant_a is still typing. NULL when idle.
+   *
+   * Deliberately an expiry and not a boolean, and deliberately much shorter than
+   * the presence window: a stale "typing…" claims somebody is composing right
+   * now, so it has to stop on its own the moment they stop.
+   */
+  participant_a_typing_until?: string | null;
+  /** Same, for participant_b. */
+  participant_b_typing_until?: string | null;
 }
 
 export interface DmMessage {
@@ -92,6 +102,34 @@ export function activeColumnFor(
   if (thread.participant_b === userId) return 'participant_b_active_until';
   return null;
 }
+
+/** The column this participant's typing window is written to. */
+export function typingColumnFor(
+  thread: Pick<DmThread, 'participant_a' | 'participant_b'>,
+  userId: string
+): 'participant_a_typing_until' | 'participant_b_typing_until' | null {
+  if (thread.participant_a === userId) return 'participant_a_typing_until';
+  if (thread.participant_b === userId) return 'participant_b_typing_until';
+  return null;
+}
+
+/**
+ * How long one typing heartbeat covers.
+ *
+ * Much shorter than the presence window on purpose: presence can afford twenty
+ * seconds because a stale "online" is harmless, while a stale "typing…" is a
+ * claim that somebody is composing right now.
+ */
+export const TYPING_WINDOW_MS = 6_000;
+
+/**
+ * Minimum gap between typing writes.
+ *
+ * A write per keystroke would be a database round trip per character on every
+ * device. The indicator only needs to be roughly live, so a burst of typing
+ * collapses into one or two writes.
+ */
+export const TYPING_THROTTLE_MS = 2_500;
 
 /**
  * How long one heartbeat covers.
