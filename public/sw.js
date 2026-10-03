@@ -1,9 +1,9 @@
-// Keeva PWA Service Worker v1.0
-// Provides offline capability & fulfills PWA installation requirements
-
+// Keeva PWA Service Worker v2.0
+// Offline capability, web push, and self-update.
+//
 // Bumped when the pre-cache list or the push handler changes, so a device
 // holding the old worker purges its stale copies instead of serving them.
-const CACHE_NAME = 'keeva-pwa-cache-v2';
+const CACHE_NAME = 'keeva-pwa-cache-v3';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -16,15 +16,45 @@ const STATIC_ASSETS = [
 ];
 
 // Install: pre-cache essential assets
+//
+// skipWaiting() is deliberately NOT unconditional. A new worker taking over while
+// a page is open leaves that page executing the OLD bundle — and Next.js deletes
+// the old hashed chunks on deploy, so the next navigation finds a chunk that no
+// longer exists and the app white-screens. Instead:
+//
+//   - No window is open  → take over silently; nobody can be holding a stale page.
+//   - A window is open    → wait, and let the page ask via SKIP_WAITING once the
+//                          user accepts the update (see PwaUpdatePrompt).
+//
+// An update that lands while the app is closed is applied on next launch with no
+// prompt, which is the common case and needs none.
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch((err) => {
+    (async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        await cache.addAll(STATIC_ASSETS);
+      } catch (err) {
         console.warn('PWA Pre-cache notice:', err);
+      }
+
+      const windows = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
       });
-    })
+      if (windows.length === 0) {
+        await self.skipWaiting();
+      }
+    })()
   );
-  self.skipWaiting();
+});
+
+// The page accepted the update. Called only on a deliberate user action, so it
+// is the one place a swap is guaranteed not to interrupt typing.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Activate: clean up old caches

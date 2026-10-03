@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { PushPermissionNudge } from '@/components/PushPermissionNudge';
+import { PwaUpdatePrompt } from '@/components/PwaUpdatePrompt';
 
 export const metadata: Metadata = {
   title: 'Keeva — Personal Media Intelligence Vault',
@@ -69,6 +70,10 @@ export default function RootLayout({
         <AuthProvider>
           {children}
           <PushPermissionNudge />
+          {/* Mounted here, not per page: an update can land on any screen, and a
+              prompt that only existed on the dashboard would never be seen by
+              someone who opened a deep link straight into a conversation. */}
+          <PwaUpdatePrompt />
         </AuthProvider>
       </body>
     </html>

@@ -131,35 +131,11 @@ export function PwaInstallPrompt() {
     reaskTimer.current = setTimeout(show, delay);
   }, [clearReask, show]);
 
-  // Register the service worker once.
-  useEffect(() => {
-    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
-
-    let detach: (() => void) | null = null;
-
-    navigator.serviceWorker
-      .register('/sw.js')
-      .then((reg) => {
-        // Ask for a newer sw.js every time the app comes back to the
-        // foreground. Browsers only re-check the worker on navigation, so a
-        // deployed fix would otherwise sit dormant on a device that is never
-        // hard-reloaded — and push delivery keeps running the old handler until
-        // it does. skipWaiting() in the worker means the update goes live as soon
-        // as it lands; nothing here has to await a user-visible reload.
-        const refresh = () => {
-          if (document.visibilityState === 'visible') reg.update().catch(() => undefined);
-        };
-        document.addEventListener('visibilitychange', refresh);
-        window.addEventListener('focus', refresh);
-        detach = () => {
-          document.removeEventListener('visibilitychange', refresh);
-          window.removeEventListener('focus', refresh);
-        };
-      })
-      .catch((err) => console.warn('Keeva PWA SW registration notice:', err));
-
-    return () => detach?.();
-  }, []);
+  // Service worker registration lives in PwaUpdatePrompt, not here. Registering
+  // the same URL from two components is harmless but splits the update story in
+  // two: one place polls for a new worker, another wires up the lifecycle, and a
+  // deploy that lands between them leaves the page unable to tell that it is
+  // running a stale bundle. One owner, one answer.
 
   // Install detection + prompt plumbing.
   useEffect(() => {
