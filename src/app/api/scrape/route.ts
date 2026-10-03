@@ -247,7 +247,12 @@ export async function POST(req: NextRequest) {
       const shortcode = igMatch ? igMatch[2] : (parsedUrl.pathname.split('/').filter(Boolean).pop() || 'ig');
       
       let igTitle = generateFallbackTitle(parsedUrl.href, 'Instagram');
-      if (igTitle === 'Instagram Saved Content' || igTitle === 'Instagram Saved Resource' || igTitle === 'Instagram Reel Video') {
+      if (
+        igTitle === 'Instagram Saved Content' ||
+        igTitle === 'Instagram Saved Resource' ||
+        igTitle === 'Instagram Reel Video' ||
+        igTitle === 'Instagram'
+      ) {
         igTitle = `Instagram Reel #${shortcode}`;
       }
 
