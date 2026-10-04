@@ -61,56 +61,161 @@ export function normalizeUrl(rawUrl: string): string {
   }
 }
 
+// In-memory categories cache to avoid duplicate Supabase queries on every interaction
+let _cachedCategories: Category[] | null = null;
+let _cachedCategoriesUserId: string | null = null;
+let _categoriesPromise: Promise<Category[]> | null = null;
+
+export function invalidateCategoriesCache() {
+  _cachedCategories = null;
+  _cachedCategoriesUserId = null;
+  _categoriesPromise = null;
+}
+
+/**
+ * Fast client-side computation of category counts from items in memory.
+ * Eliminates round-trips to Supabase on mount and during Stale-While-Revalidate.
+ */
+export function calculateCategoryCountsFromItems(items: ContentItem[]): CategoryCounts {
+  const counts: Record<string, number> = {};
+  const seen = new Set<string>();
+  let uncategorized = 0;
+  let total = 0;
+
+  for (const item of items) {
+    const key = item.source_url ? normalizeUrl(item.source_url) : item.id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    total += 1;
+    if (item.category_id) {
+      counts[item.category_id] = (counts[item.category_id] ?? 0) + 1;
+    } else {
+      uncategorized += 1;
+    }
+  }
+
+  return { counts, total, uncategorized };
+}
+
+/**
+ * Fast client-side computation of stats from items in memory.
+ * Eliminates redundant Supabase queries and enables 0ms instant dashboard paint.
+ */
+export function calculateStatsFromItems(items: ContentItem[]): VaultStats {
+  let mustLearnCount = 0;
+  let reelsCount = 0;
+  let landscapeCount = 0;
+  let documentsCount = 0;
+  let favoritesCount = 0;
+  let totalAccesses = 0;
+  let totalItems = 0;
+  const seen = new Set<string>();
+
+  for (const item of items) {
+    const key = item.source_url ? normalizeUrl(item.source_url) : item.id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    totalItems += 1;
+    const accessCount = item.access_count ?? 0;
+    const isFavorite = item.is_favorite ?? false;
+    totalAccesses += accessCount;
+
+    const score = item.priority_score ?? calculatePriorityScore(
+      item.priority as never,
+      accessCount,
+      isFavorite,
+      item.created_at
+    );
+    if (item.priority === 'MUST_LEARN' || score >= 100) mustLearnCount += 1;
+    if (item.aspect_ratio === 'PORTRAIT_9_16' || item.media_type === 'REEL') reelsCount += 1;
+    if (item.aspect_ratio === 'LANDSCAPE_16_9') landscapeCount += 1;
+    if (item.media_type === 'DOCUMENT' || item.aspect_ratio === 'STANDARD_DOCUMENT') {
+      documentsCount += 1;
+    }
+    if (isFavorite) favoritesCount += 1;
+  }
+
+  return {
+    totalItems,
+    mustLearnCount,
+    reelsCount,
+    landscapeCount,
+    documentsCount,
+    favoritesCount,
+    totalAccesses,
+  };
+}
+
 export class VaultStorage {
   // --- CATEGORIES ---
 
   static async getCategories(): Promise<Category[]> {
+    // Return cached categories if valid for current user
+    if (_cachedCategories && _cachedCategoriesUserId === _currentUserId) {
+      return _cachedCategories;
+    }
+    // Deduplicate in-flight requests (e.g. loadVaultMeta + loadItems running at the same time)
+    if (_categoriesPromise) {
+      return _categoriesPromise;
+    }
+
     const supabase = getSupabaseClient();
     if (!supabase) {
       console.warn('Supabase client not initialized');
       return [];
     }
 
-    // Global categories (user_id IS NULL) are the shared taxonomy and belong to
-    // every account, so they must be included alongside the user's own. Filtering
-    // on `user_id` alone excluded every seeded category, which is why auto-detected
-    // names never resolved and posts saved uncategorised. It also used to return
-    // other users' categories while signed out, since the filter is skipped.
-    const globalQuery = supabase
-      .from('categories')
-      .select('*')
-      .is('user_id', null)
-      .order('created_at', { ascending: true });
+    _categoriesPromise = (async () => {
+      try {
+        const globalQuery = supabase
+          .from('categories')
+          .select('*')
+          .is('user_id', null)
+          .order('created_at', { ascending: true });
 
-    if (_currentUserId) {
-      const { data, error } = await globalQuery;
-      if (error) {
-        console.error('Supabase categories fetch error:', error);
-        return [];
+        if (_currentUserId) {
+          const { data, error } = await globalQuery;
+          if (error) {
+            console.error('Supabase categories fetch error:', error);
+            return [];
+          }
+
+          const { data: own, error: ownError } = await supabase
+            .from('categories')
+            .select('*')
+            .eq('user_id', _currentUserId)
+            .order('created_at', { ascending: true });
+          if (ownError) {
+            console.error('Supabase categories fetch error:', ownError);
+          }
+
+          const combined = [...(data || []), ...(own || [])];
+          _cachedCategories = combined;
+          _cachedCategoriesUserId = _currentUserId;
+          return combined;
+        }
+
+        const { data, error } = await globalQuery;
+        if (error) {
+          console.error('Supabase categories fetch error:', error);
+          return [];
+        }
+
+        const res = data || [];
+        _cachedCategories = res;
+        _cachedCategoriesUserId = _currentUserId;
+        return res;
+      } finally {
+        _categoriesPromise = null;
       }
+    })();
 
-      const { data: own, error: ownError } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('user_id', _currentUserId)
-        .order('created_at', { ascending: true });
-      if (ownError) {
-        console.error('Supabase categories fetch error:', ownError);
-      }
-
-      return [...(data || []), ...(own || [])];
-    }
-
-    const { data, error } = await globalQuery;
-    if (error) {
-      console.error('Supabase categories fetch error:', error);
-      return [];
-    }
-
-    return data || [];
+    return _categoriesPromise;
   }
 
   static async saveCategory(category: Omit<Category, 'id' | 'created_at'> & { id?: string }): Promise<Category> {
+    invalidateCategoriesCache();
     const supabase = getSupabaseClient();
     if (!supabase) throw new Error('Supabase client not initialized');
 
@@ -134,6 +239,7 @@ export class VaultStorage {
   }
 
   static async deleteCategory(id: string): Promise<boolean> {
+    invalidateCategoriesCache();
     const supabase = getSupabaseClient();
     if (!supabase) throw new Error('Supabase client not initialized');
 

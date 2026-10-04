@@ -115,6 +115,7 @@ export function CommunityCard({
   onAutoFocused,
 }: CommunityCardProps) {
   const [embedLoaded, setEmbedLoaded] = useState(false);
+  const [showEmbed, setShowEmbed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
@@ -332,7 +333,7 @@ const caption = item.community_caption || '';
   // monitor. Centring the media keeps the preview box itself edge to edge.
   const mediaSize = isReel ? 'mx-auto w-full max-w-[400px] aspect-[9/16]' : 'mx-auto w-full max-w-[1024px] aspect-[16/9]';
 
-  const media = isInstagram && igEmbedUrl ? (
+  const media = isInstagram && igEmbedUrl && showEmbed ? (
     <div className={`relative ${mediaSize} overflow-hidden bg-black`}>
       {!embedLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-[#1a1a2e] to-[#0f3460] z-10">
@@ -382,17 +383,21 @@ const caption = item.community_caption || '';
         />
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
-      {!isInstagram && (
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/media:opacity-100 transition-opacity bg-black/30 backdrop-blur-[2px]">
-          <div className="w-12 h-12 rounded-full bg-cyan-500/90 text-slate-950 flex items-center justify-center shadow-xl shadow-cyan-500/40">
-            <Play className="w-5 h-5 fill-current ml-0.5" />
-          </div>
+      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/media:opacity-100 transition-opacity bg-black/30 backdrop-blur-[2px]">
+        <div className="w-12 h-12 rounded-full bg-cyan-500/90 text-slate-950 flex items-center justify-center shadow-xl shadow-cyan-500/40">
+          <Play className="w-5 h-5 fill-current ml-0.5" />
         </div>
-      )}
+      </div>
     </div>
   );
 
-  const onMediaClick = () => { if (!isInstagram) onOpenPreview(item); };
+  const onMediaClick = () => {
+    if (isInstagram && igEmbedUrl && !showEmbed) {
+      setShowEmbed(true);
+    } else {
+      onOpenPreview(item);
+    }
+  };
 
   // ── Preview box: media + domain + title + chips ────────────────────
   const showTitleInPreview = isFeed ? hasCaption : true;

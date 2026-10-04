@@ -74,9 +74,9 @@ export function PortraitReelCard({
     }
   };
 
-  // For Instagram: show native embed inline; for others show thumbnail
+  // For Instagram: show native embed only when explicitly requested; otherwise show fast thumbnail
   const renderMedia = () => {
-    if (isInstagram && igEmbedUrl) {
+    if (isInstagram && igEmbedUrl && showEmbed) {
       return (
         <div className="relative w-full aspect-[9/16] overflow-hidden bg-black">
           {/* Show thumbnail as placeholder while embed loads */}
@@ -143,7 +143,7 @@ export function PortraitReelCard({
       );
     }
 
-    // Non-Instagram: thumbnail with play button
+    // Fast card view: clean thumbnail with platform badge & play button
     return (
       <div
         onClick={() => onOpenPreview(item)}
@@ -157,20 +157,18 @@ export function PortraitReelCard({
           <p className="text-xs text-slate-400 font-medium">{item.platform} Reel</p>
         </div>
 
-        {/* Thumbnail image */}
-        <img
-          src={
-            item.thumbnail_url?.includes('grayscale')
-              ? `https://picsum.photos/seed/${item.id}/600/1000`
-              : item.thumbnail_url || `https://picsum.photos/seed/${item.id}/600/1000`
-          }
-          alt={item.title}
-          className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-500 ease-out group-hover/media:scale-105 z-10"
-          loading="lazy"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.display = 'none';
-          }}
-        />
+        {/* Thumbnail image (only if available, zero external picsum queries) */}
+        {item.thumbnail_url && (
+          <img
+            src={item.thumbnail_url}
+            alt={item.title}
+            className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-500 ease-out group-hover/media:scale-105 z-10"
+            loading="lazy"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        )}
 
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-black/30 pointer-events-none z-10" />

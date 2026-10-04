@@ -63,13 +63,15 @@ export function DocumentPdfCard({
             <span className="text-[11px] font-mono text-rose-300/80 font-semibold tracking-wider">PDF DOCUMENT</span>
           </div>
 
-          <img
-            src={item.thumbnail_url || `https://picsum.photos/seed/${item.id}/800/600?grayscale&blur=2`}
-            alt={item.title}
-            className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover/doc:scale-105 group-hover/doc:opacity-80 transition-all duration-500 z-10"
-            loading="lazy"
-            onError={(e) => { (e.currentTarget as any).style.display = 'none'; }}
-          />
+          {item.thumbnail_url && (
+            <img
+              src={item.thumbnail_url}
+              alt={item.title}
+              className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover/doc:scale-105 group-hover/doc:opacity-80 transition-all duration-500 z-10"
+              loading="lazy"
+              onError={(e) => { (e.currentTarget as any).style.display = 'none'; }}
+            />
+          )}
 
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-black/40 pointer-events-none" />
 

@@ -76,13 +76,15 @@ export function LandscapeWideCard({
             <BookOpen className="w-10 h-10 text-slate-700" />
           </div>
 
-          <img
-            src={item.thumbnail_url || `https://picsum.photos/seed/${item.id}/800/400?blur=1`}
-            alt={item.title}
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover/media:scale-105 z-10"
-            loading="lazy"
-            onError={(e) => { (e.currentTarget as any).style.display = 'none'; }}
-          />
+          {item.thumbnail_url && (
+            <img
+              src={item.thumbnail_url}
+              alt={item.title}
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover/media:scale-105 z-10"
+              loading="lazy"
+              onError={(e) => { (e.currentTarget as any).style.display = 'none'; }}
+            />
+          )}
 
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-black/30 pointer-events-none" />
 

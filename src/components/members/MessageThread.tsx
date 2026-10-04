@@ -466,6 +466,7 @@ useEffect(() => {
 
     setMessages((prev) => [...prev, optimistic]);
     setDraft('');
+    setError(null);
     // Stop claiming to be typing the moment the line goes out, rather than
     // leaving the indicator up until the window drains.
     signalTyping(false);
@@ -589,7 +590,10 @@ useEffect(() => {
         : messages,
     [messages, searchTerm]
   );
-  const matchCount = searchTerm ? visibleMessages.length : 0;
+  // matchCount is only meaningful when there is an actual search term.
+  // Without this guard, an open-but-empty search bar hits matchCount===0
+  // and shows "No messages match" even though nothing was searched.
+  const matchCount = searchTerm ? visibleMessages.length : null;
 
   // One entry per rendered bubble, carrying what the separators need.
   const rendered = useMemo(() => {
@@ -716,7 +720,7 @@ useEffect(() => {
               Messages here are private to you and {peer.name}.
             </p>
           </div>
-        ) : matchCount === 0 ? (
+        ) : searchTerm && matchCount === 0 ? (
           <div className="h-full flex flex-col items-center justify-center gap-2 text-center px-6">
             <p className="text-sm font-bold text-white">No messages match “{query.trim()}”</p>
             <button

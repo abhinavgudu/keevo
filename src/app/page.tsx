@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Category, ContentItem, VaultStats, SaveItemInput } from '@/types/vault';
-import { VaultStorage } from '@/lib/storage';
+import { VaultStorage, calculateCategoryCountsFromItems, calculateStatsFromItems } from '@/lib/storage';
 import type { CategoryCounts } from '@/lib/storage';
+import { readCachedItems } from '@/lib/offlineStore';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/Header';
@@ -124,6 +125,26 @@ export default function KeevaDashboard() {
       router.replace('/auth/signin');
     }
   }, [authLoading, user, router]);
+
+  // Instant Stale-While-Revalidate: render cached items and stats in 0ms so the user never
+  // has to stare at a full-page loading spinner.
+  const cachedLoadedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    if (cachedLoadedFor.current === user.id) return;
+    cachedLoadedFor.current = user.id;
+
+    readCachedItems(user.id)
+      .then((cached) => {
+        if (cached && cached.length > 0) {
+          setItems((current) => (current.length === 0 ? cached : current));
+          setCategoryCounts((current) => (current.total === 0 ? calculateCategoryCountsFromItems(cached) : current));
+          setStats((current) => (current === null ? calculateStatsFromItems(cached) : current));
+          setIsLoading(false);
+        }
+      })
+      .catch(() => {});
+  }, [user]);
 
   // Single fetch effect. loadItems changes identity on every filter change, so
   // this re-queries the list when a filter moves; the vault-wide metadata
