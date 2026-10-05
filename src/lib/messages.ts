@@ -152,7 +152,7 @@ export function typingColumnFor(
  * seconds because a stale "online" is harmless, while a stale "typing…" is a
  * claim that somebody is composing right now.
  */
-export const TYPING_WINDOW_MS = 6_000;
+export const TYPING_WINDOW_MS = 8_000;
 
 /**
  * Minimum gap between typing writes.
@@ -161,7 +161,7 @@ export const TYPING_WINDOW_MS = 6_000;
  * device. The indicator only needs to be roughly live, so a burst of typing
  * collapses into one or two writes.
  */
-export const TYPING_THROTTLE_MS = 2_500;
+export const TYPING_THROTTLE_MS = 4_000;
 
 /**
  * How long one heartbeat covers.
@@ -172,10 +172,10 @@ export const TYPING_THROTTLE_MS = 2_500;
  * notification that is silently withheld forever is far worse than one extra
  * badge for a few seconds.
  */
-export const ACTIVE_WINDOW_MS = 20_000;
+export const ACTIVE_WINDOW_MS = 100_000;
 
 /** How often the client refreshes while a conversation is open and in front. */
-export const ACTIVE_HEARTBEAT_MS = 8_000;
+export const ACTIVE_HEARTBEAT_MS = 45_000;
 
 /**
  * Whether a participant is still showing this conversation at `now`.

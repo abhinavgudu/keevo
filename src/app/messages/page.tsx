@@ -68,18 +68,20 @@ export default function MessagesPage() {
   const totalUnread = conversations?.reduce((sum, c) => sum + c.unread_count, 0) ?? 0;
 
   const markThreadRead = useCallback((threadId: string) => {
-    setConversations((prev) =>
-      prev?.map((c) => (c.id === threadId ? { ...c, unread_count: 0 } : c)) ?? prev
-    );
+    setConversations((prev) => {
+      if (!prev) return prev;
+      const match = prev.find((c) => c.id === threadId);
+      if (!match || match.unread_count === 0) return prev;
+      return prev.map((c) => (c.id === threadId ? { ...c, unread_count: 0 } : c));
+    });
   }, []);
 
   /**
-   * Fetches the inbox and writes it to state. Set inside the promise, never
-   * synchronously in an effect body, which is what keeps the effects below free
-   * of cascading renders.
+   * Fetches the inbox and writes it to state. Memoized so it does not change
+   * identity on every render and trigger infinite effect loops.
    */
-  const load = (authToken: string) =>
-    fetch('/api/community/messages', { headers: { Authorization: `Bearer ${authToken}` } })
+  const load = useCallback((authToken: string) => {
+    return fetch('/api/community/messages', { headers: { Authorization: `Bearer ${authToken}` } })
       .then((res) => (res.ok ? res.json() : null))
       .then((body) => {
         if (!body) {
@@ -93,6 +95,7 @@ export default function MessagesPage() {
       .catch(() => {
         /* a failed refresh must not replace what is already on screen */
       });
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -234,15 +237,14 @@ export default function MessagesPage() {
           }}
           onClose={() => {
             setChosen(null);
-            // The preview and ordering on the row are now stale.
             if (token) void load(token);
           }}
           onSent={() => {
-            // Your own message is not unread, but the row's preview and ordering
-            // are now stale.
             if (token) void load(token);
           }}
-          onRead={() => markThreadRead(open.id)}
+          onRead={() => {
+            if (open.id) markThreadRead(open.id);
+          }}
         />
       )}
     </div>

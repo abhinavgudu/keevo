@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import {
   TYPING_WINDOW_MS,
+  ACTIVE_WINDOW_MS,
   activeColumnFor,
   typingColumnFor,
 } from '@/lib/messages';
@@ -46,7 +47,7 @@ export async function POST(
 
     const { data: thread, error } = await admin
       .from('dm_threads')
-      .select('participant_a, participant_b')
+      .select('participant_a, participant_b, participant_a_active_until, participant_b_active_until')
       .eq('id', threadId)
       .maybeSingle();
 
@@ -70,12 +71,28 @@ export async function POST(
     }
 
     const body = (await request.json().catch(() => ({}))) as { typing?: boolean };
+    const isTypingUpdate = typeof body.typing === 'boolean';
+
+    // Skip pure-presence heartbeat writes if the current window is already fresh
+    // enough (still has > 20 s left). Writing every 45 s but skipping when not
+    // needed means a 2-person chat that is open on both sides generates at most
+    // one DB UPDATE per 45 s instead of one per second.
+    if (!isTypingUpdate) {
+      const currentUntil = (thread as Record<string, unknown>)[presenceColumn] as string | null;
+      if (currentUntil) {
+        const remaining = new Date(currentUntil).getTime() - Date.now();
+        if (remaining > 20_000) {
+          // Window still has plenty of time; skip the write entirely.
+          return NextResponse.json({ ok: true, skipped: true });
+        }
+      }
+    }
 
     const patch: Record<string, string | null> = {
-      [presenceColumn]: new Date(Date.now() + 20_000).toISOString(),
+      [presenceColumn]: new Date(Date.now() + ACTIVE_WINDOW_MS).toISOString(),
     };
 
-    if (typeof body.typing === 'boolean') {
+    if (isTypingUpdate) {
       patch[typingColumn] = body.typing
         ? new Date(Date.now() + TYPING_WINDOW_MS).toISOString()
         : // Stopped typing: cleared now rather than left to expire, so the

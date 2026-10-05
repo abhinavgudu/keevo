@@ -40,7 +40,7 @@ export async function POST(
 
     const { data: thread, error } = await admin
       .from('dm_threads')
-      .select('participant_a, participant_b')
+      .select('participant_a, participant_b, participant_a_read_at, participant_b_read_at')
       .eq('id', threadId)
       .maybeSingle();
 
@@ -59,6 +59,20 @@ export async function POST(
       // 404 rather than 403: a thread id that is not the caller's must not be
       // confirmed as existing.
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+
+    // Skip the write if the cursor was already advanced very recently.
+    // Supabase Realtime fires an UPDATE event on every write to dm_threads;
+    // without this guard the client receives the event, calls markRead, which
+    // calls this endpoint again, which fires another event — an infinite loop
+    // that is the primary source of 4 GB+ log ingestion.
+    const existingCursor = thread[column as keyof typeof thread] as string | null;
+    if (existingCursor) {
+      const age = Date.now() - new Date(existingCursor).getTime();
+      if (age < 10_000) {
+        // Cursor is already fresh; return the stored value without writing.
+        return NextResponse.json({ read_at: existingCursor, skipped: true });
+      }
     }
 
     const readAt = new Date().toISOString();

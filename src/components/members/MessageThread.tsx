@@ -10,6 +10,7 @@ import {
   DELETED_PLACEHOLDER,
   MAX_MESSAGE_LENGTH,
   TYPING_THROTTLE_MS,
+  TYPING_WINDOW_MS,
   canDeleteMessage,
   isActiveAt,
   quoteOf,
@@ -127,6 +128,9 @@ function Avatar({ peer, size = 'md' }: { peer: Props['peer']; size?: 'md' | 'sm'
   );
 }
 
+const globalLastMarkedRead: Record<string, number> = {};
+const READ_THROTTLE_MS = 15_000;
+
 export function MessageThread({ threadId, peer, onClose, onSent, onRead }: Props) {
   const { session } = useAuth();
   const [messages, setMessages] = useState<ShownMessage[]>([]);
@@ -141,6 +145,10 @@ export function MessageThread({ threadId, peer, onClose, onSent, onRead }: Props
   const [replyTo, setReplyTo] = useState<{ id: string; body: string; sender_id: string } | null>(null);
   const [sending, setSending] = useState(false);
   const [live, setLive] = useState(false);
+  const liveRef = useRef(live);
+  useEffect(() => {
+    liveRef.current = live;
+  }, [live]);
 
   // ── Conversation state the transcript draws from ──────────────────────────
   /** The other person's read cursor: what turns a tick blue. */
@@ -196,25 +204,42 @@ export function MessageThread({ threadId, peer, onClose, onSent, onRead }: Props
     };
   }, [threadId, token]);
 
+  const onReadRef = useRef(onRead);
+  useEffect(() => {
+    onReadRef.current = onRead;
+  }, [onRead]);
+
   /**
-   * Advance this reader's cursor. Fire-and-forget: a failure only leaves the
-   * badge looking stale until the next refetch, which is never worth showing an
-   * error for.
+   * Advance this reader's cursor. Throttled globally to prevent infinite render loops
+   * and excessive POST /read queries.
    */
   const markRead = useCallback(() => {
-    if (!token) return;
+    if (!token || !threadId) return;
+    const now = Date.now();
+    if (now - (globalLastMarkedRead[threadId] || 0) < READ_THROTTLE_MS) {
+      return;
+    }
+    globalLastMarkedRead[threadId] = now;
+
     void fetch(`/api/community/messages/${threadId}/read`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     }).catch(() => {
       /* the badge heals on the next inbox refresh */
     });
-    onRead?.();
-  }, [threadId, token, onRead]);
+    onReadRef.current?.();
+  }, [threadId, token]);
+
+  const markReadRef = useRef(markRead);
+  useEffect(() => {
+    markReadRef.current = markRead;
+  }, [markRead]);
 
   // Opening a conversation is what "reading" it means.
+  const markedThreadRef = useRef<string | null>(null);
   useEffect(() => {
-    if (loadedThreadId !== threadId) return;
+    if (loadedThreadId !== threadId || markedThreadRef.current === threadId) return;
+    markedThreadRef.current = threadId;
     markRead();
   }, [loadedThreadId, threadId, markRead]);
 
@@ -228,117 +253,88 @@ export function MessageThread({ threadId, peer, onClose, onSent, onRead }: Props
  * signal with it. The window this buys expires on its own, so a closed or
  * crashed tab needs no cleanup.
  */
-useEffect(() => {
+  // ── Broadcast refs (must be declared before the useEffects that use them) ───
+  const lastTypingSent = useRef(0);
+  const typingRef = useRef(false);
+  // Ref to the Realtime channel so broadcastPresence/signalTyping can .send()
+  // without owning the subscription.
+  const broadcastChannelRef = useRef<ReturnType<NonNullable<ReturnType<typeof getSupabaseClient>>['channel']> | null>(null);
+
+  // Broadcast our own presence to the peer — no DB write, no WAL.
+  const broadcastPresence = useCallback(() => {
+    const ch = broadcastChannelRef.current;
+    if (!ch) return;
+    const until = new Date(Date.now() + ACTIVE_WINDOW_MS).toISOString();
+    ch.send({ type: 'broadcast', event: 'presence', payload: { active_until: until } }).catch(() => {});
+  }, []);
+
+  const signalTyping = useCallback(
+    (typing: boolean) => {
+      const ch = broadcastChannelRef.current;
+      if (!ch || typingRef.current === typing) return;
+      const now = Date.now();
+      if (typing && now - lastTypingSent.current < TYPING_THROTTLE_MS) return;
+      typingRef.current = typing;
+      lastTypingSent.current = now;
+      const until = typing ? new Date(Date.now() + TYPING_WINDOW_MS).toISOString() : null;
+      ch.send({ type: 'broadcast', event: 'typing', payload: { typing_until: until } }).catch(() => {});
+    },
+    []
+  );
+
+  useEffect(() => {
     if (!token || !loadedThreadId) return;
 
+    // Presence is now Realtime Broadcast — no DB write, no WAL, no log ingestion.
     let timer: ReturnType<typeof setInterval> | null = null;
-
-    const beat = (typing?: boolean) => {
-      void fetch(`/api/community/messages/${threadId}/active`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        // Sent only when the flag is known; omitted entirely otherwise so an
-        // untype beat does not clear a typing state we never claimed.
-        body: typeof typing === 'boolean' ? JSON.stringify({ typing }) : undefined,
-      }).catch(() => {
-        /* presence is best-effort; losing it only means an extra bell */
-      });
-    };
-
     const watching = () => document.visibilityState === 'visible' && document.hasFocus();
 
     const sync = () => {
       const active = watching();
       if (active && !timer) {
-        beat();
-        timer = setInterval(beat, ACTIVE_HEARTBEAT_MS);
+        broadcastPresence();
+        timer = setInterval(broadcastPresence, ACTIVE_HEARTBEAT_MS);
       } else if (!active && timer) {
-        // Stop the beat. The window drains on its own — no "leave" call to get
-        // wrong, and nothing to leak if the tab is killed instead.
         clearInterval(timer);
         timer = null;
       }
     };
 
     sync();
-    const onActivity = () => sync();
-    document.addEventListener('visibilitychange', onActivity);
-    window.addEventListener('focus', onActivity);
-    window.addEventListener('blur', onActivity);
+    document.addEventListener('visibilitychange', sync);
+    window.addEventListener('focus', sync);
+    window.addEventListener('blur', sync);
 
     return () => {
       if (timer) clearInterval(timer);
-      document.removeEventListener('visibilitychange', onActivity);
-      window.removeEventListener('focus', onActivity);
-      window.removeEventListener('blur', onActivity);
+      document.removeEventListener('visibilitychange', sync);
+      window.removeEventListener('focus', sync);
+      window.removeEventListener('blur', sync);
     };
-  }, [threadId, token, loadedThreadId]);
+  }, [threadId, token, loadedThreadId, broadcastPresence]);
 
-  /**
-   * Pushes this user's typing state, throttled.
-   *
-   * A write per keystroke would be a database round trip per character on every
-   * device. The indicator only needs to be roughly live, so the first keystroke
-   * writes immediately and the rest collapse into one write per interval. Sending
-   * `false` on send and on unmount means the indicator clears the moment they
-   * stop rather than lingering until the window drains.
-   */
-  const lastTypingSent = useRef(0);
-  const typingRef = useRef(false);
-
-  const signalTyping = useCallback(
-    (typing: boolean) => {
-      if (!token || typingRef.current === typing) return;
-      const now = Date.now();
-      if (typing && now - lastTypingSent.current < TYPING_THROTTLE_MS) return;
-      typingRef.current = typing;
-      lastTypingSent.current = now;
-      void fetch(`/api/community/messages/${threadId}/active`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ typing }),
-      }).catch(() => {
-        /* best-effort; the window drains on its own */
-      });
-    },
-    [threadId, token]
-  );
-
-  // Stops claiming to be typing when the conversation closes, so the other person
-  // is not left with a composer indicator for somebody who has left.
+  // Stops claiming to be typing when the conversation closes.
   useEffect(() => {
     return () => {
-      if (!typingRef.current) return;
-      typingRef.current = false;
-      if (!token) return;
-      // keepalive so the clear survives the request the unmount is tearing down
-      void fetch(`/api/community/messages/${threadId}/active`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ typing: false }),
-        keepalive: true,
-      }).catch(() => undefined);
+      if (typingRef.current) signalTyping(false);
     };
-  }, [threadId, token]);
+  }, [signalTyping]);
 
   /**
    * Keeps the peer strip fresh.
    *
-   * Presence and typing are written by the other device, so the only way to see
-   * them is to ask. The interval is shorter than the typing window so an
-   * indicator cannot visibly outlive the typing it reports.
+   * Realtime handles live message and presence updates when connected (`live`).
+   * Polling is kept only as a slow fallback (20s) if Realtime is disconnected,
+   * and never polls in background/hidden tabs.
    */
   useEffect(() => {
     if (!token || !loadedThreadId) return;
     let cancelled = false;
 
     const pull = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return;
+      }
       try {
         const res = await fetch(`/api/community/messages/${threadId}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -354,22 +350,38 @@ useEffect(() => {
       }
     };
 
-    void pull();
-    const timer = setInterval(pull, 4_000);
+    // Initial pull is already done by the history loader above.
+    // Catch up when user returns to this tab
+    const onVis = () => {
+      if (document.visibilityState === 'visible') void pull();
+    };
+    document.addEventListener('visibilitychange', onVis);
+
+    // Only fallback poll if Realtime is offline, with a relaxed 60s interval
+    const timer = setInterval(() => {
+      if (!liveRef.current && document.visibilityState === 'visible') {
+        void pull();
+      }
+    }, 60_000);
+
     return () => {
       cancelled = true;
       clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVis);
     };
   }, [threadId, token, loadedThreadId]);
 
   // Realtime for this thread. The filter is scoped to the thread id; RLS is what
   // actually decides delivery, so the filter is an optimisation, not the guard.
+  //
+  // The channel also carries Broadcast events for presence and typing so those
+  // signals never touch the database — zero WAL, zero log ingestion.
   useEffect(() => {
     const supabase = getSupabaseClient();
     if (!supabase || !session?.access_token) return;
 
     const channel = supabase
-      .channel(`dm:${threadId}`)
+      .channel(`dm:${threadId}`, { config: { broadcast: { self: false } } })
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'dm_messages', filter: `thread_id=eq.${threadId}` },
@@ -390,7 +402,7 @@ useEffect(() => {
           // in front is read by definition. The window focus check is what keeps
           // a chat open in a background tab from quietly draining the badge.
           if (document.visibilityState === 'visible' && document.hasFocus()) {
-            markRead();
+            markReadRef.current();
             // Advanced locally as well: the cursor write is fire-and-forget and
             // can be seconds behind, and a divider that outlives the message it
             // is marking read looks like the unread marker is broken.
@@ -398,40 +410,50 @@ useEffect(() => {
           }
         }
       )
-      // The peer flipping their read cursor is what turns the tick on your own
-      // outgoing messages blue, and it is a row update on the thread rather than
-      // an insert on the messages table — without this a read receipt would only
-      // refresh when the chat happened to be reopened.
+      // Peer presence — received as Broadcast, no DB write on either side.
+      .on('broadcast', { event: 'presence' }, (payload: { payload?: { active_until?: string } }) => {
+        setPeerActiveUntil(payload.payload?.active_until ?? null);
+      })
+      // Peer typing — received as Broadcast.
+      .on('broadcast', { event: 'typing' }, (payload: { payload?: { typing_until?: string | null } }) => {
+        setPeerTypingUntil(payload.payload?.typing_until ?? null);
+      })
+      // Read-receipt: only the peer's read cursor matters here; own writes are
+      // applied locally in markRead so we don't need the DB echo for ourselves.
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'dm_threads', filter: `id=eq.${threadId}` },
         (payload: { new: Record<string, unknown> }) => {
           const row = payload.new as unknown as DmThread;
-          if (!row || !myId) return;
-          const iAmA = row.participant_a === myId;
+          const viewerId = session?.user?.id;
+          if (!row || !viewerId) return;
+          const iAmA = row.participant_a === viewerId;
+          // Only update peer's read cursor from DB events; presence/typing come via Broadcast.
           setPeerReadAt((iAmA ? row.participant_b_read_at : row.participant_a_read_at) ?? null);
-          setPeerActiveUntil((iAmA ? row.participant_b_active_until : row.participant_a_active_until) ?? null);
-          setPeerTypingUntil((iAmA ? row.participant_b_typing_until : row.participant_a_typing_until) ?? null);
         }
       )
       .subscribe((status: string) => {
         setLive(status === 'SUBSCRIBED');
       });
 
+    // Store ref so broadcastPresence / signalTyping can call channel.send()
+    broadcastChannelRef.current = channel;
+
     return () => {
+      broadcastChannelRef.current = null;
       supabase.removeChannel(channel);
     };
-  }, [threadId, session?.access_token, markRead]);
+  }, [threadId, session?.access_token, session?.user?.id]);
 
   // Coming back to the tab with the conversation open clears whatever arrived
   // while it was in the background.
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState === 'visible') markRead();
+      if (document.visibilityState === 'visible') markReadRef.current();
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [markRead]);
+  }, []);
 
   // Pin to the newest line whenever the list grows.
   useEffect(() => {
@@ -474,18 +496,30 @@ useEffect(() => {
     setSending(true);
 
     try {
-      const res = await fetch(`/api/community/messages/${threadId}/send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          body: text,
-          client_id: clientId,
-          reply_to_id: quoteTarget?.id ?? null,
-        }),
-      });
+      const attemptSend = () =>
+        fetch(`/api/community/messages/${threadId}/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            body: text,
+            client_id: clientId,
+            reply_to_id: quoteTarget?.id ?? null,
+          }),
+        });
+
+      let res: Response;
+      try {
+        res = await attemptSend();
+      } catch {
+        // One automatic retry after a short pause — survives transient
+        // "Failed to fetch" that happen on cold-start dev server or flaky mobile networks.
+        await new Promise((r) => setTimeout(r, 1200));
+        res = await attemptSend();
+      }
+
       const body = await res.json().catch(() => ({}));
 
       if (!res.ok) {

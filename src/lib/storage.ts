@@ -676,11 +676,12 @@ return true;
       };
     }
 
+    const effectiveUserId = _currentUserId || getVaultUserId();
     let q = supabase
       .from('content_items')
       .select('priority, access_count, is_favorite, created_at, aspect_ratio, media_type, source_url');
-    if (_currentUserId) {
-      q = (q as unknown as { eq: (c: string, v: string) => typeof q }).eq('user_id', _currentUserId);
+    if (effectiveUserId) {
+      q = (q as unknown as { eq: (c: string, v: string) => typeof q }).eq('user_id', effectiveUserId);
     }
 
     const { data, error } = await (
@@ -689,7 +690,21 @@ return true;
       }
     ).order('created_at', { ascending: false });
     if (error) {
-      console.error('Supabase stats fetch error:', error);
+      const errMsg = (error as any)?.message || (error as any)?.details || (error as any)?.hint || 'Request failed';
+      console.warn('Supabase stats fetch notice:', errMsg);
+
+      // Gracefully fall back to stats calculated from cached items
+      if (effectiveUserId) {
+        try {
+          const cached = await readCachedItems(effectiveUserId);
+          if (cached && cached.length > 0) {
+            return calculateStatsFromItems(cached);
+          }
+        } catch {
+          /* ignore cache read error */
+        }
+      }
+
       return {
         totalItems: 0,
         mustLearnCount: 0,

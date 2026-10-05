@@ -5,42 +5,88 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
 const COMMUNITY_SEEN_KEY = 'keeva_community_last_seen_time';
+const POLL_INTERVAL_MS = 120_000; // Check at most once every 2 minutes
+const THROTTLE_MS = 60_000; // Don't refetch if fetched in the last minute
 
-export function useCommunityUnread() {
-  const [unreadCount, setUnreadCount] = useState(0);
-  const pathname = usePathname();
-  const { user } = useAuth();
+// Module-level shared state across all hook instances (Header, MobileBottomNav, etc.)
+// Prevents duplicate concurrent fetches and duplicate intervals.
+let sharedUnreadCount = 0;
+const listeners = new Set<(count: number) => void>();
+let lastFetchTimestamp = 0;
+let inFlightRequest: Promise<number> | null = null;
 
-  const checkUnread = useCallback(async () => {
+function setSharedCount(count: number) {
+  sharedUnreadCount = count;
+  listeners.forEach((listener) => listener(count));
+}
+
+async function fetchUnreadCount(userId?: string): Promise<number> {
+  const now = Date.now();
+  if (inFlightRequest) return inFlightRequest;
+  if (now - lastFetchTimestamp < THROTTLE_MS) return sharedUnreadCount;
+
+  lastFetchTimestamp = now;
+
+  const run = async (): Promise<number> => {
     try {
-      const res = await fetch('/api/community/items');
-      if (!res.ok) return;
-      const data = await res.json();
-      const items = data.items || [];
-
-      // Get last seen timestamp from localStorage
-      const lastSeenStr = localStorage.getItem(COMMUNITY_SEEN_KEY);
-      // If user has never visited /community, lastSeenTime is 0 so all community posts count as unread!
+      const lastSeenStr = typeof window !== 'undefined' ? localStorage.getItem(COMMUNITY_SEEN_KEY) : null;
       const lastSeenTime = lastSeenStr ? parseInt(lastSeenStr, 10) || 0 : 0;
-      const currentUserId = user?.id;
 
-      // Filter unread items (items created after lastSeenTime and NOT created by current user)
-      const unreadItems = items.filter((item: any) => {
-        const itemTime = new Date(item.created_at).getTime();
-        const isOtherUser = !currentUserId || item.user_id !== currentUserId;
-        return itemTime > lastSeenTime && isOtherUser;
+      const params = new URLSearchParams({
+        since: lastSeenTime.toString(),
       });
+      if (userId) {
+        params.set('userId', userId);
+      }
 
-      setUnreadCount(unreadItems.length);
+      // Use the lightweight count endpoint instead of downloading the entire public feed
+      const res = await fetch(`/api/community/unread-count?${params.toString()}`);
+      if (!res.ok) return sharedUnreadCount;
+
+      const data = await res.json();
+      const count = typeof data.unreadCount === 'number' ? data.unreadCount : 0;
+      setSharedCount(count);
+      return count;
     } catch (e) {
       console.error('Error checking community unread count:', e);
+      return sharedUnreadCount;
+    } finally {
+      inFlightRequest = null;
     }
-  }, [user]);
+  };
+
+  inFlightRequest = run();
+  return inFlightRequest;
+}
+
+export function useCommunityUnread() {
+  const [unreadCount, setLocalCount] = useState(sharedUnreadCount);
+  const pathname = usePathname();
+  const { user } = useAuth();
+  const userId = user?.id;
+
+  // Subscribe to shared count
+  useEffect(() => {
+    listeners.add(setLocalCount);
+    setLocalCount(sharedUnreadCount);
+    return () => {
+      listeners.delete(setLocalCount);
+    };
+  }, []);
+
+  const checkUnread = useCallback(async () => {
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+      return;
+    }
+    await fetchUnreadCount(userId);
+  }, [userId]);
 
   // Mark all read when visiting /community
   const markAsRead = useCallback(() => {
-    localStorage.setItem(COMMUNITY_SEEN_KEY, Date.now().toString());
-    setUnreadCount(0);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(COMMUNITY_SEEN_KEY, Date.now().toString());
+    }
+    setSharedCount(0);
   }, []);
 
   // Update on route change
@@ -48,17 +94,29 @@ export function useCommunityUnread() {
     if (pathname === '/community') {
       markAsRead();
     } else {
-      checkUnread();
+      void checkUnread();
     }
   }, [pathname, checkUnread, markAsRead]);
 
-  // Periodic polling every 20 seconds
+  // Re-check when user switches back to the tab
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && pathname !== '/community') {
+        void checkUnread();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [pathname, checkUnread]);
+
+  // Periodic polling every 60s, ONLY while tab is visible and not on /community
   useEffect(() => {
     const interval = setInterval(() => {
-      if (pathname !== '/community') {
-        checkUnread();
+      if (pathname !== '/community' && document.visibilityState === 'visible') {
+        void checkUnread();
       }
-    }, 20000);
+    }, POLL_INTERVAL_MS);
+
     return () => clearInterval(interval);
   }, [pathname, checkUnread]);
 

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import type { CommunityNotification } from '@/lib/communityNotifications';
 
-const POLL_MS = 20000;
+const POLL_MS = 120_000;
 
 /**
  * The community activity feed: new posts, comments, replies, mentions and likes.
@@ -17,27 +17,57 @@ const POLL_MS = 20000;
  * Read state lives in the database rather than localStorage, so it follows the
  * member across devices instead of resetting on a new browser.
  */
+// Module-level shared state across all hook instances (Header bell, Community page bell, etc.)
+let sharedNotifications: CommunityNotification[] = [];
+let sharedLoaded = false;
+const listeners = new Set<(items: CommunityNotification[]) => void>();
+let lastFetchTimestamp = 0;
+let inFlightRequest: Promise<CommunityNotification[] | null> | null = null;
+const NOTIFICATIONS_THROTTLE_MS = 30_000;
+
+function setSharedNotifications(items: CommunityNotification[]) {
+  sharedNotifications = items;
+  sharedLoaded = true;
+  listeners.forEach((listener) => listener(items));
+}
+
 export function useCommunityNotifications() {
   const { user, session } = useAuth();
   const token = session?.access_token;
   const authed = !!user && !!token;
 
-  const [notifications, setNotifications] = useState<CommunityNotification[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const [notifications, setLocalNotifications] = useState<CommunityNotification[]>(sharedNotifications);
+  const [loaded, setLocalLoaded] = useState(sharedLoaded);
   const [stateToken, setStateToken] = useState(token);
 
-  // Drop the previous member's notifications the instant the session changes, so
-  // signing out and back in as somebody else can never flash their feed. Done
-  // during render rather than in an effect, which is the documented way to react
-  // to a changed input without cascading a second render through the tree.
+  useEffect(() => {
+    listeners.add(setLocalNotifications);
+    setLocalNotifications(sharedNotifications);
+    setLocalLoaded(sharedLoaded);
+    return () => {
+      listeners.delete(setLocalNotifications);
+    };
+  }, []);
+
+  // Drop notifications the instant the session changes
   if (token !== stateToken) {
     setStateToken(token);
-    setNotifications([]);
-    setLoaded(false);
+    sharedNotifications = [];
+    sharedLoaded = false;
+    lastFetchTimestamp = 0;
+    setLocalNotifications([]);
+    setLocalLoaded(false);
   }
 
   const refresh = useCallback(() => {
     if (!token) return;
+
+    const now = Date.now();
+    if (inFlightRequest) return inFlightRequest;
+    if (now - lastFetchTimestamp < NOTIFICATIONS_THROTTLE_MS && sharedLoaded) {
+      return Promise.resolve(sharedNotifications);
+    }
+    lastFetchTimestamp = now;
 
     const run = async (): Promise<CommunityNotification[] | null> => {
       try {
@@ -46,22 +76,20 @@ export function useCommunityNotifications() {
         });
         if (!res.ok) return null;
         const data = await res.json();
-        return Array.isArray(data.notifications) ? data.notifications : [];
+        const next = Array.isArray(data.notifications) ? data.notifications : [];
+        setSharedNotifications(next);
+        setLocalLoaded(true);
+        return next;
       } catch (err) {
-        // A failed poll is not worth surfacing — the bell keeps its last known
-        // state and tries again on the next tick.
         console.error('Error checking community notifications:', err);
         return null;
+      } finally {
+        inFlightRequest = null;
       }
     };
 
-    // State is only ever set from inside this callback, never from the body of
-    // the function the effect calls. That keeps the update in the "response to
-    // an external system" category rather than a synchronous render cascade.
-    run().then((next) => {
-      if (next) setNotifications(next);
-      setLoaded(true);
-    });
+    inFlightRequest = run();
+    return inFlightRequest;
   }, [token]);
 
   // One effect for both the first fetch and the poll, so there is a single place
@@ -70,7 +98,13 @@ export function useCommunityNotifications() {
     if (!authed) return;
 
     refresh();
-    const interval = setInterval(refresh, POLL_MS);
+    const interval = setInterval(() => {
+      // Don't poll Supabase when tab is in background/minimized
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return;
+      }
+      refresh();
+    }, POLL_MS);
     return () => clearInterval(interval);
   }, [authed, refresh]);
 
@@ -95,11 +129,9 @@ export function useCommunityNotifications() {
   /** Flip local read state so the UI reacts immediately, then persist. */
   const applyRead = useCallback((ids: string[] | 'all') => {
     const now = new Date().toISOString();
-    setNotifications((prev) => {
-      const hit =
-        ids === 'all' ? new Set(prev.map((n) => n.id)) : new Set<string>(ids);
-      return prev.map((n) => (hit.has(n.id) && !n.read_at ? { ...n, read_at: now } : n));
-    });
+    const hit = ids === 'all' ? new Set(sharedNotifications.map((n) => n.id)) : new Set<string>(ids);
+    const updated = sharedNotifications.map((n) => (hit.has(n.id) && !n.read_at ? { ...n, read_at: now } : n));
+    setSharedNotifications(updated);
   }, []);
 
   const persist = useCallback(
